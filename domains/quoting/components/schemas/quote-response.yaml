@@ -65,6 +65,40 @@ QuoteLine:
   type: object
   required: [line_id, insurer_id, brand_id, product_name, all_needs_met, resolved_occupation]
   additionalProperties: false
+  # Rule 2, enforced rather than merely asserted.
+  #
+  # The file header calls this the rule that carries more weight than anything else, and the repo
+  # claimed in three places that JSON Schema could not express it. It can, and until it did all of
+  # these validated: a declined line carrying a full premium; a declined line with an empty `errors`;
+  # a priced line with no premium at all. An insurer generating stubs from the published bundle could
+  # return a declined line with a price on it and pass every layer of validation on both sides — and
+  # a consumer would sort it cheapest-first, which is the exact outcome the rule exists to prevent.
+  #
+  # `if/then/else` is ignored by every generator documented in docs/generators/, so this costs nothing
+  # downstream.
+  if:
+    properties:
+      all_needs_met:
+        const: false
+  then:
+    properties:
+      premiums: false
+      cover_lines:
+        maxItems: 0
+      errors:
+        minItems: 1
+    required: [errors]
+  else:
+    # `premiums` and `rate_table_version` are declared here as well as in `properties` below. They are
+    # unconstrained restatements: the `no-required-schema-properties-undefined` lint rule inspects each
+    # `if`/`then`/`else` branch in isolation and does not see the sibling `properties`, so a bare
+    # `required` here reads to it as naming undefined members.
+    required: [premiums, rate_table_version]
+    properties:
+      premiums: true
+      rate_table_version: true
+      errors:
+        maxItems: 0
   properties:
     line_id:
       $ref: '../../../../core/schemas/identifiers.yaml#/LineId'

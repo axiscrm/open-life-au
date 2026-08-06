@@ -25,8 +25,15 @@ Enums behave **differently depending on direction**, and this asymmetry is delib
 `unsupported-value`. A consumer that misspells a premium structure needs a failure, not a silent
 substitution — an unrecognised value quietly priced as a default is a mis-quote nobody detects.
 
-**Response enums are extensible.** A consumer MUST tolerate an unknown value by passing it through
-for display rather than crashing. Adding a cover type or an ownership form is therefore a **minor**.
+**Response enums are intended to be extensible.** A consumer should tolerate an unknown value by
+passing it through rather than crashing, so that adding a cover type or an ownership form is a
+**minor**.
+
+> **This is not yet true of the schemas.** Each enum is one shared schema referenced from both
+> directions, so it is closed in both, and `x-extensible-enum` is applied nowhere. Adding a value
+> today breaks strict generated clients and `oasdiff` will flag it as breaking. Splitting the
+> vocabulary into request-facing closed enums and response-facing extensible twins is tracked work;
+> until it lands, treat any new enum value as **major**.
 
 Without this asymmetry every additive change to a response would be breaking, the version number
 would climb without anything useful happening, and the standard would stop being able to grow.

@@ -18,7 +18,7 @@
       "premiums": {
         "weekly": {
           "total": {
-            "amount": "23.81",
+            "amount": "38.73",
             "currency": "AUD"
           },
           "premium_super": {
@@ -26,7 +26,7 @@
             "currency": "AUD"
           },
           "premium_non_super": {
-            "amount": "0",
+            "amount": "14.21",
             "currency": "AUD"
           },
           "stamp_duty_super": {
@@ -34,7 +34,7 @@
             "currency": "AUD"
           },
           "stamp_duty_non_super": {
-            "amount": "0",
+            "amount": "0.71",
             "currency": "AUD"
           },
           "policy_fee": {
@@ -44,7 +44,7 @@
         },
         "fortnightly": {
           "total": {
-            "amount": "47.60",
+            "amount": "77.43",
             "currency": "AUD"
           },
           "premium_super": {
@@ -52,7 +52,7 @@
             "currency": "AUD"
           },
           "premium_non_super": {
-            "amount": "0",
+            "amount": "28.41",
             "currency": "AUD"
           },
           "stamp_duty_super": {
@@ -60,7 +60,7 @@
             "currency": "AUD"
           },
           "stamp_duty_non_super": {
-            "amount": "0",
+            "amount": "1.42",
             "currency": "AUD"
           },
           "policy_fee": {
@@ -70,7 +70,7 @@
         },
         "monthly": {
           "total": {
-            "amount": "103.11",
+            "amount": "167.72",
             "currency": "AUD"
           },
           "premium_super": {
@@ -78,7 +78,7 @@
             "currency": "AUD"
           },
           "premium_non_super": {
-            "amount": "0",
+            "amount": "61.53",
             "currency": "AUD"
           },
           "stamp_duty_super": {
@@ -86,7 +86,7 @@
             "currency": "AUD"
           },
           "stamp_duty_non_super": {
-            "amount": "0",
+            "amount": "3.08",
             "currency": "AUD"
           },
           "policy_fee": {
@@ -96,7 +96,7 @@
         },
         "quarterly": {
           "total": {
-            "amount": "305.55",
+            "amount": "497.01",
             "currency": "AUD"
           },
           "premium_super": {
@@ -104,7 +104,7 @@
             "currency": "AUD"
           },
           "premium_non_super": {
-            "amount": "0",
+            "amount": "182.34",
             "currency": "AUD"
           },
           "stamp_duty_super": {
@@ -112,7 +112,7 @@
             "currency": "AUD"
           },
           "stamp_duty_non_super": {
-            "amount": "0",
+            "amount": "9.12",
             "currency": "AUD"
           },
           "policy_fee": {
@@ -122,7 +122,7 @@
         },
         "half_yearly": {
           "total": {
-            "amount": "604.80",
+            "amount": "983.76",
             "currency": "AUD"
           },
           "premium_super": {
@@ -130,7 +130,7 @@
             "currency": "AUD"
           },
           "premium_non_super": {
-            "amount": "0",
+            "amount": "360.91",
             "currency": "AUD"
           },
           "stamp_duty_super": {
@@ -138,7 +138,7 @@
             "currency": "AUD"
           },
           "stamp_duty_non_super": {
-            "amount": "0",
+            "amount": "18.05",
             "currency": "AUD"
           },
           "policy_fee": {
@@ -148,7 +148,7 @@
         },
         "annual": {
           "total": {
-            "amount": "1197.00",
+            "amount": "1947.00",
             "currency": "AUD"
           },
           "premium_super": {
@@ -156,7 +156,7 @@
             "currency": "AUD"
           },
           "premium_non_super": {
-            "amount": "0",
+            "amount": "714.29",
             "currency": "AUD"
           },
           "stamp_duty_super": {
@@ -164,7 +164,7 @@
             "currency": "AUD"
           },
           "stamp_duty_non_super": {
-            "amount": "0",
+            "amount": "35.71",
             "currency": "AUD"
           },
           "policy_fee": {
@@ -318,11 +318,157 @@
               }
             }
           }
+        },
+        {
+          "cover_id": "tpd-ext-1",
+          "cover_type": "tpd",
+          "description": "TPD Cover - Linked to Life",
+          "sum_insured": {
+            "amount": "750000.00",
+            "currency": "AUD"
+          },
+          "ownership": "ordinary",
+          "structure": "stepped",
+          "linked_to": "life-1",
+          "premiums": {
+            "weekly": {
+              "total": {
+                "amount": "14.92",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "14.21",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "0.71",
+                "currency": "AUD"
+              }
+            },
+            "fortnightly": {
+              "total": {
+                "amount": "29.83",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "28.41",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "1.42",
+                "currency": "AUD"
+              }
+            },
+            "monthly": {
+              "total": {
+                "amount": "64.61",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "61.53",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "3.08",
+                "currency": "AUD"
+              }
+            },
+            "quarterly": {
+              "total": {
+                "amount": "191.46",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "182.34",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "9.12",
+                "currency": "AUD"
+              }
+            },
+            "half_yearly": {
+              "total": {
+                "amount": "378.96",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "360.91",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "18.05",
+                "currency": "AUD"
+              }
+            },
+            "annual": {
+              "total": {
+                "amount": "750.00",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "714.29",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "35.71",
+                "currency": "AUD"
+              }
+            }
+          }
         }
       ],
       "resolved_occupation": {
         "insurer_occupation_id": "OCC-4471",
-        "description": "Painter — trade qualified — heights to 10 metres",
+        "description": "Painter \u2014 trade qualified \u2014 heights to 10 metres",
         "match_confidence": "exact",
         "ratings": {
           "life": {
@@ -393,6 +539,31 @@
               "field": "pay_by_rollover",
               "value": "include",
               "display_label": "Premiums funded by rollover"
+            }
+          ]
+        },
+        {
+          "title": "TPD Extension",
+          "items": [
+            {
+              "field": "linked_to",
+              "value": "life-1"
+            },
+            {
+              "field": "ownership",
+              "value": "ordinary"
+            },
+            {
+              "field": "tpd_definition",
+              "value": "any_occupation"
+            },
+            {
+              "field": "life_buyback",
+              "value": "after_1_year"
+            },
+            {
+              "field": "double_benefit",
+              "value": "exclude"
             }
           ]
         }

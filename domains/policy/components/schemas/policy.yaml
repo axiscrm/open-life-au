@@ -13,6 +13,15 @@ Policy:
   type: object
   required: [policy_id, insurer_id, status, policy_holder, covers]
   additionalProperties: false
+  # One representation for arrears, not two. Without this an insurer could report a behind-on-premium
+  # policy as `in_force` with a populated `arrears` block — defensible, since the policy is still on
+  # risk — and a consumer building its worklist from `?status=in_arrears` would get zero rows while
+  # policies sailed past `expected_lapse_on`. Silent: no error, no absence, just an empty worklist.
+  dependentSchemas:
+    arrears:
+      properties:
+        status:
+          const: in_arrears
   properties:
     policy_id:
       description: >-
@@ -136,14 +145,27 @@ Distribution:
     licensee_code:
       type: string
       maxLength: 32
+    practice_code:
+      description: >-
+        The practice identifier, where the insurer issues one. Mirrors `licensee_code`, and worth
+        carrying: grouping a book by `practice_name` alone silently merges two practices trading under
+        the same name, landing commission attribution on the wrong one. Live insurer feeds already
+        publish this.
+      type: string
+      maxLength: 32
     new_business_split_percent:
       description: >-
-        Share of upfront commission attributed to this adviser code, 0-100. Present only where the
-        insurer exposes commission splits.
-      $ref: '../../../../core/schemas/money.yaml#/Percentage'
+        Share of upfront commission attributed to this adviser code, as a percentage 0-100.
+      type: number
+      minimum: 0
+      maximum: 100
+      multipleOf: 0.001
     trail_split_percent:
-      description: Share of ongoing commission attributed to this adviser code, 0-100.
-      $ref: '../../../../core/schemas/money.yaml#/Percentage'
+      description: Share of ongoing commission attributed to this adviser code, as a percentage 0-100.
+      type: number
+      minimum: 0
+      maximum: 100
+      multipleOf: 0.001
 
 PolicyDates:
   title: PolicyDates
@@ -280,8 +302,15 @@ Arrears:
       type: string
       format: date
     amount_outstanding:
-      description: Total currently outstanding, not just the failed instalment.
-      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+      description: >-
+        Total currently outstanding, not just the failed instalment. MUST be greater than zero — this
+        block means "behind on premium", and a nil outstanding amount is a contradiction rather than a
+        cleared policy. Omit the whole block when the policy is paid up.
+      allOf:
+        - $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+        - properties:
+            amount:
+              pattern: '^(?!0+(\.0+)?$)\d{1,12}(\.\d{1,2})?$'
     reason:
       description: >-
         Why the payment failed, in the insurer's own wording — "insufficient funds", "account

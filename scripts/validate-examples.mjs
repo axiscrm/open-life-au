@@ -154,6 +154,47 @@ function checkInvariants(response, where) {
     return problems.length === 0;
 }
 
+/**
+ * A priced line must account for every cover the paired request asked for.
+ *
+ * This is the check that was missing, and its absence let the flagship response example claim
+ * `all_needs_met: true` while pricing one of the two requested covers — the exact silent failure rule
+ * 2 exists to prevent, in the document implementers copy. The schema cannot catch it: it needs the
+ * request and the response together, so it lives here.
+ *
+ * Pairs a response to a request by `client_reference`.
+ */
+function checkCoversAccountedFor(response, where) {
+    const requestDir = path.join(ROOT, "domains/quoting/examples/requests");
+    if (!fs.existsSync(requestDir)) return true;
+
+    const paired = fs
+        .readdirSync(requestDir)
+        .filter((f) => f.endsWith(".json"))
+        .map((f) => JSON.parse(fs.readFileSync(path.join(requestDir, f), "utf8")))
+        .find((r) => r.client_reference && r.client_reference === response.client_reference);
+    if (!paired) return true;
+
+    const requested = new Set((paired.covers ?? []).map((c) => c.cover_id));
+    const problems = [];
+    for (const [i, line] of (response.lines ?? []).entries()) {
+        if (line.all_needs_met === false) continue;
+        const priced = new Set((line.cover_lines ?? []).map((c) => c.cover_id).filter(Boolean));
+        const missing = [...requested].filter((id) => !priced.has(id));
+        if (missing.length) {
+            problems.push(
+                `lines[${i}] (${line.line_id}): all_needs_met is true but these requested covers ` +
+                    `have no cover_line: ${missing.join(", ")}`,
+            );
+        }
+    }
+    if (problems.length) {
+        console.error(`✗ ${where}  →  covers accounted for`);
+        for (const p of problems) console.error(`    ${p}`);
+    }
+    return problems.length === 0;
+}
+
 let checked = 0;
 let failed = 0;
 
@@ -174,9 +215,12 @@ for (const { bundle, dir, schema } of SUITES) {
         checked += 1;
 
         if (validate(data)) {
-            if (schema === "QuoteResponse" && !checkInvariants(data, rel)) {
-                failed += 1;
-                continue;
+            if (schema === "QuoteResponse") {
+                const ok = checkInvariants(data, rel) && checkCoversAccountedFor(data, rel);
+                if (!ok) {
+                    failed += 1;
+                    continue;
+                }
             }
             console.log(`✓ ${rel}  →  ${schema}`);
             continue;

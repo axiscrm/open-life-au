@@ -34,6 +34,20 @@ const ajv = new Ajv2020({ strict: false, allErrors: true, allowUnionTypes: true 
 addFormats(ajv);
 ajv.addSchema({ ...doc, $id: "contract" }, "contract");
 const validateRequest = ajv.getSchema("contract#/components/schemas/QuoteRequest");
+const validateLine = ajv.getSchema("contract#/components/schemas/QuoteLine");
+
+// The policy contract gets its own Ajv instance — a separate bundle, so a separate document.
+const POLICY_BUNDLE = path.join(ROOT, "dist/policy/openapi.yaml");
+if (!fs.existsSync(POLICY_BUNDLE)) {
+    console.error("✗ dist/policy/openapi.yaml is missing. Run `npm run bundle` first.");
+    process.exit(1);
+}
+const policyDoc = YAML.parse(fs.readFileSync(POLICY_BUNDLE, "utf8"));
+const policyAjv = new Ajv2020({ strict: false, allErrors: true, allowUnionTypes: true });
+addFormats(policyAjv);
+policyAjv.addSchema({ ...policyDoc, $id: "policy" }, "policy");
+const validatePage = policyAjv.getSchema("policy#/components/schemas/PolicyPage");
+const validatePolicy = policyAjv.getSchema("policy#/components/schemas/Policy");
 
 const AUD = (amount) => ({ amount, currency: "AUD" });
 const insured = {
@@ -169,6 +183,119 @@ const CASES = [
     },
 ];
 
+// ---------------------------------------------------------------------------------------------
+// Response-side and policy-domain cases.
+//
+// Everything above is a quoting REQUEST. That was the whole suite, which meant the rules that guard
+// against a bad RESPONSE — the ones whose failure modes are silent — had nothing asserting them, and
+// the policy contract had no negative coverage at all.
+// ---------------------------------------------------------------------------------------------
+
+const money = (a) => ({ amount: a, currency: "AUD" });
+const breakdown = {
+    total: money("1.00"),
+    premium_super: money("1.00"),
+    premium_non_super: money("0"),
+    stamp_duty_super: money("0"),
+    stamp_duty_non_super: money("0"),
+};
+const premiums = Object.fromEntries(
+    ["weekly", "fortnightly", "monthly", "quarterly", "half_yearly", "annual"].map((f) => [f, breakdown]),
+);
+const lineBase = {
+    line_id: "ln_1",
+    insurer_id: "example-life",
+    brand_id: "example-life",
+    product_name: "Protection",
+    resolved_occupation: { insurer_occupation_id: "OCC-1", description: "Painter", ratings: {} },
+};
+
+const LINE_CASES = [
+    {
+        name: "a declined line carrying a premium",
+        why: "rule 2 — a partial policy priced as though complete sorts cheapest-first",
+        doc: { ...lineBase, all_needs_met: false, errors: ["cannot assemble"], premiums },
+    },
+    {
+        name: "a declined line with an empty errors array",
+        why: "an unexplained decline gives the adviser nothing to act on",
+        doc: { ...lineBase, all_needs_met: false, errors: [] },
+    },
+    {
+        name: "a priced line with no premiums",
+        why: "rule 2's other half — `all_needs_met: true` promises a price",
+        doc: { ...lineBase, all_needs_met: true },
+    },
+    {
+        name: "a priced line with no rate_table_version",
+        why: "rule 4 — without it the quote is unreproducible at audit",
+        doc: { ...lineBase, all_needs_met: true, premiums },
+    },
+];
+
+const policyBase = {
+    policy_id: "P-1",
+    insurer_id: "example-life",
+    status: "in_force",
+    policy_holder: { last_name: "Alvarez" },
+    covers: [{ benefit_name: "Life Cover", sum_insured: money("1000000.00") }],
+};
+const pageBase = {
+    mode: "full",
+    snapshot_id: "snap_1",
+    generated_at: "2026-08-06T02:31:44+10:00",
+    total_count: 1,
+    complete: true,
+    coverage: { adviser_codes: ["AC100"], statuses: ["in_force"] },
+    policies: [policyBase],
+};
+
+const POLICY_PAGE_CASES = [
+    {
+        name: "a snapshot page with no total_count",
+        why: "the count gate is what detects a walk that silently lost a page",
+        doc: (() => { const d = { ...pageBase }; delete d.total_count; return d; })(),
+    },
+    {
+        name: "a snapshot page with no complete flag",
+        why: "absence-based reconciliation gates on it; optional meant a consumer could deadlock",
+        doc: (() => { const d = { ...pageBase }; delete d.complete; return d; })(),
+    },
+    {
+        name: "a snapshot page with no coverage",
+        why: "absence is scoped to coverage — without it a dropped adviser code lapses a book",
+        doc: (() => { const d = { ...pageBase }; delete d.coverage; return d; })(),
+    },
+    {
+        name: "a snapshot page with no mode",
+        why: "a delta would otherwise be byte-identical to a full snapshot",
+        doc: (() => { const d = { ...pageBase }; delete d.mode; return d; })(),
+    },
+    {
+        name: "an advisory total_count inside page",
+        why: "two count fields with opposite guarantees is how a safety check gets built on an estimate",
+        doc: { ...pageBase, page: { total_count: 999 } },
+    },
+];
+
+const POLICY_CASES = [
+    {
+        name: "arrears on an in_force policy",
+        why: "an ?status=in_arrears worklist would silently return nothing",
+        doc: { ...policyBase, arrears: { dishonoured_on: "2026-07-15", amount_outstanding: money("10.00") } },
+    },
+    {
+        name: "arrears with nothing outstanding",
+        why: "the block means behind on premium; nil outstanding is a contradiction",
+        doc: { ...policyBase, status: "in_arrears", arrears: { dishonoured_on: "2026-07-15", amount_outstanding: money("0") } },
+    },
+    {
+        name: "a commission split above 100 percent",
+        why: "it shares the generic Percentage schema, which allows up to 1000",
+        doc: { ...policyBase, distribution: { new_business_split_percent: 900 } },
+    },
+];
+
 let wronglyAccepted = 0;
 
 for (const { name, why, doc: candidate } of CASES) {
@@ -181,7 +308,22 @@ for (const { name, why, doc: candidate } of CASES) {
     }
 }
 
-console.log(
-    `\n${CASES.length - wronglyAccepted}/${CASES.length} invalid payloads correctly rejected`,
-);
+for (const [group, validator, cases] of [
+    ["quoting response", validateLine, LINE_CASES],
+    ["policy page", validatePage, POLICY_PAGE_CASES],
+    ["policy record", validatePolicy, POLICY_CASES],
+]) {
+    for (const { name, why, doc: candidate } of cases) {
+        if (validator(candidate)) {
+            wronglyAccepted += 1;
+            console.error(`✗ ACCEPTED — should have been rejected: ${group} — ${name}`);
+            console.error(`    ${why}`);
+        } else {
+            console.log(`✓ rejected: ${group} — ${name}`);
+        }
+    }
+}
+
+const total = CASES.length + LINE_CASES.length + POLICY_PAGE_CASES.length + POLICY_CASES.length;
+console.log(`\n${total - wronglyAccepted}/${total} invalid payloads correctly rejected`);
 process.exit(wronglyAccepted === 0 ? 0 : 1);
