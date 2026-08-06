@@ -162,8 +162,56 @@ case "$LANG_TARGET" in
     assert_all_covers "java client" "$OUT/java-client/src/main/java"
     ;;
 
+  ruby)
+    # Client only. `ruby-sinatra` exists but emits a 13-file scaffold with no models at all, so it
+    # is not something to point an implementer at — see docs/generators/ruby.md.
+    rm -rf "$OUT/ruby"
+    npx --yes @openapitools/openapi-generator-cli@2 generate \
+      -i "$SPEC" -g ruby -o "$OUT/ruby" --skip-validate-spec \
+      --additional-properties=gemName=openlife_quoting,moduleName=OpenLifeQuoting
+    assert_files "$OUT/ruby" "*.rb" 40 "ruby client"
+    assert_all_covers "ruby" "$OUT/ruby"
+    grep -q "openapi_discriminator_name" "$OUT/ruby/lib/openlife_quoting/models/cover_request.rb" \
+      || { echo "✗ ruby: CoverRequest lost its discriminator"; exit 1; }
+    echo "✓ ruby: discriminated union preserved"
+    ;;
+
+  go)
+    rm -rf "$OUT/go"
+    npx --yes @openapitools/openapi-generator-cli@2 generate \
+      -i "$SPEC" -g go -o "$OUT/go" --skip-validate-spec \
+      --additional-properties=packageName=openlifequoting,isGoSubmodule=true
+    assert_files "$OUT/go" "*.go" 40 "go client"
+    assert_all_covers "go" "$OUT/go"
+    # Go has no decimal type in the standard library, so a generator that turned this into float64
+    # would be silently lossy on every premium.
+    grep -qE "Amount string" "$OUT/go/model_money.go" \
+      || { echo "✗ go: Money.Amount is not a string — decimal precision lost"; exit 1; }
+    echo "✓ go: Money.Amount is string"
+    ;;
+
+  csharp)
+    rm -rf "$OUT/csharp" "$OUT/aspnetcore"
+    npx --yes @openapitools/openapi-generator-cli@2 generate \
+      -i "$SPEC" -g csharp -o "$OUT/csharp" --skip-validate-spec \
+      --additional-properties=packageName=OpenLife.Quoting,targetFramework=net8.0
+    assert_files "$OUT/csharp" "*.cs" 40 "csharp client"
+    assert_all_covers "csharp" "$OUT/csharp"
+
+    npx --yes @openapitools/openapi-generator-cli@2 generate \
+      -i "$SPEC" -g aspnetcore -o "$OUT/aspnetcore" --skip-validate-spec \
+      --additional-properties=packageName=OpenLife.Quoting,aspnetCoreVersion=8.0,operationIsAsync=true
+    assert_files "$OUT/aspnetcore" "*.cs" 40 "csharp server (ASP.NET Core)"
+    assert_all_covers "csharp server" "$OUT/aspnetcore"
+
+    money=$(find "$OUT/csharp" -name Money.cs | head -1)
+    grep -qE "public string Amount" "$money" \
+      || { echo "✗ csharp: Money.Amount is not a string — use decimal, never double"; exit 1; }
+    echo "✓ csharp: Money.Amount is string"
+    ;;
+
   *)
-    echo "usage: scripts/check-codegen.sh <typescript|python|java>"
+    echo "usage: scripts/check-codegen.sh <typescript|python|java|ruby|go|csharp>"
     exit 2
     ;;
 esac

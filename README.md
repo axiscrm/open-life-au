@@ -92,10 +92,14 @@ npm run docs        # build the reference site into site/
 npm run postman     # regenerate the collection
 npm run audit       # dependency advisories, via the reviewed-exceptions gate
 
-# Generators — slower, so not part of `verify`. CI runs all three on every change.
-npm run codegen:typescript    # needs Node
-npm run codegen:python        # needs uv (or adapt to pipx/pip)
+# Generators — slower, so not part of `verify`. CI runs all six in parallel on every change.
+npm run codegen               # all six, sequentially
+npm run codegen:typescript    # needs Node, and a JDK for the typescript-fetch option
+npm run codegen:python        # needs uv (or adapt to pipx/pip) — the only one with no JDK
 npm run codegen:java          # needs a JDK 17+
+npm run codegen:csharp        # needs a JDK 17+
+npm run codegen:go            # needs a JDK 17+
+npm run codegen:ruby          # needs a JDK 17+
 ```
 
 The codegen checks exist because a valid OpenAPI document is not the same as a usable one, and this
@@ -118,15 +122,18 @@ fails if it drifts from source.
 
 ## Generating stubs and clients
 
-The contract is plain OpenAPI 3.1, so any generator will work. These three are run against every
-change in CI, each with the exact flags needed — and the flags matter: every one is there because a
-default produced something wrong.
+The contract is plain OpenAPI 3.1, so any generator will work. These six are run against every change
+in CI, each with the exact flags needed — and the flags matter: every one is there because a default
+produced something wrong.
 
 | Language | Guide | You get |
 |---|---|---|
-| TypeScript | [docs/generators/typescript.md](docs/generators/typescript.md) | types + a 6 kB typed client |
-| Python | [docs/generators/python.md](docs/generators/python.md) | Pydantic models, or a full client package |
 | Java | [docs/generators/java.md](docs/generators/java.md) | Spring interfaces to implement + a client |
+| C# / .NET | [docs/generators/csharp.md](docs/generators/csharp.md) | ASP.NET Core controllers + a client |
+| TypeScript | [docs/generators/typescript.md](docs/generators/typescript.md) | types only, a generated SDK, or runtime converters |
+| Python | [docs/generators/python.md](docs/generators/python.md) | Pydantic models, or a full client package |
+| Go | [docs/generators/go.md](docs/generators/go.md) | `net/http` or Gin stubs + a client |
+| Ruby | [docs/generators/ruby.md](docs/generators/ruby.md) | a client gem |
 
 Each guide stands alone — prerequisites, fetching the contract, the command, and the traps specific
 to that toolchain. See [docs/generators/](docs/generators/) for the comparison, including which

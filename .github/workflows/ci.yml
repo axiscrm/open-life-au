@@ -109,14 +109,15 @@ jobs:
   # because the discriminant was pinned with `const` rather than a single-value `enum`. Nothing in
   # lint or schema validation catches that; only running the generators does.
   #
-  # These are the three languages the standard promises stubs for, so all three run on every PR.
+  # Every language the standard documents runs on every PR. They are matrix entries, so this is
+  # parallel and costs wall-clock roughly one generator run, not six.
   codegen:
     name: 🏭 Generators (${{ matrix.lang }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        lang: [typescript, python, java]
+        lang: [typescript, python, java, ruby, go, csharp]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -126,10 +127,11 @@ jobs:
       - run: npm ci
       - run: npm run bundle
 
-      # Java is needed by the TypeScript job too: one of the three TypeScript generators is
-      # openapi-generator's typescript-fetch, which is a Java tool behind an npm wrapper.
+      # A JDK is needed by far more than the Java job: openapi-generator is a Java tool behind an
+      # npm wrapper, and it is what generates Ruby, Go, C# — and one of the three TypeScript
+      # options. Python is the only entry that does not need it.
       - uses: actions/setup-java@v4
-        if: matrix.lang == 'java' || matrix.lang == 'typescript'
+        if: matrix.lang != 'python'
         with:
           distribution: temurin
           java-version: '21'

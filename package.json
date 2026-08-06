@@ -27,7 +27,11 @@
     "rejections": "node scripts/check-rejections.mjs",
     "codegen:typescript": "bash scripts/check-codegen.sh typescript",
     "codegen:python": "bash scripts/check-codegen.sh python",
-    "codegen:java": "bash scripts/check-codegen.sh java"
+    "codegen:java": "bash scripts/check-codegen.sh java",
+    "codegen:ruby": "bash scripts/check-codegen.sh ruby",
+    "codegen:go": "bash scripts/check-codegen.sh go",
+    "codegen:csharp": "bash scripts/check-codegen.sh csharp",
+    "codegen": "for l in typescript python java ruby go csharp; do npm run codegen:$l || exit 1; done"
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.99.0",

@@ -5,11 +5,34 @@ are the ones run against every change in CI, with the exact flags below — and 
 decoration. Each one is present because the default produced something wrong, and each page says
 what and why.
 
-| Language | Page | Generators covered |
-|---|---|---|
-| TypeScript | [typescript.md](typescript.md) | `openapi-typescript`, `@hey-api/openapi-ts`, `openapi-generator -g typescript-fetch` |
-| Python | [python.md](python.md) | `datamodel-code-generator`, `openapi-python-client` |
-| Java | [java.md](java.md) | `openapi-generator` — Spring interfaces and a JDK `HttpClient` client |
+| Language | Page | Server stubs | Client |
+|---|---|---|---|
+| TypeScript | [typescript.md](typescript.md) | validator recipe | three options — types only, generated SDK, or runtime converters |
+| Python | [python.md](python.md) | FastAPI recipe | Pydantic models, or a generated `attrs` client |
+| Java | [java.md](java.md) | Spring interfaces | JDK `HttpClient` |
+| C# / .NET | [csharp.md](csharp.md) | ASP.NET Core controllers | RestSharp or `HttpClient` |
+| Go | [go.md](go.md) | `net/http` or Gin | ✓ |
+| Ruby | [ruby.md](ruby.md) | — client models only, see the page | Faraday gem |
+
+### Why these six, and what is missing
+
+Java and C# first, because that is what large Australian insurers and their policy administration
+platforms actually run. TypeScript and Python next, for the digital and data teams. Go and Ruby for
+newer platforms and smaller shops.
+
+Deliberately absent, and the reasoning, so you can tell us if we have it wrong:
+
+- **Kotlin** — runs against the Java output through JVM interop, and `openapi-generator -g
+  kotlin-spring` works if you prefer native Kotlin. Not separately documented because nothing about
+  this contract behaves differently there.
+- **PHP** — `php-symfony`, `php-slim4` and others all work. Not documented because we have not seen
+  demand; say the word and it takes an afternoon.
+- **Rust, Elixir, Scala** — supported by openapi-generator, unlikely in this market.
+
+If you need a language that is not here, open an issue. The contract is plain OpenAPI 3.1 and
+openapi-generator covers roughly fifty targets, so the answer is usually "yes, and here are the two
+flags you will need" — the value of a page here is the flags and the traps, not the ability to
+generate at all.
 
 Each page stands alone: prerequisites, fetching the contract, the command, what you get, and the
 traps specific to that toolchain. Start at the one you need — there is nothing to read first.
@@ -34,14 +57,15 @@ Whether you get a single module or a package is a property of the generator, not
 | `openapi-generator -g typescript-fetch` | ~67 files, one model per file, with runtime converters |
 | `datamodel-code-generator` | one `.py` module — it mirrors its input, so one document gives one module even if you pass a directory to `--output` |
 | `openapi-python-client` | a package, one module per model |
-| `openapi-generator` (Java) | a package, one class per model |
+| `openapi-generator` (Java, C#, Go, Ruby) | a package, one class or file per model |
 
 So single-file output is never something you are stuck with — in both TypeScript and Python there is
 a multi-file generator documented alongside the single-file one.
 
-Two of these need something beyond their own language runtime: `@hey-api/openapi-ts` requires a
-**TypeScript 5.x** peer (7.x breaks it), and anything using `openapi-generator` — including the
-TypeScript target — requires a **JDK**, since it is a Java tool behind an npm wrapper.
+Two things need more than their own language runtime. `@hey-api/openapi-ts` requires a
+**TypeScript 5.x** peer (7.x breaks it). And **openapi-generator requires a JDK** — it is a Java tool
+behind an npm wrapper, and it is what generates Java, C#, Go, Ruby *and* one of the three TypeScript
+options. Python is the only language here that needs nothing but itself.
 
 ## Documentation comes through — make sure you keep it
 
@@ -108,6 +132,7 @@ that used to work.
    exists **and** that `assert_all_covers` passes. Do not settle for a file count: more than one
    generator exits `0` having written nothing, and another writes plenty while dropping schemas.
 3. Add the language to the `codegen` matrix in
-   [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml).
+   [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml). Every documented language runs on
+   every pull request; they are matrix entries, so six generators cost roughly the wall-clock of one.
 4. Note any flag you needed and what the default did wrong. That sentence is the most valuable part
    of the page.
