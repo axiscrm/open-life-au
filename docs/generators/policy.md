@@ -62,7 +62,7 @@ It is only sound once the **entire** walk has completed. A walk that dies on pag
 unfetched policy look absent, and reconciling off it will lapse most of a book — from responses that
 are individually valid and completely wrong.
 
-So before you act on absence, check three things:
+So before you act on absence, check four things:
 
 1. `mode` is `full` on every page — an incremental response says nothing about absence;
 2. you reached a page with `complete: true`, and no page carried `complete: true` alongside a
@@ -94,10 +94,12 @@ async function pullSnapshot(): Promise<Policy[]> {
     });
     if (error) throw new Error(`snapshot failed: ${error.type}`);
 
-    // Every page must belong to the same snapshot. A change mid-walk means the server rebuilt it
-    // underneath us, and stitching the halves together is where policies silently disappear.
+    // An incremental response is byte-identical in shape to a full one, so this is the only thing
+    // standing between a stray `changed_since` and lapsing everything that did not change.
     if (data.mode !== "full") throw new Error("not a full snapshot — absence carries no meaning");
 
+    // Every page must belong to the same snapshot. A change mid-walk means the server rebuilt it
+    // underneath us, and stitching the halves together is where policies silently disappear.
     snapshotId ??= data.snapshot_id;
     if (data.snapshot_id !== snapshotId) throw new Error("snapshot changed mid-walk");
 
@@ -131,11 +133,17 @@ def pull_snapshot(client) -> list[Policy]:
     while True:
         page = client.list_policies(cursor=cursor, snapshot_id=snapshot_id, limit=250)
 
+        if page.mode != "full":
+            raise NotASnapshot("absence carries no meaning in an incremental response")
+
         if snapshot_id is None:
             snapshot_id = page.snapshot_id
             expected = page.total_count
-        elif page.snapshot_id != snapshot_id:
-            raise SnapshotChanged("server rebuilt the snapshot mid-walk")
+        else:
+            if page.snapshot_id != snapshot_id:
+                raise SnapshotChanged("server rebuilt the snapshot mid-walk")
+            if page.total_count != expected:
+                raise SnapshotChanged("total_count changed mid-walk")
 
         policies.extend(page.policies)
         complete = page.complete
@@ -145,14 +153,14 @@ def pull_snapshot(client) -> list[Policy]:
 
     if not complete:
         raise IncompleteSnapshot("walk ended without a complete page")
-    if expected is not None and len(policies) != expected:
-        raise IncompleteSnapshot(f"expected {expected}, assembled {len(policies)}")
+
+    # DISTINCT ids, not len(). A cursor that emits one policy twice and skips another leaves the
+    # length correct while a live policy is missing — and that one is the one you would lapse.
+    distinct = len({p.policy_id for p in policies})
+    if distinct != expected:
+        raise IncompleteSnapshot(f"expected {expected}, assembled {distinct}")
     return policies
 ```
-
-Check `mode` too. A response to `changed_since` carries `mode: "incremental"`, and **absence means
-nothing in an incremental response** — applying one as though it were a snapshot lapses everything that
-did not happen to change. Refuse to return policies for reconciliation unless `mode` is `full`.
 
 The same shape applies in every language: accumulate, pin the `snapshot_id`, and refuse to return
 anything unless the walk finished. Make the function that pulls the snapshot the *only* thing that
