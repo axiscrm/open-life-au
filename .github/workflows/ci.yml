@@ -102,6 +102,41 @@ jobs:
         if: failure()
         run: cat /tmp/prism.log
 
+  # A valid OpenAPI document is not the same as a usable one. This contract leans on
+  # oneOf + discriminator + unevaluatedProperties, which is precisely where generators diverge —
+  # and they diverge SILENTLY or catastrophically rather than politely. openapi-generator once died
+  # with a NullPointerException here and emitted nothing at all, blocking every Java implementer,
+  # because the discriminant was pinned with `const` rather than a single-value `enum`. Nothing in
+  # lint or schema validation catches that; only running the generators does.
+  #
+  # These are the three languages the standard promises stubs for, so all three run on every PR.
+  codegen:
+    name: 🏭 Generators (${{ matrix.lang }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lang: [typescript, python, java]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run bundle
+
+      - uses: actions/setup-java@v4
+        if: matrix.lang == 'java'
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: astral-sh/setup-uv@v5
+        if: matrix.lang == 'python'
+
+      - name: Generate
+        run: npm run codegen:${{ matrix.lang }}
+
   postman:
     name: 📮 Postman collection
     runs-on: ubuntu-latest

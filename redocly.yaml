@@ -8,6 +8,13 @@
 apis:
   quoting:
     root: domains/quoting/openapi.yaml
+    # openapi-typescript reads this file too, and when it finds an `apis` block it uses that in
+    # preference to any path given on the command line — then refuses to run without an output
+    # location. Declaring it here keeps `npm run codegen:typescript` working from the repo root and
+    # extends cleanly to a second contract. Insurers generating in their OWN project have no
+    # redocly.yaml, so for them the plain CLI form works; see the README.
+    x-openapi-ts:
+      output: .codegen/ts/schema.d.ts
 
 extends:
   - recommended-strict

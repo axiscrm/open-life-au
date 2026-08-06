@@ -5,7 +5,7 @@
             "description": "Pricing.",
             "item": [
                 {
-                    "id": "e3e084e5-f9a9-40a9-a796-06eea3e4a4fe",
+                    "id": "a7fd3cea-fe1d-42ad-8ec3-e83942ff27cc",
                     "name": "Price a set of covers",
                     "request": {
                         "name": "Price a set of covers",
@@ -54,7 +54,7 @@
                         "method": "POST",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                            "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": \"string\"\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"ckZtzcDm3nbJ0ZWxe9k21Psxoe44zThmUCM1\",\n      \"cover_type\": \"needle_stick\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"superlink\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"prefer\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"A-4qygFb_FzMmFpT0iD0_ygVbSFOp9evIkpqcl8wr\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"y_72o9-C9R-OZpATxLUTJo.Ugt2S_tSQH\",\n  \"policy\": {\n    \"structure\": \"level_70\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
                             "options": {
                                 "raw": {
                                     "headerFamily": "json",
@@ -86,7 +86,7 @@
                     },
                     "response": [
                         {
-                            "id": "ca54c983-713f-4ffd-8d06-510a59621ac0",
+                            "id": "4c3c34dd-c181-4f0e-861e-16560e635a66",
                             "name": "The quote was produced. Note that a 200 does not mean every requested cover was priced — inspect `all_needs_met` and `resolved_options` per line.",
                             "originalRequest": {
                                 "url": {
@@ -138,7 +138,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": \"string\"\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"ckZtzcDm3nbJ0ZWxe9k21Psxoe44zThmUCM1\",\n      \"cover_type\": \"needle_stick\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"superlink\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"prefer\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"A-4qygFb_FzMmFpT0iD0_ygVbSFOp9evIkpqcl8wr\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"y_72o9-C9R-OZpATxLUTJo.Ugt2S_tSQH\",\n  \"policy\": {\n    \"structure\": \"level_70\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -182,12 +182,12 @@
                                     "value": ""
                                 }
                             ],
-                            "body": "{\n  \"quote_id\": \"<string>\",\n  \"quoted_at\": \"<dateTime>\",\n  \"lines\": [\n    {\n      \"line_id\": \"<string>\",\n      \"insurer_id\": \"vdktr6p4o\",\n      \"brand_id\": \"zvgwvjkxmi6ym\",\n      \"product_name\": \"<string>\",\n      \"all_needs_met\": \"<boolean>\",\n      \"resolved_occupation\": {\n        \"insurer_occupation_id\": \"<string>\",\n        \"description\": \"<string>\",\n        \"ratings\": {\n          \"life\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"trauma\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"tpd_own_occupation\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"tpd_any_occupation\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"tpd_adl\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"income_protection\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"business_expenses\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          }\n        },\n        \"match_confidence\": \"low\"\n      },\n      \"rate_table_version\": \"<string>\",\n      \"premiums\": {\n        \"weekly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"fortnightly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"monthly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"quarterly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"half_yearly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"annual\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        }\n      },\n      \"campaign\": {\n        \"code\": \"<string>\",\n        \"name\": \"<string>\"\n      },\n      \"underwriting_reported\": false\n    }\n  ],\n  \"valid_until\": \"<dateTime>\",\n  \"client_reference\": \"lfoOFQunKrV-vyDHfc6lrnPBy_deTmBcQLmj25xkH\"\n}",
+                            "body": "{\n  \"quote_id\": \"<string>\",\n  \"quoted_at\": \"<dateTime>\",\n  \"lines\": [\n    {\n      \"line_id\": \"<string>\",\n      \"insurer_id\": \"vaehrgy974-09u\",\n      \"brand_id\": \"7p6jmqsoervz7f313szthoplco29qrlt\",\n      \"product_name\": \"<string>\",\n      \"all_needs_met\": \"<boolean>\",\n      \"resolved_occupation\": {\n        \"insurer_occupation_id\": \"<string>\",\n        \"description\": \"<string>\",\n        \"ratings\": {\n          \"life\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"trauma\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"tpd_own_occupation\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"tpd_any_occupation\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"tpd_adl\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"income_protection\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"business_expenses\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          }\n        },\n        \"match_confidence\": \"high\"\n      },\n      \"rate_table_version\": \"<string>\",\n      \"premiums\": {\n        \"weekly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"fortnightly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"monthly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"quarterly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"half_yearly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"annual\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        }\n      },\n      \"campaign\": {\n        \"code\": \"<string>\",\n        \"name\": \"<string>\"\n      },\n      \"underwriting_reported\": false\n    }\n  ],\n  \"valid_until\": \"<dateTime>\",\n  \"client_reference\": \"PH_ot3S3BZ1MVZOUTwYb1foJhs\"\n}",
                             "cookie": [],
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "380b21a8-d526-47ba-a93e-4e16558cff6a",
+                            "id": "cc8b7fd4-cea8-46ba-a777-6dfbb7ce82ca",
                             "name": "The request could not be parsed, or a value was structurally invalid. Problem type `invalid-request`.",
                             "originalRequest": {
                                 "url": {
@@ -239,7 +239,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": \"string\"\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"ckZtzcDm3nbJ0ZWxe9k21Psxoe44zThmUCM1\",\n      \"cover_type\": \"needle_stick\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"superlink\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"prefer\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"A-4qygFb_FzMmFpT0iD0_ygVbSFOp9evIkpqcl8wr\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"y_72o9-C9R-OZpATxLUTJo.Ugt2S_tSQH\",\n  \"policy\": {\n    \"structure\": \"level_70\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -270,7 +270,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "2bfdd7e9-a675-4fce-8a2c-c958bb137a3e",
+                            "id": "86cd78bc-e0eb-4a99-8ca8-94dd9e5309f0",
                             "name": "No access token was presented, or it was malformed or expired. Problem type `unauthenticated`.",
                             "originalRequest": {
                                 "url": {
@@ -322,7 +322,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": \"string\"\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"ckZtzcDm3nbJ0ZWxe9k21Psxoe44zThmUCM1\",\n      \"cover_type\": \"needle_stick\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"superlink\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"prefer\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"A-4qygFb_FzMmFpT0iD0_ygVbSFOp9evIkpqcl8wr\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"y_72o9-C9R-OZpATxLUTJo.Ugt2S_tSQH\",\n  \"policy\": {\n    \"structure\": \"level_70\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -362,7 +362,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "2bcc40e6-28d6-41df-a4cf-4c67590c772b",
+                            "id": "0c793891-3344-4458-bc0d-4f70a97f4b80",
                             "name": "The token is valid but lacks the scope required for this operation, or names a campaign the consumer is not authorised for. Problem type `forbidden`.",
                             "originalRequest": {
                                 "url": {
@@ -414,7 +414,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": \"string\"\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"ckZtzcDm3nbJ0ZWxe9k21Psxoe44zThmUCM1\",\n      \"cover_type\": \"needle_stick\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"superlink\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"prefer\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"A-4qygFb_FzMmFpT0iD0_ygVbSFOp9evIkpqcl8wr\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"y_72o9-C9R-OZpATxLUTJo.Ugt2S_tSQH\",\n  \"policy\": {\n    \"structure\": \"level_70\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -445,7 +445,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "47668c6d-cde7-4d0d-9bd2-c04697c7d922",
+                            "id": "49ac2839-e890-4116-9660-029402c71e03",
                             "name": "An `Idempotency-Key` was reused with a different request body. Problem type `idempotency-conflict`.",
                             "originalRequest": {
                                 "url": {
@@ -497,7 +497,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": \"string\"\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"ckZtzcDm3nbJ0ZWxe9k21Psxoe44zThmUCM1\",\n      \"cover_type\": \"needle_stick\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"superlink\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"prefer\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"A-4qygFb_FzMmFpT0iD0_ygVbSFOp9evIkpqcl8wr\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"y_72o9-C9R-OZpATxLUTJo.Ugt2S_tSQH\",\n  \"policy\": {\n    \"structure\": \"level_70\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -528,7 +528,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "5b2af66f-9326-40c7-a8b0-185de881796c",
+                            "id": "47ba8460-072c-4196-bae2-7f9159301d54",
                             "name": "The request was well formed but cannot be priced as asked — an unsupported cover, an unsupported option value, or a combination the product does not permit. Problem types `unsupported-cover`, `unsupported-value`, `invalid-combination`, `incomplete-request`.\nNOTE the boundary: this status is for a request the insurer will not accept. An insurer that accepts the request but cannot assemble the covers returns 200 with the line flagged `all_needs_met: false`.",
                             "originalRequest": {
                                 "url": {
@@ -580,7 +580,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": \"string\"\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"ckZtzcDm3nbJ0ZWxe9k21Psxoe44zThmUCM1\",\n      \"cover_type\": \"needle_stick\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"superlink\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"prefer\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"A-4qygFb_FzMmFpT0iD0_ygVbSFOp9evIkpqcl8wr\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"y_72o9-C9R-OZpATxLUTJo.Ugt2S_tSQH\",\n  \"policy\": {\n    \"structure\": \"level_70\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -611,7 +611,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "799891f6-377d-4bdf-98fb-69c7a2d1633d",
+                            "id": "447d8979-fa9d-4cea-8ac0-9d7e73e86ebc",
                             "name": "Rate limit exceeded. Problem type `rate-limited`. `Retry-After` is REQUIRED — without it a consumer fanning out across several insurers has no basis for a backoff and will retry into the limit.",
                             "originalRequest": {
                                 "url": {
@@ -663,7 +663,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": \"string\"\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"ckZtzcDm3nbJ0ZWxe9k21Psxoe44zThmUCM1\",\n      \"cover_type\": \"needle_stick\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"superlink\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"prefer\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"A-4qygFb_FzMmFpT0iD0_ygVbSFOp9evIkpqcl8wr\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"y_72o9-C9R-OZpATxLUTJo.Ugt2S_tSQH\",\n  \"policy\": {\n    \"structure\": \"level_70\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -703,7 +703,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "a28b746b-d8df-492a-adad-5b907f8b2486",
+                            "id": "e62a02dc-4c55-4baf-8fb1-d36faec06b58",
                             "name": "Unexpected failure. Problem type `internal-error`.",
                             "originalRequest": {
                                 "url": {
@@ -755,7 +755,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": \"string\"\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"ckZtzcDm3nbJ0ZWxe9k21Psxoe44zThmUCM1\",\n      \"cover_type\": \"needle_stick\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"superlink\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"prefer\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"A-4qygFb_FzMmFpT0iD0_ygVbSFOp9evIkpqcl8wr\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"y_72o9-C9R-OZpATxLUTJo.Ugt2S_tSQH\",\n  \"policy\": {\n    \"structure\": \"level_70\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -786,7 +786,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "413cf0e3-e7e2-472d-b206-5039349104d5",
+                            "id": "418cd9e7-4d86-48ad-bdc2-5d38f0189284",
                             "name": "A dependency of the pricing engine is unavailable. Problem type `upstream-unavailable`. Distinguished from `internal-error` so a consumer can retry this and not that.",
                             "originalRequest": {
                                 "url": {
@@ -838,7 +838,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": \"string\"\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"ckZtzcDm3nbJ0ZWxe9k21Psxoe44zThmUCM1\",\n      \"cover_type\": \"needle_stick\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"superlink\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"prefer\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"A-4qygFb_FzMmFpT0iD0_ygVbSFOp9evIkpqcl8wr\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"y_72o9-C9R-OZpATxLUTJo.Ugt2S_tSQH\",\n  \"policy\": {\n    \"structure\": \"level_70\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -890,7 +890,7 @@
             "description": "What an implementation supports.",
             "item": [
                 {
-                    "id": "10bd78fc-6b73-4123-ab7c-d7db7b0ebbc8",
+                    "id": "11fc04f9-b6fe-41ec-a873-d9e4f8fb422f",
                     "name": "What this implementation supports",
                     "request": {
                         "name": "What this implementation supports",
@@ -949,7 +949,7 @@
                     },
                     "response": [
                         {
-                            "id": "fc1408c9-3e8d-4c09-b4f9-3bafa30982e4",
+                            "id": "d47e2f91-91db-4866-a9d5-0394b2b9d7ab",
                             "name": "The capability document.",
                             "originalRequest": {
                                 "url": {
@@ -1032,12 +1032,12 @@
                                     "value": ""
                                 }
                             ],
-                            "body": "{\n  \"spec_version\": \"05598953.22951083939.3477\",\n  \"insurer_id\": \"88esiiz92l-amdn\",\n  \"brands\": [\n    {\n      \"brand_id\": \"w7j5ukpxeewncn\",\n      \"name\": \"<string>\"\n    }\n  ],\n  \"covers\": [\n    {\n      \"cover_type\": \"income_protection\",\n      \"ownerships\": [\n        \"smsf_superlink\",\n        \"ordinary\"\n      ],\n      \"structures\": [\n        \"level_65\",\n        \"stepped\"\n      ],\n      \"can_be_standalone\": true,\n      \"min_sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"max_sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"min_age_next_birthday\": \"<integer>\",\n      \"max_age_next_birthday\": \"<integer>\",\n      \"supported_options\": {\n        \"key_0\": [\n          \"\",\n          \"\"\n        ]\n      }\n    }\n  ],\n  \"frequencies\": [\n    \"monthly\",\n    \"monthly\"\n  ],\n  \"split_frequency_supported\": false,\n  \"occupation_resolution\": [\n    \"insurer_occupation_id\"\n  ],\n  \"occupation_qualifiers_used\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"features\": {\n    \"loadings_percentage\": false,\n    \"loadings_rate_per_thousand\": false,\n    \"campaigns\": false,\n    \"medical_requirements\": false,\n    \"inclusions\": false,\n    \"idempotency\": false,\n    \"quote_retrieval\": false,\n    \"line_diagnostics\": false\n  },\n  \"campaigns\": [\n    {\n      \"code\": \"<string>\",\n      \"name\": \"<string>\",\n      \"description\": \"<string>\",\n      \"requires_authorisation\": false\n    },\n    {\n      \"code\": \"<string>\",\n      \"name\": \"<string>\",\n      \"description\": \"<string>\",\n      \"requires_authorisation\": false\n    }\n  ],\n  \"limits\": {\n    \"max_covers_per_request\": \"<integer>\",\n    \"max_concurrent_requests\": \"<integer>\",\n    \"target_p95_latency_ms\": \"<integer>\"\n  }\n}",
+                            "body": "{\n  \"spec_version\": \"56782.8653.58\",\n  \"insurer_id\": \"fpds-96ft63-q2rmrn34x\",\n  \"brands\": [\n    {\n      \"brand_id\": \"seuevvq8tbhsrwf-ys93cw2eq5w06\",\n      \"name\": \"<string>\"\n    }\n  ],\n  \"covers\": [\n    {\n      \"cover_type\": \"child_trauma\",\n      \"ownerships\": [\n        \"smsf\",\n        \"super\"\n      ],\n      \"structures\": [\n        \"level_65\",\n        \"blended\"\n      ],\n      \"can_be_standalone\": true,\n      \"min_sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"max_sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"min_age_next_birthday\": \"<integer>\",\n      \"max_age_next_birthday\": \"<integer>\",\n      \"supported_options\": {\n        \"key_0\": [\n          \"\",\n          \"\"\n        ],\n        \"key_1\": [\n          \"\",\n          \"\"\n        ]\n      }\n    }\n  ],\n  \"frequencies\": [\n    \"half_yearly\",\n    \"quarterly\"\n  ],\n  \"split_frequency_supported\": false,\n  \"occupation_resolution\": [\n    \"insurer_occupation_id\"\n  ],\n  \"occupation_qualifiers_used\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"features\": {\n    \"loadings_percentage\": false,\n    \"loadings_rate_per_thousand\": false,\n    \"campaigns\": false,\n    \"medical_requirements\": false,\n    \"inclusions\": false,\n    \"idempotency\": false,\n    \"quote_retrieval\": false,\n    \"line_diagnostics\": false\n  },\n  \"campaigns\": [\n    {\n      \"code\": \"<string>\",\n      \"name\": \"<string>\",\n      \"description\": \"<string>\",\n      \"requires_authorisation\": false\n    },\n    {\n      \"code\": \"<string>\",\n      \"name\": \"<string>\",\n      \"description\": \"<string>\",\n      \"requires_authorisation\": false\n    }\n  ],\n  \"limits\": {\n    \"max_covers_per_request\": \"<integer>\",\n    \"max_concurrent_requests\": \"<integer>\",\n    \"target_p95_latency_ms\": \"<integer>\"\n  }\n}",
                             "cookie": [],
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "14299e46-1bf2-4690-84b4-f0fe2b52bc1b",
+                            "id": "372b2ebd-48e3-4934-89a9-45bb20491d2a",
                             "name": "Not modified — the consumer's cached copy is current.",
                             "originalRequest": {
                                 "url": {
@@ -1079,7 +1079,7 @@
                             "_postman_previewlanguage": "text"
                         },
                         {
-                            "id": "d26588cd-8ac8-427b-8ab3-2ea78412ea71",
+                            "id": "717013cb-0732-4a4b-8e23-bef576d62b35",
                             "name": "No access token was presented, or it was malformed or expired. Problem type `unauthenticated`.",
                             "originalRequest": {
                                 "url": {
@@ -1149,7 +1149,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "84efca0a-06f6-4595-8b68-12e376647cce",
+                            "id": "49fd53d6-f5b1-4d00-af4d-4b2bf589cd44",
                             "name": "The token is valid but lacks the scope required for this operation, or names a campaign the consumer is not authorised for. Problem type `forbidden`.",
                             "originalRequest": {
                                 "url": {
@@ -1210,7 +1210,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "05306002-156d-4957-98eb-25e8779146e3",
+                            "id": "d2122f1c-f8ca-468a-a4ed-cb271e830f2d",
                             "name": "Rate limit exceeded. Problem type `rate-limited`. `Retry-After` is REQUIRED — without it a consumer fanning out across several insurers has no basis for a backoff and will retry into the limit.",
                             "originalRequest": {
                                 "url": {
@@ -1280,7 +1280,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "3f60c122-f646-41b8-a75e-d2298f20f64b",
+                            "id": "5837f1c4-5dfd-4c53-b4b4-a4e901d3eecb",
                             "name": "Unexpected failure. Problem type `internal-error`.",
                             "originalRequest": {
                                 "url": {
@@ -1353,7 +1353,7 @@
             "description": "Resolving an occupation to the insurer's own rating manual.",
             "item": [
                 {
-                    "id": "dce061ed-de80-4591-b066-5da8bab8c34d",
+                    "id": "6bbcc5e5-1709-45f3-b250-3889a8095eca",
                     "name": "Search this insurer's own occupation list",
                     "request": {
                         "name": "Search this insurer's own occupation list",
@@ -1440,7 +1440,7 @@
                     },
                     "response": [
                         {
-                            "id": "b22f73b8-1b07-470b-80ca-9bc28bc59567",
+                            "id": "816599c2-8f9e-44a4-b59e-a0e36f53fc6e",
                             "name": "Matching occupations. An empty array is a valid answer and means this insurer rates nothing matching the query — not that the query was malformed.",
                             "originalRequest": {
                                 "url": {
@@ -1542,12 +1542,12 @@
                                     "value": ""
                                 }
                             ],
-                            "body": "{\n  \"occupations\": [\n    {\n      \"insurer_occupation_id\": \"<string>\",\n      \"description\": \"<string>\",\n      \"ratings\": {\n        \"life\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"trauma\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_own_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_any_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_adl\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"income_protection\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"business_expenses\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        }\n      },\n      \"osca\": \"4654-71\",\n      \"requires_employment_status\": \"unemployed\",\n      \"effective_from\": \"<date>\",\n      \"effective_to\": \"<date>\"\n    },\n    {\n      \"insurer_occupation_id\": \"<string>\",\n      \"description\": \"<string>\",\n      \"ratings\": {\n        \"life\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"trauma\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_own_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_any_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_adl\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"income_protection\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"business_expenses\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        }\n      },\n      \"osca\": \"142076\",\n      \"requires_employment_status\": \"self_employed_business_owner\",\n      \"effective_from\": \"<date>\",\n      \"effective_to\": \"<date>\"\n    }\n  ],\n  \"page\": {\n    \"next_cursor\": \"<string>\",\n    \"total_count\": \"<integer>\"\n  }\n}",
+                            "body": "{\n  \"occupations\": [\n    {\n      \"insurer_occupation_id\": \"<string>\",\n      \"description\": \"<string>\",\n      \"ratings\": {\n        \"life\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"trauma\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_own_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_any_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_adl\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"income_protection\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"business_expenses\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        }\n      },\n      \"osca\": \"623682\",\n      \"requires_employment_status\": \"employee\",\n      \"effective_from\": \"<date>\",\n      \"effective_to\": \"<date>\"\n    },\n    {\n      \"insurer_occupation_id\": \"<string>\",\n      \"description\": \"<string>\",\n      \"ratings\": {\n        \"life\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"trauma\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_own_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_any_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_adl\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"income_protection\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"business_expenses\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        }\n      },\n      \"osca\": \"2659-62\",\n      \"requires_employment_status\": \"self_employed_sole_trader\",\n      \"effective_from\": \"<date>\",\n      \"effective_to\": \"<date>\"\n    }\n  ],\n  \"page\": {\n    \"next_cursor\": \"<string>\",\n    \"total_count\": \"<integer>\"\n  }\n}",
                             "cookie": [],
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "25146b3d-c421-4b86-a04f-f8a9a1b1db2b",
+                            "id": "5a41a872-f059-4bae-beaa-839094239af2",
                             "name": "Not modified.",
                             "originalRequest": {
                                 "url": {
@@ -1617,7 +1617,7 @@
                             "_postman_previewlanguage": "text"
                         },
                         {
-                            "id": "8635d602-31d9-4ecf-a96e-573af4683aa5",
+                            "id": "a2d1bd87-1a95-4ee3-a9a6-aa7639bda144",
                             "name": "The request could not be parsed, or a value was structurally invalid. Problem type `invalid-request`.",
                             "originalRequest": {
                                 "url": {
@@ -1706,7 +1706,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "045173be-b6a1-4355-86c0-ea2bc591d1bf",
+                            "id": "ee3dabd2-2117-4d25-85c1-eb0de6c00290",
                             "name": "No access token was presented, or it was malformed or expired. Problem type `unauthenticated`.",
                             "originalRequest": {
                                 "url": {
@@ -1804,7 +1804,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "9e9f104b-0b52-48db-a646-34f55e990c92",
+                            "id": "d14a9195-e570-4c8f-97c6-590c621021ec",
                             "name": "The token is valid but lacks the scope required for this operation, or names a campaign the consumer is not authorised for. Problem type `forbidden`.",
                             "originalRequest": {
                                 "url": {
@@ -1893,7 +1893,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "40645af7-b8c0-49df-a9fe-422810fcc660",
+                            "id": "fd05ab25-41b7-4e1e-b1ce-03ba0e88ff53",
                             "name": "Rate limit exceeded. Problem type `rate-limited`. `Retry-After` is REQUIRED — without it a consumer fanning out across several insurers has no basis for a backoff and will retry into the limit.",
                             "originalRequest": {
                                 "url": {
@@ -1991,7 +1991,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "c9643e46-00f3-4e0c-bc02-d429d7913d94",
+                            "id": "edbe1d4e-8d70-442e-ad7a-1891248132a3",
                             "name": "Unexpected failure. Problem type `internal-error`.",
                             "originalRequest": {
                                 "url": {
@@ -2086,7 +2086,7 @@
                     }
                 },
                 {
-                    "id": "09c200fc-7104-44fe-ad88-e9c5345423af",
+                    "id": "030687c6-0ccf-4784-98ec-a72eaeb3be87",
                     "name": "Resolve a baseline occupation to this insurer's own",
                     "request": {
                         "name": "Resolve a baseline occupation to this insurer's own",
@@ -2126,7 +2126,7 @@
                         "method": "POST",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                            "raw": "{\n  \"occupation\": {\n    \"osca\": \"string\"\n  },\n  \"max_candidates\": 10\n}",
                             "options": {
                                 "raw": {
                                     "headerFamily": "json",
@@ -2158,7 +2158,7 @@
                     },
                     "response": [
                         {
-                            "id": "a40ba9a8-c501-4252-b056-68c2d796a070",
+                            "id": "72cf18e0-f287-466a-9086-d1df51975e9b",
                             "name": "Candidate matches, possibly empty.",
                             "originalRequest": {
                                 "url": {
@@ -2201,7 +2201,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                                    "raw": "{\n  \"occupation\": {\n    \"osca\": \"string\"\n  },\n  \"max_candidates\": 10\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -2227,12 +2227,12 @@
                                     "value": ""
                                 }
                             ],
-                            "body": "{\n  \"candidates\": [\n    {\n      \"description\": \"<string>\",\n      \"insurer_occupation_id\": \"<string>\",\n      \"match_confidence\": \"high\",\n      \"ratings\": {\n        \"life\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"trauma\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_own_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_any_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_adl\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"income_protection\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"business_expenses\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        }\n      },\n      \"osca\": \"331538\",\n      \"requires_employment_status\": \"self_employed_business_owner\",\n      \"effective_from\": \"<date>\",\n      \"effective_to\": \"<date>\",\n      \"match_detail\": \"<string>\"\n    },\n    {\n      \"description\": \"<string>\",\n      \"insurer_occupation_id\": \"<string>\",\n      \"match_confidence\": \"low\",\n      \"ratings\": {\n        \"life\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"trauma\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_own_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_any_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_adl\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"income_protection\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"business_expenses\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        }\n      },\n      \"osca\": \"278752\",\n      \"requires_employment_status\": \"pensioner\",\n      \"effective_from\": \"<date>\",\n      \"effective_to\": \"<date>\",\n      \"match_detail\": \"<string>\"\n    }\n  ]\n}",
+                            "body": "{\n  \"candidates\": [\n    {\n      \"description\": \"<string>\",\n      \"insurer_occupation_id\": \"<string>\",\n      \"match_confidence\": \"moderate\",\n      \"ratings\": {\n        \"life\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"trauma\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_own_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_any_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_adl\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"income_protection\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"business_expenses\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        }\n      },\n      \"osca\": \"106699\",\n      \"requires_employment_status\": \"home_duties\",\n      \"effective_from\": \"<date>\",\n      \"effective_to\": \"<date>\",\n      \"match_detail\": \"<string>\"\n    },\n    {\n      \"description\": \"<string>\",\n      \"insurer_occupation_id\": \"<string>\",\n      \"match_confidence\": \"exact\",\n      \"ratings\": {\n        \"life\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"trauma\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_own_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_any_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_adl\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"income_protection\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"business_expenses\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        }\n      },\n      \"osca\": \"9773-19\",\n      \"requires_employment_status\": \"student\",\n      \"effective_from\": \"<date>\",\n      \"effective_to\": \"<date>\",\n      \"match_detail\": \"<string>\"\n    }\n  ]\n}",
                             "cookie": [],
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "9f401745-b360-428e-99e8-f4736f9fce5c",
+                            "id": "1fa941c7-2318-4aaf-bf44-9cda78f4e751",
                             "name": "The request could not be parsed, or a value was structurally invalid. Problem type `invalid-request`.",
                             "originalRequest": {
                                 "url": {
@@ -2275,7 +2275,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                                    "raw": "{\n  \"occupation\": {\n    \"osca\": \"string\"\n  },\n  \"max_candidates\": 10\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -2306,7 +2306,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "cc392af8-fed9-4f19-b1db-3ed5c7451a11",
+                            "id": "c252e274-42b7-47e8-bbe8-5d909e09a46d",
                             "name": "No access token was presented, or it was malformed or expired. Problem type `unauthenticated`.",
                             "originalRequest": {
                                 "url": {
@@ -2349,7 +2349,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                                    "raw": "{\n  \"occupation\": {\n    \"osca\": \"string\"\n  },\n  \"max_candidates\": 10\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -2389,7 +2389,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "0310aa2b-1d87-42eb-9b68-544844cc6415",
+                            "id": "cf46b5cc-7d06-4bba-a380-c45199bfc884",
                             "name": "The token is valid but lacks the scope required for this operation, or names a campaign the consumer is not authorised for. Problem type `forbidden`.",
                             "originalRequest": {
                                 "url": {
@@ -2432,7 +2432,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                                    "raw": "{\n  \"occupation\": {\n    \"osca\": \"string\"\n  },\n  \"max_candidates\": 10\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -2463,7 +2463,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "e36a84db-c791-4db3-9814-97eae4eb5edd",
+                            "id": "616cf1c2-f9bb-4ebd-bbaf-f4d663839d34",
                             "name": "The request was well formed but cannot be priced as asked — an unsupported cover, an unsupported option value, or a combination the product does not permit. Problem types `unsupported-cover`, `unsupported-value`, `invalid-combination`, `incomplete-request`.\nNOTE the boundary: this status is for a request the insurer will not accept. An insurer that accepts the request but cannot assemble the covers returns 200 with the line flagged `all_needs_met: false`.",
                             "originalRequest": {
                                 "url": {
@@ -2506,7 +2506,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                                    "raw": "{\n  \"occupation\": {\n    \"osca\": \"string\"\n  },\n  \"max_candidates\": 10\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -2537,7 +2537,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "27b23515-3425-483a-ab9b-316701cedb8e",
+                            "id": "c8e8d0f5-aaf1-4197-a76d-011c5e908a26",
                             "name": "Rate limit exceeded. Problem type `rate-limited`. `Retry-After` is REQUIRED — without it a consumer fanning out across several insurers has no basis for a backoff and will retry into the limit.",
                             "originalRequest": {
                                 "url": {
@@ -2580,7 +2580,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                                    "raw": "{\n  \"occupation\": {\n    \"osca\": \"string\"\n  },\n  \"max_candidates\": 10\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -2620,7 +2620,7 @@
                             "_postman_previewlanguage": "json"
                         },
                         {
-                            "id": "9402abec-a76a-4b5c-88a4-e5b56c63c137",
+                            "id": "9bf53319-c2d2-4dea-b22c-10f76303de0b",
                             "name": "Unexpected failure. Problem type `internal-error`.",
                             "originalRequest": {
                                 "url": {
@@ -2663,7 +2663,7 @@
                                 "method": "POST",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                                    "raw": "{\n  \"occupation\": {\n    \"osca\": \"string\"\n  },\n  \"max_candidates\": 10\n}",
                                     "options": {
                                         "raw": {
                                             "headerFamily": "json",
@@ -2743,7 +2743,7 @@
         }
     ],
     "info": {
-        "_postman_id": "4d782422-7f8b-4ee6-936b-e1b0379b545a",
+        "_postman_id": "7bc6955e-310e-42cd-8a7b-6a292eb06782",
         "name": "Open Life Quoting API (AU)",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
         "description": {

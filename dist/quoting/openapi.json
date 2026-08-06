@@ -963,7 +963,9 @@
             ],
             "properties": {
               "cover_type": {
-                "const": "life"
+                "enum": [
+                  "life"
+                ]
               },
               "sum_insured": {
                 "$ref": "#/components/schemas/NonNegativeMoney"
@@ -1024,7 +1026,9 @@
             ],
             "properties": {
               "cover_type": {
-                "const": "tpd"
+                "enum": [
+                  "tpd"
+                ]
               },
               "sum_insured": {
                 "$ref": "#/components/schemas/NonNegativeMoney"
@@ -1083,7 +1087,9 @@
             ],
             "properties": {
               "cover_type": {
-                "const": "trauma"
+                "enum": [
+                  "trauma"
+                ]
               },
               "sum_insured": {
                 "$ref": "#/components/schemas/NonNegativeMoney"
@@ -1182,7 +1188,9 @@
             ],
             "properties": {
               "cover_type": {
-                "const": "income_protection"
+                "enum": [
+                  "income_protection"
+                ]
               },
               "monthly_benefit": {
                 "description": "The monthly amount sought, before any cap the insurer applies.",
@@ -1232,7 +1240,9 @@
             ],
             "properties": {
               "cover_type": {
-                "const": "business_expenses"
+                "enum": [
+                  "business_expenses"
+                ]
               },
               "monthly_benefit": {
                 "$ref": "#/components/schemas/NonNegativeMoney"
@@ -1286,7 +1296,9 @@
             ],
             "properties": {
               "cover_type": {
-                "const": "needle_stick"
+                "enum": [
+                  "needle_stick"
+                ]
               },
               "sum_insured": {
                 "$ref": "#/components/schemas/NonNegativeMoney"
@@ -1340,7 +1352,9 @@
             ],
             "properties": {
               "cover_type": {
-                "const": "child_trauma"
+                "enum": [
+                  "child_trauma"
+                ]
               },
               "children": {
                 "type": "array",

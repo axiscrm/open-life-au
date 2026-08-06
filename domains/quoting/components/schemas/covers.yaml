@@ -14,6 +14,13 @@
 # `linked_to`. Nesting would force every implementer to build parents before children, make the
 # request asymmetric with the flat response, and break down anyway where an extension hangs off
 # an extension.
+#
+# DO NOT "TIDY" `enum: [x]` INTO `const: x` ON `cover_type`. The two are equivalent in JSON Schema
+# and const reads better, but openapi-generator resolves a discriminator through the variant's
+# allowable values, which only `enum` populates. With `const` it dies with a NullPointerException
+# on this schema and emits nothing at all — no models, no interfaces — so every Java implementer
+# is blocked. Verified against openapi-generator 7.24.0; the enum form produces correct Jackson
+# @JsonTypeInfo/@JsonSubTypes polymorphism.
 
 $schema: https://json-schema.org/draft/2020-12/schema
 
@@ -145,7 +152,7 @@ LifeCover:
       required: [cover_type, sum_insured]
       properties:
         cover_type:
-          const: life
+          enum: [life]
         sum_insured:
           $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
 
@@ -162,7 +169,7 @@ TpdCover:
       required: [cover_type, sum_insured]
       properties:
         cover_type:
-          const: tpd
+          enum: [tpd]
         sum_insured:
           $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
         tpd_definition:
@@ -189,7 +196,7 @@ TraumaCover:
       required: [cover_type, sum_insured]
       properties:
         cover_type:
-          const: trauma
+          enum: [trauma]
         sum_insured:
           $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
         life_buyback:
@@ -229,7 +236,7 @@ IncomeProtectionCover:
       required: [cover_type, monthly_benefit]
       properties:
         cover_type:
-          const: income_protection
+          enum: [income_protection]
         monthly_benefit:
           description: The monthly amount sought, before any cap the insurer applies.
           $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
@@ -267,7 +274,7 @@ BusinessExpensesCover:
       required: [cover_type, monthly_benefit]
       properties:
         cover_type:
-          const: business_expenses
+          enum: [business_expenses]
         monthly_benefit:
           $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
         waiting_period:
@@ -295,7 +302,7 @@ NeedleStickCover:
       required: [cover_type, sum_insured]
       properties:
         cover_type:
-          const: needle_stick
+          enum: [needle_stick]
         sum_insured:
           $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
 
@@ -311,7 +318,7 @@ ChildTraumaCover:
       required: [cover_type, children]
       properties:
         cover_type:
-          const: child_trauma
+          enum: [child_trauma]
         children:
           type: array
           minItems: 1

@@ -24,7 +24,10 @@
     "audit": "node scripts/npm-audit-gate.mjs --level moderate",
     "provenance": "node scripts/check-provenance.mjs",
     "verify": "npm run lint && npm run bundle && npm run examples && npm run rejections && npm run provenance",
-    "rejections": "node scripts/check-rejections.mjs"
+    "rejections": "node scripts/check-rejections.mjs",
+    "codegen:typescript": "bash scripts/check-codegen.sh typescript",
+    "codegen:python": "bash scripts/check-codegen.sh python",
+    "codegen:java": "bash scripts/check-codegen.sh java"
   },
   "devDependencies": {
     "@redocly/cli": "^2.6.0",
