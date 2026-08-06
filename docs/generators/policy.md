@@ -64,9 +64,11 @@ are individually valid and completely wrong.
 
 So before you act on absence, check three things:
 
-1. you reached a page with `complete: true`;
-2. every page carried the same `snapshot_id`;
-3. where `total_count` was supplied, you assembled that many policies.
+1. `mode` is `full` on every page — an incremental response says nothing about absence;
+2. you reached a page with `complete: true`, and no page carried `complete: true` alongside a
+   `next_cursor`;
+3. every page carried the same `snapshot_id` and the same `total_count`;
+4. the number of **distinct** `policy_id`s you assembled equals `total_count`.
 
 If any fails, discard the run and keep what you had. A stale book beats a wrongly-lapsed one.
 
@@ -94,19 +96,24 @@ async function pullSnapshot(): Promise<Policy[]> {
 
     // Every page must belong to the same snapshot. A change mid-walk means the server rebuilt it
     // underneath us, and stitching the halves together is where policies silently disappear.
+    if (data.mode !== "full") throw new Error("not a full snapshot — absence carries no meaning");
+
     snapshotId ??= data.snapshot_id;
     if (data.snapshot_id !== snapshotId) throw new Error("snapshot changed mid-walk");
 
     expected ??= data.total_count;
+    if (data.total_count !== expected) throw new Error("total_count changed mid-walk");
     policies.push(...data.policies);
     cursor = data.page?.next_cursor;
     complete = data.complete ?? false;
   } while (cursor);
 
   if (!complete) throw new Error("walk ended without a complete page");
-  if (expected !== undefined && policies.length !== expected) {
-    throw new Error(`expected ${expected} policies, assembled ${policies.length}`);
-  }
+
+  // DISTINCT ids, not array length. A cursor that emits one policy twice and skips another leaves the
+  // length correct while a live policy is missing — and that missing policy is the one you would lapse.
+  const distinct = new Set(policies.map((p) => p.policy_id)).size;
+  if (distinct !== expected) throw new Error(`expected ${expected} policies, assembled ${distinct}`);
   return policies;   // only now is absence meaningful
 }
 ```
@@ -143,6 +150,10 @@ def pull_snapshot(client) -> list[Policy]:
     return policies
 ```
 
+Check `mode` too. A response to `changed_since` carries `mode: "incremental"`, and **absence means
+nothing in an incremental response** — applying one as though it were a snapshot lapses everything that
+did not happen to change. Refuse to return policies for reconciliation unless `mode` is `full`.
+
 The same shape applies in every language: accumulate, pin the `snapshot_id`, and refuse to return
 anything unless the walk finished. Make the function that pulls the snapshot the *only* thing that
 can hand policies to your reconciliation — then a partial walk is a thrown exception rather than a
@@ -174,6 +185,9 @@ fail halfway and report success.
 Insurer records differ in what they carry. `GET /capabilities` distinguishes "this policy has no
 arrears" from "this insurer never reports arrears", which look identical in the data and mean very
 different things:
+
+Note `arrears` is an **array** — a policy can be behind on more than one instalment at once, and each
+entry is identified by its own `dishonoured_on`. Sum the array for total exposure; do not assume one.
 
 ```jsonc
 {

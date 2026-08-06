@@ -81,6 +81,7 @@
       },
       "covers": [
         {
+          "cover_id": "P-4471902-B1",
           "benefit_name": "Life Cover",
           "cover_type": "life",
           "sum_insured": {
@@ -97,6 +98,7 @@
           "commenced_on": "2021-06-01"
         },
         {
+          "cover_id": "P-4471902-B2",
           "benefit_name": "TPD Cover - Linked",
           "cover_type": "tpd",
           "sum_insured": {
@@ -112,7 +114,8 @@
           "structure": "stepped",
           "commenced_on": "2021-06-01"
         }
-      ]
+      ],
+      "policy_version": 7
     },
     {
       "policy_id": "P-4471903",
@@ -157,6 +160,7 @@
       },
       "covers": [
         {
+          "cover_id": "P-4471903-B1",
           "benefit_name": "Income Support",
           "cover_type": "income_protection",
           "sum_insured": {
@@ -172,16 +176,19 @@
           "benefit_period": "To age 65"
         }
       ],
-      "arrears": {
-        "dishonoured_on": "2026-07-15",
-        "amount_outstanding": {
-          "amount": "192.40",
-          "currency": "AUD"
-        },
-        "reason": "Insufficient funds",
-        "expected_lapse_on": "2026-08-15",
-        "attempts": 2
-      }
+      "arrears": [
+        {
+          "dishonoured_on": "2026-07-15",
+          "amount_outstanding": {
+            "amount": "192.40",
+            "currency": "AUD"
+          },
+          "reason": "Insufficient funds",
+          "expected_lapse_on": "2026-08-15",
+          "attempts": 2
+        }
+      ],
+      "policy_version": 3
     }
   ]
 }

@@ -27,7 +27,17 @@ for spec in "$QUOTING" "$POLICY"; do
 done
 mkdir -p "$OUT"
 
-OG="@openapitools/openapi-generator-cli@2"
+# EVERY generator is pinned to an exact version.
+#
+# Twice now a construct has passed locally and failed in CI purely because npx resolved a different
+# patch release — once for openapi-typescript's example validation, which an older cached copy did not
+# run at all. A floating major means the checks test a different toolchain on every machine and every
+# day, so a red build tells you nothing about your change. Bump these deliberately, one at a time.
+OG="@openapitools/openapi-generator-cli@2.24.0"
+OPENAPI_TS="openapi-typescript@7.13.0"
+HEY_API="@hey-api/openapi-ts@0.99.0"
+DMCG_VERSION="0.36.0"
+OPENAPI_PY_CLIENT_VERSION="0.26.1"
 
 # PascalCase a contract name, portably.
 #
@@ -92,7 +102,7 @@ case "$LANG_TARGET" in
     mkdir -p "$OUT/ts"
     for contract in quoting policy; do
       out="schema"; [ "$contract" = "policy" ] && out="policy"
-      npx --yes openapi-typescript@7 "$ROOT/dist/$contract/openapi.yaml" \
+      npx --yes "$OPENAPI_TS" "$ROOT/dist/$contract/openapi.yaml" \
         --redocly "$ROOT/redocly-codegen.yaml" \
         --default-non-nullable=false \
         -o "$OUT/ts/$out.d.ts"
@@ -105,7 +115,7 @@ case "$LANG_TARGET" in
     # "Cannot read properties of undefined (reading 'AnyKeyword')".
     for contract in quoting policy; do
       rm -rf "$OUT/ts-heyapi-$contract"
-      npx --yes @hey-api/openapi-ts -i "$ROOT/dist/$contract/openapi.yaml" -o "$OUT/ts-heyapi-$contract"
+      npx --yes "$HEY_API" -i "$ROOT/dist/$contract/openapi.yaml" -o "$OUT/ts-heyapi-$contract"
       assert_files "$OUT/ts-heyapi-$contract" "*.ts" 10 "typescript client (@hey-api, $contract)"
     done
     assert_symbols "hey-api quoting" "$OUT/ts-heyapi-quoting" $QUOTING_SYMBOLS
@@ -140,7 +150,7 @@ case "$LANG_TARGET" in
   python)
     # Two generators, because they fail in different ways and only one of them is loud.
     for contract in quoting policy; do
-      uvx --from datamodel-code-generator datamodel-codegen \
+      uvx --from "datamodel-code-generator==$DMCG_VERSION" datamodel-codegen \
         --input "$ROOT/dist/$contract/openapi.yaml" --input-file-type openapi \
         --output "$OUT/py/${contract}_models.py" --output-model-type pydantic_v2.BaseModel \
         --use-standard-collections --use-union-operator \
@@ -159,7 +169,7 @@ case "$LANG_TARGET" in
       rm -rf "$OUT/py-client-$contract"
       mkdir -p "$OUT/py-client-$contract"
       ( cd "$OUT/py-client-$contract" \
-        && uvx --from openapi-python-client openapi-python-client generate \
+        && uvx --from "openapi-python-client==$OPENAPI_PY_CLIENT_VERSION" openapi-python-client generate \
              --path "$ROOT/dist/$contract/openapi.yaml" --overwrite )
       assert_files "$OUT/py-client-$contract" "*.py" 30 "python client (openapi-python-client, $contract)"
     done

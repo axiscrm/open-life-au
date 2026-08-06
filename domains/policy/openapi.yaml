@@ -119,6 +119,8 @@ webhooks:
     post:
       operationId: onPolicyStatusChanged
       x-openlife-webhook: true
+      security:
+        - webhookSignature: []
       summary: A policy changed status
       description: >-
         Sent when a policy moves between statuses — commenced, lapsed, cancelled, terminated. The
@@ -131,15 +133,26 @@ webhooks:
           application/json:
             schema:
               type: object
-              required: [event_id, occurred_at, policy_id, insurer_id, status]
+              required: [event_type, event_id, occurred_at, policy_version, policy_id, insurer_id, status]
               additionalProperties: false
               properties:
+                event_type:
+                  description: >-
+                    Which event this is. Required, and it must be IN the payload: OpenAPI webhook keys
+                    are names rather than URLs, so a consumer that publishes one endpoint for all three
+                    would otherwise have to classify by sniffing which optional members are present.
+                    That happens to be decidable for these three and stops being decidable the moment a
+                    fourth is added. Matches `capabilities.webhooks.events`.
+                  type: string
+                  const: policy.status_changed
                 event_id:
                   description: >-
                     Unique per event. Delivery is at-least-once, so consumers MUST deduplicate on
                     this rather than assuming exactly-once.
                   type: string
                   maxLength: 128
+                policy_version:
+                  $ref: './components/schemas/policy.yaml#/PolicyVersion'
                 occurred_at:
                   type: string
                   format: date-time
@@ -164,6 +177,8 @@ webhooks:
     post:
       operationId: onPolicyArrearsRaised
       x-openlife-webhook: true
+      security:
+        - webhookSignature: []
       summary: A premium payment was dishonoured
       description: >-
         Sent when a scheduled premium fails. The highest-value event in the contract: it is the one
@@ -175,12 +190,17 @@ webhooks:
           application/json:
             schema:
               type: object
-              required: [event_id, occurred_at, policy_id, insurer_id, arrears]
+              required: [event_type, event_id, occurred_at, policy_version, policy_id, insurer_id, arrears]
               additionalProperties: false
               properties:
+                event_type:
+                  type: string
+                  const: policy.arrears_raised
                 event_id:
                   type: string
                   maxLength: 128
+                policy_version:
+                  $ref: './components/schemas/policy.yaml#/PolicyVersion'
                 occurred_at:
                   type: string
                   format: date-time
@@ -201,6 +221,8 @@ webhooks:
     post:
       operationId: onPolicyArrearsCleared
       x-openlife-webhook: true
+      security:
+        - webhookSignature: []
       summary: Outstanding premium was paid
       description: >-
         Sent when a policy previously in arrears is brought up to date. Worth pushing as well as the
@@ -213,12 +235,24 @@ webhooks:
           application/json:
             schema:
               type: object
-              required: [event_id, occurred_at, policy_id, insurer_id]
+              required:
+                - event_type
+                - event_id
+                - occurred_at
+                - policy_version
+                - policy_id
+                - insurer_id
+                - dishonoured_on
               additionalProperties: false
               properties:
+                event_type:
+                  type: string
+                  const: policy.arrears_cleared
                 event_id:
                   type: string
                   maxLength: 128
+                policy_version:
+                  $ref: './components/schemas/policy.yaml#/PolicyVersion'
                 occurred_at:
                   type: string
                   format: date-time
@@ -227,6 +261,15 @@ webhooks:
                   maxLength: 64
                 insurer_id:
                   $ref: '../../core/schemas/identifiers.yaml#/InsurerId'
+                dishonoured_on:
+                  description: >-
+                    Which failure was cleared, identifying it by the same `dishonoured_on` the arrears
+                    entry carried. Required: a policy can have several outstanding instalments, and
+                    without this a consumer cannot tell which one to close — and out of order, a January
+                    clearance arriving after a February failure would wipe a live alert already past
+                    its expected lapse date.
+                  type: string
+                  format: date
                 paid_to:
                   type: string
                   format: date
@@ -255,3 +298,26 @@ components:
           refreshUrl: https://auth.insurer.example.com.au/oauth2/token
           scopes:
             policies.read: Read in-force policy data for the credential's adviser codes.
+
+    webhookSignature:
+      type: apiKey
+      in: header
+      name: X-OpenLife-Signature
+      description: |
+        Signature over a webhook delivery. REQUIRED on every delivery for any insurer that pushes.
+
+        The direction is inverted from everything else here: on a webhook the CONSUMER is the server
+        and the insurer is the client, so the OAuth2 credential above does not apply and there is
+        nothing else authenticating the request. Without a signature a consumer's endpoint is an
+        unauthenticated write to its policy state.
+
+        Format: `t=<unix-seconds>,v1=<hex>`, where `v1` is the HMAC-SHA256 of `<t>.<raw request body>`
+        using a shared secret exchanged out of band. Sign the RAW body — re-serialising before signing
+        is the usual cause of signatures that verify locally and fail in production.
+
+        A consumer MUST reject a delivery whose signature does not verify, and MUST reject one whose
+        `t` is outside a tolerance of its own choosing (five minutes is typical) so a captured
+        delivery cannot be replayed indefinitely. Rejections SHOULD be `401`.
+
+        mTLS is an acceptable alternative where both parties can manage certificates; it is not a
+        substitute for `event_id` deduplication, which is about retries rather than authenticity.

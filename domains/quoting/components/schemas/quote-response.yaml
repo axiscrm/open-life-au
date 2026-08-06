@@ -257,6 +257,17 @@ ResolvedOption:
   type: object
   required: [cover_id, option, resolution]
   additionalProperties: false
+  # A substitution that does not say what was actually priced is worse than no report at all: the
+  # consumer knows the request was not honoured but still has an unexplained premium.
+  if:
+    properties:
+      resolution:
+        const: substituted
+    required: [resolution]
+  then:
+    required: [applied]
+    properties:
+      applied: {}
   properties:
     cover_id:
       description: >-
@@ -286,10 +297,23 @@ ResolvedOption:
         # The consumer supplied nothing and the insurer applied its product default.
         - defaulted
         # The product cannot honour this option and it was NOT applied. The premium therefore
-        # does not include it.
+        # does not include it. For an option that ADDS something — a benefit, a waiver — this is the
+        # right answer: it is simply absent.
         - unsupported_ignored
+        # The requested value could not be honoured and a DIFFERENT one was priced. `applied` MUST be
+        # populated.
+        #
+        # This exists because most options are enum-valued, and for those "not applied" is impossible:
+        # a premium is always on some structure, some waiting period, some ownership. An adviser asking
+        # for `level_65` on a product that only writes stepped previously got `unsupported_ignored`
+        # with `applied` absent — conformant, and it left a STEPPED premium sitting in the level-65
+        # column of a comparison table with nothing saying so. The same gap covered a sum insured
+        # capped below the amount requested.
+        - substituted
     detail:
-      description: Why, in adviser-facing terms. RECOMMENDED whenever the resolution is `unsupported_ignored`.
+      description: >-
+        Why, in adviser-facing terms. RECOMMENDED whenever the resolution is `unsupported_ignored`,
+        and for `substituted` it is what lets an adviser judge whether the substitution is acceptable.
       type: string
       maxLength: 300
 
@@ -304,8 +328,14 @@ PremiumSet:
     Returning all six also means a consumer can let an adviser switch frequency without
     re-pricing, which removes a whole class of billable round-trips.
 
-    An insurer that levies no frequency loading returns six internally consistent sets where the
-    products happen to be equal; that is valid.
+    ROUNDING. The ordering holds on the UNROUNDED amounts. Once each frequency is rounded to the cent
+    the products can cross by up to one cent per period — a $1,000 annual premium at zero loading gives
+    monthly 83.33 (annualising to 999.96) and quarterly 250.00 (1,000.00), so monthly annualises BELOW
+    quarterly. A consumer checking the ordering MUST therefore allow a tolerance of
+    `periods x $0.01`; a conformance test without it fails every honest zero-loading insurer.
+
+    An insurer that levies no frequency loading returns six sets whose annualised totals are equal
+    within that tolerance; that is valid.
   type: object
   required: [weekly, fortnightly, monthly, quarterly, half_yearly, annual]
   additionalProperties: false
@@ -359,9 +389,24 @@ PremiumBreakdown:
       $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
     policy_fee:
       description: >-
-        The policy or administration fee component at this frequency, already included in
-        `total`. Reported separately because it is not attributable to any one cover, so it
-        cannot be recovered by summing `cover_lines`.
+        The policy or administration fee at this frequency, GROSS of stamp duty — that is, the fee plus
+        the duty levied on it, so it is the amount by which `total` exceeds the sum of the cover lines.
+
+        Gross is stated explicitly because the two conventions differ by the duty rate and are
+        indistinguishable in the payload. One insurer reporting the fee net and another gross makes a
+        "premium excluding fees" figure, or any fee-to-fee comparison, silently wrong — and the
+        difference is small enough to look like a product variation rather than a units error.
+
+        Where the split matters, `policy_fee_premium` and `policy_fee_stamp_duty` give it exactly.
+
+        Reported separately from the cover lines because the fee is not attributable to any one cover,
+        so it cannot be recovered by summing them.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    policy_fee_premium:
+      description: The fee itself, excluding duty. Optional; where present, plus `policy_fee_stamp_duty` it MUST equal `policy_fee`.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    policy_fee_stamp_duty:
+      description: Stamp duty levied on the policy fee.
       $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
 
 CoverLine:
@@ -369,9 +414,55 @@ CoverLine:
   description: >-
     One priced cover within a line. `cover_id` is echoed from the request so a consumer can match
     a priced cover to the one it asked for without guessing from type and amount.
+
+    THE AMOUNT FIELD DEPENDS ON THE COVER. Income protection and business expenses are written as a
+    MONTHLY BENEFIT and carry `monthly_benefit`; every other cover carries `sum_insured`. Before this
+    distinction existed, `sum_insured` was the only option and an insurer had to choose how to report a
+    $6,500-a-month benefit — as `6500.00` or annualised to `78000.00`, both conformant. A consumer
+    comparing benefits across a panel was comparing incompatible units with nothing to disambiguate
+    them, and a 12x discrepancy reads as a product difference rather than an error.
   type: object
-  required: [cover_type, sum_insured, premiums]
+  required: [cover_type, premiums]
   additionalProperties: false
+  # Two mechanisms, because each half needs a different one.
+  #
+  # `dependentSchemas` handles EXCLUSION: it keys on a property being present and constrains the rest
+  # of the object, so a lump-sum amount on a monthly-benefit cover fails without either amount field
+  # being named in a bare `required` — which is what the
+  # `no-required-schema-properties-undefined` lint rule cannot see through.
+  #
+  # `if/then/else` handles the REQUIREMENT, with each branch restating its amount as a `$ref` so both
+  # that rule and the money-must-be-a-ref rule are satisfied.
+  dependentSchemas:
+    monthly_benefit:
+      properties:
+        cover_type:
+          enum: [income_protection, business_expenses]
+    sum_insured:
+      properties:
+        cover_type:
+          # Stated as an exclusion rather than a whitelist, so an unrecognised cover type — which the
+          # response side must tolerate, since `cover_type` is extensible here — is treated as
+          # lump-sum rather than rejected outright. Listing the permitted types instead made the
+          # extensible enum unusable: a cover type added in a later minor failed this constraint and
+          # the whole line was rejected.
+          not:
+            enum: [income_protection, business_expenses]
+  if:
+    properties:
+      cover_type:
+        enum: [income_protection, business_expenses]
+    required: [cover_type]
+  then:
+    required: [monthly_benefit]
+    properties:
+      monthly_benefit:
+        $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+  else:
+    required: [sum_insured]
+    properties:
+      sum_insured:
+        $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
   properties:
     cover_id:
       description: >-
@@ -379,21 +470,46 @@ CoverLine:
         accord because the product requires it.
       $ref: '../../../../core/schemas/identifiers.yaml#/CoverId'
     cover_type:
-      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/CoverType'
+      description: >-
+        Extensible on the response side — see `CoverTypeResponse`. Pass an unrecognised value through
+        rather than failing.
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/CoverTypeResponse'
     description:
       description: The insurer's own name for this cover as written.
       type: string
       maxLength: 200
     sum_insured:
       description: >-
-        The amount actually written, which may differ from the amount requested where the insurer
+        The lump sum actually written, which may differ from the amount requested where the insurer
         applied a cap or a product minimum. Any such difference MUST also appear in
-        `resolved_options`.
+        `resolved_options` as `substituted`. Present on every cover EXCEPT income protection and
+        business expenses.
       $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    monthly_benefit:
+      description: >-
+        The MONTHLY benefit actually written — not annualised. Present on income protection and
+        business expenses, and on nothing else. Where the insurer capped it below the amount
+        requested, that MUST also appear in `resolved_options` as `substituted`.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    waiting_period:
+      description: >-
+        The waiting period as WRITTEN, for the monthly-benefit covers. Reported here as well as in
+        `inclusions` because the as-written terms are what a consumer compares, and `inclusions` is
+        optional, free-text-keyed, and therefore not something to depend on.
+      $ref: 'covers.yaml#/WaitingPeriod'
+    benefit_period:
+      description: The benefit period as written, for the monthly-benefit covers.
+      $ref: 'covers.yaml#/BenefitPeriod'
+    tpd_definition:
+      description: >-
+        The TPD test as written. An own-occupation and an any-occupation TPD at the same sum insured
+        are materially different cover, so a consumer comparing two lines needs this structurally
+        rather than having to parse it out of display text.
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/TpdDefinition'
     ownership:
-      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Ownership'
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/OwnershipResponse'
     structure:
-      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Structure'
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/StructureResponse'
     linked_to:
       description: Echoed from the request where this cover was written as an extension.
       $ref: '../../../../core/schemas/identifiers.yaml#/CoverId'

@@ -112,6 +112,21 @@ PolicyDefaults:
     loadings:
       $ref: '#/Loadings'
 
+CoverLoadings:
+  title: CoverLoadings
+  description: >-
+    Loadings for a single cover, on the same two independent axes as the policy-level map. Both may
+    apply at once.
+  type: object
+  additionalProperties: false
+  properties:
+    percentage:
+      description: A percentage uplift on this cover's risk premium.
+      $ref: '../../../../core/schemas/money.yaml#/Percentage'
+    rate_per_thousand:
+      description: A flat dollar amount per $1,000 of sum insured, added to this cover's risk premium.
+      $ref: '../../../../core/schemas/money.yaml#/RatePerThousand'
+
 Loadings:
   title: Loadings
   description: >-
@@ -132,6 +147,13 @@ Loadings:
 
     Keys are `CoverType` values, restricted to the five benefits a loading can attach to.
     Needle stick and child trauma have no loading axis and MUST be rejected as keys.
+
+    A key names a cover TYPE, so it applies to EVERY cover of that type in the request. Where a request
+    holds two covers of one type and they need different loadings, set `loadings` on the individual
+    covers instead — a cover-level entry replaces the policy-level one for that cover.
+
+    A key naming a cover type not present in `covers` MUST be rejected with 422 `invalid-combination`
+    rather than silently ignored: it is far more likely to be a mistake than an intention.
   type: object
   additionalProperties: false
   properties:

@@ -31,6 +31,8 @@ Policy:
       type: string
       minLength: 1
       maxLength: 64
+    policy_version:
+      $ref: '#/PolicyVersion'
     previous_policy_id:
       description: Prior number, where a policy has been renumbered or replaced.
       type: string
@@ -43,7 +45,7 @@ Policy:
       $ref: '../../../../core/schemas/identifiers.yaml#/ProductName'
 
     status:
-      $ref: '#/PolicyStatus'
+      $ref: '#/PolicyStatusResponse'
     status_detail:
       description: The insurer's own wording for the status, where it carries more than the enum does.
       type: string
@@ -72,9 +74,20 @@ Policy:
 
     arrears:
       description: >-
-        Present only when the policy is behind on premium. Absence means the policy is paid up to
-        `dates.paid_to`.
-      $ref: '#/Arrears'
+        The outstanding premium failures on this policy, most recent first. Present only when the
+        policy is behind; absence means paid up to `dates.paid_to`, and an empty array MUST NOT be sent
+        in place of absence.
+
+        An ARRAY, because a monthly policy can dishonour in January and again in February with both
+        still outstanding. A single object forced insurers to choose which one to report, and they
+        chose differently: reporting the oldest meant a consumer saw the same event across four
+        snapshots and never re-alerted even as exposure doubled; reporting the latest meant a brand-new
+        event every month and a task reopened that had already been worked. Neither was wrong under the
+        contract, which is the problem.
+      type: array
+      minItems: 1
+      items:
+        $ref: '#/Arrears'
 
     loadings:
       description: Underwriting loadings applied at issue, in the insurer's own wording.
@@ -84,6 +97,33 @@ Policy:
       description: Policy exclusions, in the insurer's own wording.
       type: string
       maxLength: 2000
+
+PolicyVersion:
+  title: PolicyVersion
+  description: >-
+    A per-policy version that increases on every change the insurer records. Optional on a snapshot but
+    strongly RECOMMENDED, and REQUIRED on every webhook.
+
+    It is what makes ordering decidable. `generated_at` is snapshot-wide, so it cannot say whether a
+    particular row already reflects a change an event is reporting; and `occurred_at` is not guaranteed
+    monotonic and offers no tiebreak for equal timestamps. With a version, a consumer applies an event
+    only when it exceeds the version already held for that policy, and can tell whether the snapshot in
+    hand is newer than an event that arrived after it.
+
+    Monotonic per policy. It carries no meaning across policies and MUST NOT be compared between them.
+  type: integer
+  minimum: 1
+
+PolicyStatusResponse:
+  title: PolicyStatusResponse
+  description: >-
+    RESPONSE-facing policy status. Extensible: an insurer may report a state this version does not name
+    — a premium holiday or waiver in effect is a real one — and a consumer MUST pass it through rather
+    than failing the page, which would abort the walk and reconcile nothing that night.
+
+    Known values: [in_force, in_arrears, pending, lapsed, cancelled, terminated].
+  type: string
+  x-extensible-enum: [in_force, in_arrears, pending, lapsed, cancelled, terminated]
 
 PolicyStatus:
   title: PolicyStatus
@@ -106,7 +146,7 @@ PolicyOwnership:
   additionalProperties: false
   properties:
     ownership_type:
-      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Ownership'
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/OwnershipResponse'
     owner_name:
       description: >-
         The legal owner where it is not the life insured — a superannuation trustee, an SMSF, a
@@ -224,7 +264,7 @@ PolicyPremium:
       description: The annual cost. Read, not derived.
       $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
     structure:
-      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Structure'
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/StructureResponse'
     stamp_duty:
       description: Stamp duty component, already included in `amount`.
       $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
@@ -239,6 +279,22 @@ PolicyCover:
   required: [benefit_name, sum_insured]
   additionalProperties: false
   properties:
+    cover_id:
+      description: >-
+        The insurer's own stable identifier for this benefit, unchanged for its life. Optional but
+        strongly RECOMMENDED, and it is the key a consumer uses to track a benefit between snapshots.
+
+        Without it the only handle is `(benefit_name, cover_type)`, which is not unique: an older book
+        routinely holds two "Income Protection" benefits on one policy — an indemnity base plus an
+        agreed-value top-up, or a legacy rider alongside the original. After indexation moves one of
+        them, a consumer matching on name alone sees either "no change" or "one benefit deleted, one
+        added", and fires a reduction-in-cover alert on a policy that grew. The flat one-row-per-benefit
+        exports this contract replaces had per-benefit continuity; a structured shape has to restore it
+        deliberately.
+
+        MUST be unique within `covers`.
+      type: string
+      maxLength: 64
     benefit_name:
       description: The insurer's own name for the benefit, verbatim.
       type: string
@@ -250,7 +306,7 @@ PolicyCover:
         what lets a consumer compare an in-force book against new quotes without maintaining a
         per-insurer benefit-name lookup. Omit rather than guess — an absent `cover_type` with a
         populated `benefit_name` is an honest answer.
-      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/CoverType'
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/CoverTypeResponse'
     sum_insured:
       description: >-
         Current sum insured, after any indexation. For monthly-benefit covers this is the monthly
@@ -260,12 +316,12 @@ PolicyCover:
       description: This benefit's share of the policy premium, at the policy's billing frequency.
       $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
     status:
-      $ref: '#/PolicyStatus'
+      $ref: '#/PolicyStatusResponse'
     ownership:
       description: Where a single policy holds benefits under different ownership.
-      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Ownership'
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/OwnershipResponse'
     structure:
-      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Structure'
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/StructureResponse'
     waiting_period:
       description: >-
         For income-style benefits, in the insurer's own notation. Free text rather than the quoting
@@ -292,7 +348,11 @@ Arrears:
 
     Identity is `(policy_id, dishonoured_on)`. The same pair reported across successive snapshots is
     the SAME event, not a new one — so an insurer MUST keep `dishonoured_on` stable for a given
-    failure rather than restamping it each time it is re-reported.
+    failure rather than restamping it each time it is re-reported. Two entries in the array MUST NOT
+    share a `dishonoured_on`.
+
+    `amount_outstanding` is the amount outstanding for THIS failure, not the policy total. A consumer
+    wanting total exposure sums the array.
   type: object
   required: [dishonoured_on, amount_outstanding]
   additionalProperties: false
@@ -325,6 +385,9 @@ Arrears:
       type: string
       format: date
     attempts:
-      description: How many collection attempts have failed for this event.
+      description: >-
+        How many collection attempts have failed for THIS instalment. Distinct from the number of
+        entries in the array, which counts separate unpaid instalments — conflating the two makes a
+        policy one month behind after three retries look the same as one three months behind.
       type: integer
       minimum: 1

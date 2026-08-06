@@ -278,6 +278,45 @@ const POLICY_PAGE_CASES = [
     },
 ];
 
+const OCCUPATION_CASES = [
+    {
+        name: "a supported rating with no rating class",
+        why: "echoing 'what you rated' without the class that drove the premium is not auditable",
+        doc: { supported: true },
+    },
+];
+
+const RESOLVED_OPTION_CASES = [
+    {
+        name: "a substitution that does not say what was priced",
+        why: "the consumer learns the request was not honoured but still has an unexplained premium",
+        doc: { cover_id: "life-1", option: "structure", requested: "level_65", resolution: "substituted" },
+    },
+];
+
+const COVER_LINE_CASES = [
+    {
+        name: "an income-protection cover line reporting a sum insured",
+        why: "IP is written as a monthly benefit; the two units differ by 12x and look alike",
+        doc: { cover_type: "income_protection", sum_insured: money("6500.00"), premiums },
+    },
+    {
+        name: "a cover line carrying both a sum insured and a monthly benefit",
+        why: "ambiguous which one was written",
+        doc: {
+            cover_type: "income_protection",
+            monthly_benefit: money("6500.00"),
+            sum_insured: money("78000.00"),
+            premiums,
+        },
+    },
+    {
+        name: "a life cover line reporting a monthly benefit",
+        why: "lump-sum covers are not written as a monthly amount",
+        doc: { cover_type: "life", monthly_benefit: money("1000.00"), premiums },
+    },
+];
+
 const POLICY_CASES = [
     {
         name: "arrears on an in_force policy",
@@ -291,8 +330,13 @@ const POLICY_CASES = [
     },
     {
         name: "a commission split above 100 percent",
-        why: "it shares the generic Percentage schema, which allows up to 1000",
+        why: "it shared the generic Percentage schema, which allows up to 1000",
         doc: { ...policyBase, distribution: { new_business_split_percent: 900 } },
+    },
+    {
+        name: "an empty arrears array",
+        why: "absence means paid up; an empty array is an ambiguous third state",
+        doc: { ...policyBase, status: "in_arrears", arrears: [] },
     },
 ];
 
@@ -308,8 +352,15 @@ for (const { name, why, doc: candidate } of CASES) {
     }
 }
 
+const validateRating = ajv.getSchema("contract#/components/schemas/CoverRating");
+const validateResolvedOption = ajv.getSchema("contract#/components/schemas/ResolvedOption");
+const validateCoverLine = ajv.getSchema("contract#/components/schemas/CoverLine");
+
 for (const [group, validator, cases] of [
     ["quoting response", validateLine, LINE_CASES],
+    ["occupation rating", validateRating, OCCUPATION_CASES],
+    ["resolved option", validateResolvedOption, RESOLVED_OPTION_CASES],
+    ["cover line", validateCoverLine, COVER_LINE_CASES],
     ["policy page", validatePage, POLICY_PAGE_CASES],
     ["policy record", validatePolicy, POLICY_CASES],
 ]) {
@@ -324,6 +375,13 @@ for (const [group, validator, cases] of [
     }
 }
 
-const total = CASES.length + LINE_CASES.length + POLICY_PAGE_CASES.length + POLICY_CASES.length;
+const total =
+    CASES.length +
+    LINE_CASES.length +
+    OCCUPATION_CASES.length +
+    RESOLVED_OPTION_CASES.length +
+    COVER_LINE_CASES.length +
+    POLICY_PAGE_CASES.length +
+    POLICY_CASES.length;
 console.log(`\n${total - wronglyAccepted}/${total} invalid payloads correctly rejected`);
 process.exit(wronglyAccepted === 0 ? 0 : 1);

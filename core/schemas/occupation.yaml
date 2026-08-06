@@ -37,6 +37,7 @@ OccupationRef:
     - required: [osca]
     - required: [anzsco]
     - required: [insurer_occupation_id]
+    - required: [employment_basis]
   properties:
     osca:
       title: OscaCode
@@ -61,6 +62,20 @@ OccupationRef:
       type: string
       minLength: 1
       maxLength: 128
+    employment_basis:
+      description: >-
+        For an insured who is NOT in paid work. Send this INSTEAD of an occupation code.
+
+        OSCA classifies occupations, so it has no code for a retired or home-duties client — yet these
+        are real, quotable lives: home-duties TPD is a standard product, and a non-working spouse is a
+        routine case. Before this existed the schema required an occupation code that does not exist,
+        and an implementer facing a closed schema would send the nearest working code — producing the
+        silently-wrong-occupation failure this contract warns about everywhere else.
+
+        An insurer MUST rate on this rather than attempting to match it to an occupation, and MUST
+        echo it in `ResolvedOccupation.employment_basis`.
+      type: string
+      enum: [home_duties, retired, unemployed, student]
     qualifiers:
       $ref: '#/OccupationQualifiers'
     description:
@@ -130,6 +145,19 @@ CoverRating:
   type: object
   required: [supported]
   additionalProperties: false
+  # A supported benefit must say what class it was rated at. Without this an insurer could satisfy
+  # "echo what you rated" with `{supported: true}` and no class — the consumer learns which row was
+  # matched but not the number that actually drove the premium, so two insurers are both conformant
+  # and only one is auditable.
+  if:
+    properties:
+      supported:
+        const: true
+    required: [supported]
+  then:
+    required: [rating_class]
+    properties:
+      rating_class: {}
   properties:
     supported:
       description: >-
@@ -162,8 +190,22 @@ OccupationRatings:
     tpd_own_occupation: { $ref: '#/CoverRating' }
     tpd_any_occupation: { $ref: '#/CoverRating' }
     tpd_adl: { $ref: '#/CoverRating' }
+    tpd_home_duties:
+      description: >-
+        The domestic-duties TPD test. Present because it is the only TPD basis available to a
+        non-working insured, so omitting it left exactly the clients `employment_basis` exists for
+        with no way to learn whether they are insurable.
+      $ref: '#/CoverRating'
     income_protection: { $ref: '#/CoverRating' }
     business_expenses: { $ref: '#/CoverRating' }
+    needle_stick:
+      description: >-
+        Availability here is purely occupation-driven — the benefit is offered to healthcare
+        occupations and nobody else — which makes it precisely the case this matrix exists to
+        pre-answer. Without the key an insurer had nowhere to say `supported: false`, and a consumer
+        had to spend a pricing call to find out.
+      $ref: '#/CoverRating'
+    child_trauma: { $ref: '#/CoverRating' }
 
 ResolvedOccupation:
   title: ResolvedOccupation
@@ -172,15 +214,27 @@ ResolvedOccupation:
     occupation cannot be reproduced cannot be audited, and because a wrong occupation produces
     a wrong premium that looks entirely normal.
   type: object
-  required: [insurer_occupation_id, description, ratings]
+  required: [description, ratings]
   additionalProperties: false
+  oneOf:
+    - required: [insurer_occupation_id]
+    - required: [employment_basis]
   properties:
     insurer_occupation_id:
+      description: >-
+        The row rated. Absent only where `employment_basis` was used, since a non-working basis is not
+        a row in the insurer's occupation list.
       type: string
       minLength: 1
       maxLength: 128
+    employment_basis:
+      description: >-
+        Echoed when the insured was rated on a non-working basis rather than an occupation. Exactly one
+        of this or `insurer_occupation_id` is present.
+      type: string
+      enum: [home_duties, retired, unemployed, student]
     description:
-      description: The insurer's own wording for the occupation it rated.
+      description: The insurer's own wording for what it rated.
       type: string
       maxLength: 200
     ratings:

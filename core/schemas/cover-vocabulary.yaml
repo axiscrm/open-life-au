@@ -142,3 +142,37 @@ TpdDefinition:
     definition for the rated occupation reports it via `resolved_options`.
   type: string
   enum: [own_occupation, any_occupation, home_duties, adl, prefer]
+
+
+CoverTypeResponse:
+  title: CoverTypeResponse
+  description: >-
+    RESPONSE-facing CoverType. Same meaning as `CoverType`, but extensible: a consumer MUST pass an
+    unrecognised value through for display rather than failing, so that adding to the benefits is a minor
+    release rather than a major one.
+
+    Known values: [life, tpd, trauma, income_protection, business_expenses, needle_stick, child_trauma]. Validate against `CoverType` when SENDING; tolerate anything when RECEIVING.
+  type: string
+  x-extensible-enum: [life, tpd, trauma, income_protection, business_expenses, needle_stick, child_trauma]
+
+OwnershipResponse:
+  title: OwnershipResponse
+  description: >-
+    RESPONSE-facing Ownership. Same meaning as `Ownership`, but extensible: a consumer MUST pass an
+    unrecognised value through for display rather than failing, so that adding to the ownership forms is a minor
+    release rather than a major one.
+
+    Known values: [super, ordinary, smsf, superlink, smsf_superlink]. Validate against `Ownership` when SENDING; tolerate anything when RECEIVING.
+  type: string
+  x-extensible-enum: [super, ordinary, smsf, superlink, smsf_superlink]
+
+StructureResponse:
+  title: StructureResponse
+  description: >-
+    RESPONSE-facing Structure. Same meaning as `Structure`, but extensible: a consumer MUST pass an
+    unrecognised value through for display rather than failing, so that adding to the premium structures is a minor
+    release rather than a major one.
+
+    Known values: [stepped, level_65, level_70, blended]. Validate against `Structure` when SENDING; tolerate anything when RECEIVING.
+  type: string
+  x-extensible-enum: [stepped, level_65, level_70, blended]

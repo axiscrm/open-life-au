@@ -122,6 +122,15 @@ function checkInvariants(response, where) {
                     cents(b.stamp_duty_super) +
                     cents(b.premium_non_super) +
                     cents(b.stamp_duty_non_super);
+                if (b.policy_fee_premium && b.policy_fee_stamp_duty) {
+                    const split = cents(b.policy_fee_premium) + cents(b.policy_fee_stamp_duty);
+                    if (b.policy_fee && split !== cents(b.policy_fee)) {
+                        problems.push(
+                            `${setAt}.${freq}: policy_fee_premium + policy_fee_stamp_duty = ` +
+                                `${split / 100} but policy_fee is ${cents(b.policy_fee) / 100}`,
+                        );
+                    }
+                }
                 if (parts !== cents(b.total)) {
                     problems.push(
                         `${setAt}.${freq}: components sum to ${parts / 100} but total is ` +
@@ -130,13 +139,19 @@ function checkInvariants(response, where) {
                 }
             }
 
-            // Annualised cost must not increase as the payment period lengthens.
+            // Annualised cost must not increase as the payment period lengthens — allowing the
+            // rounding tolerance the contract states. Each frequency is rounded to the cent, so at
+            // zero frequency loading the products legitimately cross by up to one cent per period:
+            // a $1,000 annual premium gives monthly 83.33 (999.96 annualised) against quarterly
+            // 250.00 (1,000.00). Without the tolerance this check fails every honest insurer that
+            // levies no frequency loading.
             const annualised = FREQUENCY_ORDER.map((f) =>
                 set[f] ? cents(set[f].total) * PERIODS_PER_YEAR[f] : null,
             );
             for (let k = 0; k < annualised.length - 1; k += 1) {
                 if (annualised[k] === null || annualised[k + 1] === null) continue;
-                if (annualised[k] < annualised[k + 1]) {
+                const tolerance = PERIODS_PER_YEAR[FREQUENCY_ORDER[k]];
+                if (annualised[k] + tolerance < annualised[k + 1]) {
                     problems.push(
                         `${setAt}: ${FREQUENCY_ORDER[k]} annualises to ${annualised[k] / 100}, ` +
                             `below ${FREQUENCY_ORDER[k + 1]} at ${annualised[k + 1] / 100} — a ` +

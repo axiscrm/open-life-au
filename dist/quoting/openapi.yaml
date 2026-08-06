@@ -496,6 +496,8 @@ components:
             - anzsco
         - required:
             - insurer_occupation_id
+        - required:
+            - employment_basis
       properties:
         osca:
           title: OscaCode
@@ -514,6 +516,17 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+        employment_basis:
+          description: |-
+            For an insured who is NOT in paid work. Send this INSTEAD of an occupation code.
+            OSCA classifies occupations, so it has no code for a retired or home-duties client — yet these are real, quotable lives: home-duties TPD is a standard product, and a non-working spouse is a routine case. Before this existed the schema required an occupation code that does not exist, and an implementer facing a closed schema would send the nearest working code — producing the silently-wrong-occupation failure this contract warns about everywhere else.
+            An insurer MUST rate on this rather than attempting to match it to an occupation, and MUST echo it in `ResolvedOccupation.employment_basis`.
+          type: string
+          enum:
+            - home_duties
+            - retired
+            - unemployed
+            - student
         qualifiers:
           $ref: '#/components/schemas/OccupationQualifiers'
         description:
@@ -650,6 +663,8 @@ components:
 
         The two are NOT interchangeable. An implementation MUST NOT normalise a `0` into an omission or an omission into a `0`, and MUST NOT reject `0` as pointless — a consumer sends it to state positively that this benefit is not loaded, which is a different instruction from declining to say. JSON Schema cannot express this constraint, which is precisely why it is stated here and tested by the conformance suite.
         Keys are `CoverType` values, restricted to the five benefits a loading can attach to. Needle stick and child trauma have no loading axis and MUST be rejected as keys.
+        A key names a cover TYPE, so it applies to EVERY cover of that type in the request. Where a request holds two covers of one type and they need different loadings, set `loadings` on the individual covers instead — a cover-level entry replaces the policy-level one for that cover.
+        A key naming a cover type not present in `covers` MUST be rejected with 422 `invalid-combination` rather than silently ignored: it is far more likely to be a mistake than an intention.
       type: object
       additionalProperties: false
       properties:
@@ -737,6 +752,18 @@ components:
         - exclude
         - include
         - prefer
+    CoverLoadings:
+      title: CoverLoadings
+      description: Loadings for a single cover, on the same two independent axes as the policy-level map. Both may apply at once.
+      type: object
+      additionalProperties: false
+      properties:
+        percentage:
+          description: A percentage uplift on this cover's risk premium.
+          $ref: '#/components/schemas/Percentage'
+        rate_per_thousand:
+          description: A flat dollar amount per $1,000 of sum insured, added to this cover's risk premium.
+          $ref: '#/components/schemas/RatePerThousand'
     LinkType:
       title: LinkType
       description: How a cover relates to the cover named in `linked_to`. `extension` means the cover is held as a rider on the parent and its benefit reduces the parent's when paid, which is what makes it cheaper than the same cover held standalone.
@@ -764,6 +791,12 @@ components:
         pay_by_rollover:
           description: Whether the premium may be funded by a rollover from another superannuation fund. Only meaningful where `ownership` resolves to a superannuation type; insurers MUST report it as `unsupported_ignored` rather than silently dropping it otherwise.
           $ref: '#/components/schemas/Preference'
+        loadings:
+          description: |-
+            Underwriting loadings for THIS cover, overriding the policy-level map.
+            Needed because the policy-level map is keyed by cover TYPE, and two covers of the same type in one request are routine — a standalone TPD alongside a linked TPD extension, or life inside super alongside life outside it. A single `{tpd: 50}` was then ambiguous: apply it to both, to the first, or to the standalone only? Three conformant implementations, three different premiums, and nothing in `resolved_options` obliged to disclose which reading was used, because from the insurer's point of view the loading WAS applied as asked.
+            Where present this replaces the policy-level entry for this cover entirely — it does not merge.
+          $ref: '#/components/schemas/CoverLoadings'
         linked_to:
           description: The `cover_id` of the parent cover, when this cover is held as an extension of it. MUST reference a cover present in the same request, MUST NOT be self-referential, and the graph of links MUST be acyclic. Absent means the cover is standalone.
           $ref: '#/components/schemas/CoverId'
@@ -1220,14 +1253,25 @@ components:
           description: Stamp duty attributable to the non-superannuation premium.
           $ref: '#/components/schemas/NonNegativeMoney'
         policy_fee:
-          description: The policy or administration fee component at this frequency, already included in `total`. Reported separately because it is not attributable to any one cover, so it cannot be recovered by summing `cover_lines`.
+          description: |-
+            The policy or administration fee at this frequency, GROSS of stamp duty — that is, the fee plus the duty levied on it, so it is the amount by which `total` exceeds the sum of the cover lines.
+            Gross is stated explicitly because the two conventions differ by the duty rate and are indistinguishable in the payload. One insurer reporting the fee net and another gross makes a "premium excluding fees" figure, or any fee-to-fee comparison, silently wrong — and the difference is small enough to look like a product variation rather than a units error.
+            Where the split matters, `policy_fee_premium` and `policy_fee_stamp_duty` give it exactly.
+            Reported separately from the cover lines because the fee is not attributable to any one cover, so it cannot be recovered by summing them.
+          $ref: '#/components/schemas/NonNegativeMoney'
+        policy_fee_premium:
+          description: The fee itself, excluding duty. Optional; where present, plus `policy_fee_stamp_duty` it MUST equal `policy_fee`.
+          $ref: '#/components/schemas/NonNegativeMoney'
+        policy_fee_stamp_duty:
+          description: Stamp duty levied on the policy fee.
           $ref: '#/components/schemas/NonNegativeMoney'
     PremiumSet:
       title: PremiumSet
       description: |-
         The same line priced at all six payment frequencies. ALL SIX ARE REQUIRED.
         An insurer must not return only the frequency it was asked for, because there is no way to derive the others: sub-annual premiums carry a frequency loading, so `weekly x 52 >= fortnightly x 26 >= monthly x 12 >= quarterly x 4 >= half_yearly x 2 >= annual`. Returning all six also means a consumer can let an adviser switch frequency without re-pricing, which removes a whole class of billable round-trips.
-        An insurer that levies no frequency loading returns six internally consistent sets where the products happen to be equal; that is valid.
+        ROUNDING. The ordering holds on the UNROUNDED amounts. Once each frequency is rounded to the cent the products can cross by up to one cent per period — a $1,000 annual premium at zero loading gives monthly 83.33 (annualising to 999.96) and quarterly 250.00 (1,000.00), so monthly annualises BELOW quarterly. A consumer checking the ordering MUST therefore allow a tolerance of `periods x $0.01`; a conformance test without it fails every honest zero-loading insurer.
+        An insurer that levies no frequency loading returns six sets whose annualised totals are equal within that tolerance; that is valid.
       type: object
       required:
         - weekly
@@ -1250,32 +1294,117 @@ components:
           $ref: '#/components/schemas/PremiumBreakdown'
         annual:
           $ref: '#/components/schemas/PremiumBreakdown'
+    CoverTypeResponse:
+      title: CoverTypeResponse
+      description: |-
+        RESPONSE-facing CoverType. Same meaning as `CoverType`, but extensible: a consumer MUST pass an unrecognised value through for display rather than failing, so that adding to the benefits is a minor release rather than a major one.
+        Known values: [life, tpd, trauma, income_protection, business_expenses, needle_stick, child_trauma]. Validate against `CoverType` when SENDING; tolerate anything when RECEIVING.
+      type: string
+      x-extensible-enum:
+        - life
+        - tpd
+        - trauma
+        - income_protection
+        - business_expenses
+        - needle_stick
+        - child_trauma
+    OwnershipResponse:
+      title: OwnershipResponse
+      description: |-
+        RESPONSE-facing Ownership. Same meaning as `Ownership`, but extensible: a consumer MUST pass an unrecognised value through for display rather than failing, so that adding to the ownership forms is a minor release rather than a major one.
+        Known values: [super, ordinary, smsf, superlink, smsf_superlink]. Validate against `Ownership` when SENDING; tolerate anything when RECEIVING.
+      type: string
+      x-extensible-enum:
+        - super
+        - ordinary
+        - smsf
+        - superlink
+        - smsf_superlink
+    StructureResponse:
+      title: StructureResponse
+      description: |-
+        RESPONSE-facing Structure. Same meaning as `Structure`, but extensible: a consumer MUST pass an unrecognised value through for display rather than failing, so that adding to the premium structures is a minor release rather than a major one.
+        Known values: [stepped, level_65, level_70, blended]. Validate against `Structure` when SENDING; tolerate anything when RECEIVING.
+      type: string
+      x-extensible-enum:
+        - stepped
+        - level_65
+        - level_70
+        - blended
     CoverLine:
       title: CoverLine
-      description: One priced cover within a line. `cover_id` is echoed from the request so a consumer can match a priced cover to the one it asked for without guessing from type and amount.
+      description: |-
+        One priced cover within a line. `cover_id` is echoed from the request so a consumer can match a priced cover to the one it asked for without guessing from type and amount.
+        THE AMOUNT FIELD DEPENDS ON THE COVER. Income protection and business expenses are written as a MONTHLY BENEFIT and carry `monthly_benefit`; every other cover carries `sum_insured`. Before this distinction existed, `sum_insured` was the only option and an insurer had to choose how to report a $6,500-a-month benefit — as `6500.00` or annualised to `78000.00`, both conformant. A consumer comparing benefits across a panel was comparing incompatible units with nothing to disambiguate them, and a 12x discrepancy reads as a product difference rather than an error.
       type: object
       required:
         - cover_type
-        - sum_insured
         - premiums
       additionalProperties: false
+      dependentSchemas:
+        monthly_benefit:
+          properties:
+            cover_type:
+              enum:
+                - income_protection
+                - business_expenses
+        sum_insured:
+          properties:
+            cover_type:
+              not:
+                enum:
+                  - income_protection
+                  - business_expenses
+      if:
+        properties:
+          cover_type:
+            enum:
+              - income_protection
+              - business_expenses
+        required:
+          - cover_type
+      then:
+        required:
+          - monthly_benefit
+        properties:
+          monthly_benefit:
+            $ref: '#/components/schemas/NonNegativeMoney'
+      else:
+        required:
+          - sum_insured
+        properties:
+          sum_insured:
+            $ref: '#/components/schemas/NonNegativeMoney'
       properties:
         cover_id:
           description: Echoed from the request. Absent only where the insurer added this cover of its own accord because the product requires it.
           $ref: '#/components/schemas/CoverId'
         cover_type:
-          $ref: '#/components/schemas/CoverType'
+          description: Extensible on the response side — see `CoverTypeResponse`. Pass an unrecognised value through rather than failing.
+          $ref: '#/components/schemas/CoverTypeResponse'
         description:
           description: The insurer's own name for this cover as written.
           type: string
           maxLength: 200
         sum_insured:
-          description: The amount actually written, which may differ from the amount requested where the insurer applied a cap or a product minimum. Any such difference MUST also appear in `resolved_options`.
+          description: The lump sum actually written, which may differ from the amount requested where the insurer applied a cap or a product minimum. Any such difference MUST also appear in `resolved_options` as `substituted`. Present on every cover EXCEPT income protection and business expenses.
           $ref: '#/components/schemas/NonNegativeMoney'
+        monthly_benefit:
+          description: The MONTHLY benefit actually written — not annualised. Present on income protection and business expenses, and on nothing else. Where the insurer capped it below the amount requested, that MUST also appear in `resolved_options` as `substituted`.
+          $ref: '#/components/schemas/NonNegativeMoney'
+        waiting_period:
+          description: The waiting period as WRITTEN, for the monthly-benefit covers. Reported here as well as in `inclusions` because the as-written terms are what a consumer compares, and `inclusions` is optional, free-text-keyed, and therefore not something to depend on.
+          $ref: '#/components/schemas/WaitingPeriod'
+        benefit_period:
+          description: The benefit period as written, for the monthly-benefit covers.
+          $ref: '#/components/schemas/BenefitPeriod'
+        tpd_definition:
+          description: The TPD test as written. An own-occupation and an any-occupation TPD at the same sum insured are materially different cover, so a consumer comparing two lines needs this structurally rather than having to parse it out of display text.
+          $ref: '#/components/schemas/TpdDefinition'
         ownership:
-          $ref: '#/components/schemas/Ownership'
+          $ref: '#/components/schemas/OwnershipResponse'
         structure:
-          $ref: '#/components/schemas/Structure'
+          $ref: '#/components/schemas/StructureResponse'
         linked_to:
           description: Echoed from the request where this cover was written as an extension.
           $ref: '#/components/schemas/CoverId'
@@ -1289,6 +1418,17 @@ components:
       required:
         - supported
       additionalProperties: false
+      if:
+        properties:
+          supported:
+            const: true
+        required:
+          - supported
+      then:
+        required:
+          - rating_class
+        properties:
+          rating_class: {}
       properties:
         supported:
           description: Whether this benefit can be offered to this occupation. `false` means the occupation is uninsurable for this benefit — distinct from a poor rating class.
@@ -1317,26 +1457,47 @@ components:
           $ref: '#/components/schemas/CoverRating'
         tpd_adl:
           $ref: '#/components/schemas/CoverRating'
+        tpd_home_duties:
+          description: The domestic-duties TPD test. Present because it is the only TPD basis available to a non-working insured, so omitting it left exactly the clients `employment_basis` exists for with no way to learn whether they are insurable.
+          $ref: '#/components/schemas/CoverRating'
         income_protection:
           $ref: '#/components/schemas/CoverRating'
         business_expenses:
+          $ref: '#/components/schemas/CoverRating'
+        needle_stick:
+          description: 'Availability here is purely occupation-driven — the benefit is offered to healthcare occupations and nobody else — which makes it precisely the case this matrix exists to pre-answer. Without the key an insurer had nowhere to say `supported: false`, and a consumer had to spend a pricing call to find out.'
+          $ref: '#/components/schemas/CoverRating'
+        child_trauma:
           $ref: '#/components/schemas/CoverRating'
     ResolvedOccupation:
       title: ResolvedOccupation
       description: What the insurer actually rated on. REQUIRED on every priced line, because a quote whose occupation cannot be reproduced cannot be audited, and because a wrong occupation produces a wrong premium that looks entirely normal.
       type: object
       required:
-        - insurer_occupation_id
         - description
         - ratings
       additionalProperties: false
+      oneOf:
+        - required:
+            - insurer_occupation_id
+        - required:
+            - employment_basis
       properties:
         insurer_occupation_id:
+          description: The row rated. Absent only where `employment_basis` was used, since a non-working basis is not a row in the insurer's occupation list.
           type: string
           minLength: 1
           maxLength: 128
+        employment_basis:
+          description: Echoed when the insured was rated on a non-working basis rather than an occupation. Exactly one of this or `insurer_occupation_id` is present.
+          type: string
+          enum:
+            - home_duties
+            - retired
+            - unemployed
+            - student
         description:
-          description: The insurer's own wording for the occupation it rated.
+          description: The insurer's own wording for what it rated.
           type: string
           maxLength: 200
         ratings:
@@ -1360,6 +1521,17 @@ components:
         - option
         - resolution
       additionalProperties: false
+      if:
+        properties:
+          resolution:
+            const: substituted
+        required:
+          - resolution
+      then:
+        required:
+          - applied
+        properties:
+          applied: {}
       properties:
         cover_id:
           description: The cover the option was given on, echoed from the request. Use the literal `policy` for an option given at policy level.
@@ -1384,8 +1556,9 @@ components:
             - resolved_by_insurer
             - defaulted
             - unsupported_ignored
+            - substituted
         detail:
-          description: Why, in adviser-facing terms. RECOMMENDED whenever the resolution is `unsupported_ignored`.
+          description: Why, in adviser-facing terms. RECOMMENDED whenever the resolution is `unsupported_ignored`, and for `substituted` it is what lets an adviser judge whether the substitution is acceptable.
           type: string
           maxLength: 300
     InclusionGroup:

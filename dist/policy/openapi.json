@@ -283,6 +283,11 @@
       "post": {
         "operationId": "onPolicyStatusChanged",
         "x-openlife-webhook": true,
+        "security": [
+          {
+            "webhookSignature": []
+          }
+        ],
         "summary": "A policy changed status",
         "description": "Sent when a policy moves between statuses — commenced, lapsed, cancelled, terminated. The consumer's own snapshot remains authoritative; this is a prompt to look sooner, not a replacement for reconciliation.",
         "tags": [
@@ -295,18 +300,28 @@
               "schema": {
                 "type": "object",
                 "required": [
+                  "event_type",
                   "event_id",
                   "occurred_at",
+                  "policy_version",
                   "policy_id",
                   "insurer_id",
                   "status"
                 ],
                 "additionalProperties": false,
                 "properties": {
+                  "event_type": {
+                    "description": "Which event this is. Required, and it must be IN the payload: OpenAPI webhook keys are names rather than URLs, so a consumer that publishes one endpoint for all three would otherwise have to classify by sniffing which optional members are present. That happens to be decidable for these three and stops being decidable the moment a fourth is added. Matches `capabilities.webhooks.events`.",
+                    "type": "string",
+                    "const": "policy.status_changed"
+                  },
                   "event_id": {
                     "description": "Unique per event. Delivery is at-least-once, so consumers MUST deduplicate on this rather than assuming exactly-once.",
                     "type": "string",
                     "maxLength": 128
+                  },
+                  "policy_version": {
+                    "$ref": "#/components/schemas/PolicyVersion"
                   },
                   "occurred_at": {
                     "type": "string",
@@ -344,6 +359,11 @@
       "post": {
         "operationId": "onPolicyArrearsRaised",
         "x-openlife-webhook": true,
+        "security": [
+          {
+            "webhookSignature": []
+          }
+        ],
         "summary": "A premium payment was dishonoured",
         "description": "Sent when a scheduled premium fails. The highest-value event in the contract: it is the one with a deadline attached, and `expected_lapse_on` is what makes it actionable.",
         "tags": [
@@ -356,17 +376,26 @@
               "schema": {
                 "type": "object",
                 "required": [
+                  "event_type",
                   "event_id",
                   "occurred_at",
+                  "policy_version",
                   "policy_id",
                   "insurer_id",
                   "arrears"
                 ],
                 "additionalProperties": false,
                 "properties": {
+                  "event_type": {
+                    "type": "string",
+                    "const": "policy.arrears_raised"
+                  },
                   "event_id": {
                     "type": "string",
                     "maxLength": 128
+                  },
+                  "policy_version": {
+                    "$ref": "#/components/schemas/PolicyVersion"
                   },
                   "occurred_at": {
                     "type": "string",
@@ -401,6 +430,11 @@
       "post": {
         "operationId": "onPolicyArrearsCleared",
         "x-openlife-webhook": true,
+        "security": [
+          {
+            "webhookSignature": []
+          }
+        ],
         "summary": "Outstanding premium was paid",
         "description": "Sent when a policy previously in arrears is brought up to date. Worth pushing as well as the failure: without it a consumer keeps chasing a client who has already paid, which is a worse experience than not having known at all.",
         "tags": [
@@ -413,16 +447,26 @@
               "schema": {
                 "type": "object",
                 "required": [
+                  "event_type",
                   "event_id",
                   "occurred_at",
+                  "policy_version",
                   "policy_id",
-                  "insurer_id"
+                  "insurer_id",
+                  "dishonoured_on"
                 ],
                 "additionalProperties": false,
                 "properties": {
+                  "event_type": {
+                    "type": "string",
+                    "const": "policy.arrears_cleared"
+                  },
                   "event_id": {
                     "type": "string",
                     "maxLength": 128
+                  },
+                  "policy_version": {
+                    "$ref": "#/components/schemas/PolicyVersion"
                   },
                   "occurred_at": {
                     "type": "string",
@@ -434,6 +478,11 @@
                   },
                   "insurer_id": {
                     "$ref": "#/components/schemas/InsurerId"
+                  },
+                  "dishonoured_on": {
+                    "description": "Which failure was cleared, identifying it by the same `dishonoured_on` the arrears entry carried. Required: a policy can have several outstanding instalments, and without this a consumer cannot tell which one to close — and out of order, a January clearance arriving after a February failure would wipe a live alert already past its expected lapse date.",
+                    "type": "string",
+                    "format": "date"
                   },
                   "paid_to": {
                     "type": "string",
@@ -469,6 +518,12 @@
             }
           }
         }
+      },
+      "webhookSignature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-OpenLife-Signature",
+        "description": "Signature over a webhook delivery. REQUIRED on every delivery for any insurer that pushes.\n\nThe direction is inverted from everything else here: on a webhook the CONSUMER is the server\nand the insurer is the client, so the OAuth2 credential above does not apply and there is\nnothing else authenticating the request. Without a signature a consumer's endpoint is an\nunauthenticated write to its policy state.\n\nFormat: `t=<unix-seconds>,v1=<hex>`, where `v1` is the HMAC-SHA256 of `<t>.<raw request body>`\nusing a shared secret exchanged out of band. Sign the RAW body — re-serialising before signing\nis the usual cause of signatures that verify locally and fail in production.\n\nA consumer MUST reject a delivery whose signature does not verify, and MUST reject one whose\n`t` is outside a tolerance of its own choosing (five minutes is typical) so a captured\ndelivery cannot be replayed indefinitely. Rejections SHOULD be `401`.\n\nmTLS is an acceptable alternative where both parties can manage certificates; it is not a\nsubstitute for `event_id` deduplication, which is about retries rather than authenticity.\n"
       }
     },
     "parameters": {
@@ -581,6 +636,12 @@
         "minLength": 1,
         "maxLength": 512
       },
+      "PolicyVersion": {
+        "title": "PolicyVersion",
+        "description": "A per-policy version that increases on every change the insurer records. Optional on a snapshot but strongly RECOMMENDED, and REQUIRED on every webhook.\nIt is what makes ordering decidable. `generated_at` is snapshot-wide, so it cannot say whether a particular row already reflects a change an event is reporting; and `occurred_at` is not guaranteed monotonic and offers no tiebreak for equal timestamps. With a version, a consumer applies an event only when it exceeds the version already held for that policy, and can tell whether the snapshot in hand is newer than an event that arrived after it.\nMonotonic per policy. It carries no meaning across policies and MUST NOT be compared between them.",
+        "type": "integer",
+        "minimum": 1
+      },
       "InsurerId": {
         "title": "InsurerId",
         "description": "Stable identifier for the issuing insurer, assigned by this standard's registry so it is the same value at every implementer. Lowercase, hyphenated.",
@@ -608,6 +669,19 @@
         "maxLength": 200,
         "examples": [
           "Protection Plus Life Cover"
+        ]
+      },
+      "PolicyStatusResponse": {
+        "title": "PolicyStatusResponse",
+        "description": "RESPONSE-facing policy status. Extensible: an insurer may report a state this version does not name — a premium holiday or waiver in effect is a real one — and a consumer MUST pass it through rather than failing the page, which would abort the walk and reconcile nothing that night.\nKnown values: [in_force, in_arrears, pending, lapsed, cancelled, terminated].",
+        "type": "string",
+        "x-extensible-enum": [
+          "in_force",
+          "in_arrears",
+          "pending",
+          "lapsed",
+          "cancelled",
+          "terminated"
         ]
       },
       "Gender": {
@@ -778,11 +852,11 @@
           }
         }
       },
-      "Ownership": {
-        "title": "Ownership",
-        "description": "Who owns the cover, which determines the tax treatment, whether the premium can be paid from superannuation, and which side of the super/non-super premium split each amount falls on.\n  - `super`           held inside a retail superannuation fund\n  - `ordinary`        held personally, outside super\n  - `smsf`            held inside a self-managed superannuation fund\n  - `superlink`       split structure: one benefit part-owned inside super, part outside,\n                      linked so the parts cannot be claimed twice\n  - `smsf_superlink`  the same split structure where the super side is an SMSF",
+      "OwnershipResponse": {
+        "title": "OwnershipResponse",
+        "description": "RESPONSE-facing Ownership. Same meaning as `Ownership`, but extensible: a consumer MUST pass an unrecognised value through for display rather than failing, so that adding to the ownership forms is a minor release rather than a major one.\nKnown values: [super, ordinary, smsf, superlink, smsf_superlink]. Validate against `Ownership` when SENDING; tolerate anything when RECEIVING.",
         "type": "string",
-        "enum": [
+        "x-extensible-enum": [
           "super",
           "ordinary",
           "smsf",
@@ -796,7 +870,7 @@
         "additionalProperties": false,
         "properties": {
           "ownership_type": {
-            "$ref": "#/components/schemas/Ownership"
+            "$ref": "#/components/schemas/OwnershipResponse"
           },
           "owner_name": {
             "description": "The legal owner where it is not the life insured — a superannuation trustee, an SMSF, a company, or another individual.",
@@ -910,11 +984,11 @@
           "annual"
         ]
       },
-      "Structure": {
-        "title": "Structure",
-        "description": "How the premium behaves over the life of the policy.\n  - `stepped`   re-rated each year as the insured ages\n  - `level_65`  held level (bar indexation and rate changes) to age 65, then stepped\n  - `level_70`  as above, to age 70\n  - `blended`   a stepped/level mix, where the insurer blends the two rate bases\n`blended` is incompatible with indexation on some products; where an insurer cannot honour it, that is reported as `unsupported_ignored` rather than silently substituted.",
+      "StructureResponse": {
+        "title": "StructureResponse",
+        "description": "RESPONSE-facing Structure. Same meaning as `Structure`, but extensible: a consumer MUST pass an unrecognised value through for display rather than failing, so that adding to the premium structures is a minor release rather than a major one.\nKnown values: [stepped, level_65, level_70, blended]. Validate against `Structure` when SENDING; tolerate anything when RECEIVING.",
         "type": "string",
-        "enum": [
+        "x-extensible-enum": [
           "stepped",
           "level_65",
           "level_70",
@@ -943,7 +1017,7 @@
             "$ref": "#/components/schemas/NonNegativeMoney"
           },
           "structure": {
-            "$ref": "#/components/schemas/Structure"
+            "$ref": "#/components/schemas/StructureResponse"
           },
           "stamp_duty": {
             "description": "Stamp duty component, already included in `amount`.",
@@ -955,11 +1029,11 @@
           }
         }
       },
-      "CoverType": {
-        "title": "CoverType",
-        "description": "The benefits an adviser can ask to be priced, in the order they are presented on a quote screen. A cover may be requested standalone or, for some combinations, as a rider linked to a parent cover — see `link_type` on the cover schemas.",
+      "CoverTypeResponse": {
+        "title": "CoverTypeResponse",
+        "description": "RESPONSE-facing CoverType. Same meaning as `CoverType`, but extensible: a consumer MUST pass an unrecognised value through for display rather than failing, so that adding to the benefits is a minor release rather than a major one.\nKnown values: [life, tpd, trauma, income_protection, business_expenses, needle_stick, child_trauma]. Validate against `CoverType` when SENDING; tolerate anything when RECEIVING.",
         "type": "string",
-        "enum": [
+        "x-extensible-enum": [
           "life",
           "tpd",
           "trauma",
@@ -979,6 +1053,11 @@
         ],
         "additionalProperties": false,
         "properties": {
+          "cover_id": {
+            "description": "The insurer's own stable identifier for this benefit, unchanged for its life. Optional but strongly RECOMMENDED, and it is the key a consumer uses to track a benefit between snapshots.\nWithout it the only handle is `(benefit_name, cover_type)`, which is not unique: an older book routinely holds two \"Income Protection\" benefits on one policy — an indemnity base plus an agreed-value top-up, or a legacy rider alongside the original. After indexation moves one of them, a consumer matching on name alone sees either \"no change\" or \"one benefit deleted, one added\", and fires a reduction-in-cover alert on a policy that grew. The flat one-row-per-benefit exports this contract replaces had per-benefit continuity; a structured shape has to restore it deliberately.\nMUST be unique within `covers`.",
+            "type": "string",
+            "maxLength": 64
+          },
           "benefit_name": {
             "description": "The insurer's own name for the benefit, verbatim.",
             "type": "string",
@@ -987,7 +1066,7 @@
           },
           "cover_type": {
             "description": "The benefit mapped onto the shared cover vocabulary, where one applies. Populating this is what lets a consumer compare an in-force book against new quotes without maintaining a per-insurer benefit-name lookup. Omit rather than guess — an absent `cover_type` with a populated `benefit_name` is an honest answer.",
-            "$ref": "#/components/schemas/CoverType"
+            "$ref": "#/components/schemas/CoverTypeResponse"
           },
           "sum_insured": {
             "description": "Current sum insured, after any indexation. For monthly-benefit covers this is the monthly amount.",
@@ -998,14 +1077,14 @@
             "$ref": "#/components/schemas/NonNegativeMoney"
           },
           "status": {
-            "$ref": "#/components/schemas/PolicyStatus"
+            "$ref": "#/components/schemas/PolicyStatusResponse"
           },
           "ownership": {
             "description": "Where a single policy holds benefits under different ownership.",
-            "$ref": "#/components/schemas/Ownership"
+            "$ref": "#/components/schemas/OwnershipResponse"
           },
           "structure": {
-            "$ref": "#/components/schemas/Structure"
+            "$ref": "#/components/schemas/StructureResponse"
           },
           "waiting_period": {
             "description": "For income-style benefits, in the insurer's own notation. Free text rather than the quoting contract's enum: this is a historical record of what was written, which may predate the product range currently sold.",
@@ -1029,7 +1108,7 @@
       },
       "Arrears": {
         "title": "Arrears",
-        "description": "A policy behind on premium. This is the highest-value record in the whole contract: it is the one an adviser must act on within days, and today it is obtained by scraping a portal overnight.\nIdentity is `(policy_id, dishonoured_on)`. The same pair reported across successive snapshots is the SAME event, not a new one — so an insurer MUST keep `dishonoured_on` stable for a given failure rather than restamping it each time it is re-reported.",
+        "description": "A policy behind on premium. This is the highest-value record in the whole contract: it is the one an adviser must act on within days, and today it is obtained by scraping a portal overnight.\nIdentity is `(policy_id, dishonoured_on)`. The same pair reported across successive snapshots is the SAME event, not a new one — so an insurer MUST keep `dishonoured_on` stable for a given failure rather than restamping it each time it is re-reported. Two entries in the array MUST NOT share a `dishonoured_on`.\n`amount_outstanding` is the amount outstanding for THIS failure, not the policy total. A consumer wanting total exposure sums the array.",
         "type": "object",
         "required": [
           "dishonoured_on",
@@ -1068,7 +1147,7 @@
             "format": "date"
           },
           "attempts": {
-            "description": "How many collection attempts have failed for this event.",
+            "description": "How many collection attempts have failed for THIS instalment. Distinct from the number of entries in the array, which counts separate unpaid instalments — conflating the two makes a policy one month behind after three retries look the same as one three months behind.",
             "type": "integer",
             "minimum": 1
           }
@@ -1102,6 +1181,9 @@
             "minLength": 1,
             "maxLength": 64
           },
+          "policy_version": {
+            "$ref": "#/components/schemas/PolicyVersion"
+          },
           "previous_policy_id": {
             "description": "Prior number, where a policy has been renumbered or replaced.",
             "type": "string",
@@ -1117,7 +1199,7 @@
             "$ref": "#/components/schemas/ProductName"
           },
           "status": {
-            "$ref": "#/components/schemas/PolicyStatus"
+            "$ref": "#/components/schemas/PolicyStatusResponse"
           },
           "status_detail": {
             "description": "The insurer's own wording for the status, where it carries more than the enum does.",
@@ -1148,8 +1230,12 @@
             }
           },
           "arrears": {
-            "description": "Present only when the policy is behind on premium. Absence means the policy is paid up to `dates.paid_to`.",
-            "$ref": "#/components/schemas/Arrears"
+            "description": "The outstanding premium failures on this policy, most recent first. Present only when the policy is behind; absence means paid up to `dates.paid_to`, and an empty array MUST NOT be sent in place of absence.\nAn ARRAY, because a monthly policy can dishonour in January and again in February with both still outstanding. A single object forced insurers to choose which one to report, and they chose differently: reporting the oldest meant a consumer saw the same event across four snapshots and never re-alerted even as exposure doubled; reporting the latest meant a brand-new event every month and a task reopened that had already been worked. Neither was wrong under the contract, which is the problem.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/Arrears"
+            }
           },
           "loadings": {
             "description": "Underwriting loadings applied at issue, in the insurer's own wording.",

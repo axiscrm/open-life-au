@@ -136,6 +136,19 @@ CoverBase:
         Only meaningful where `ownership` resolves to a superannuation type; insurers MUST
         report it as `unsupported_ignored` rather than silently dropping it otherwise.
       $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Preference'
+    loadings:
+      description: >-
+        Underwriting loadings for THIS cover, overriding the policy-level map.
+
+        Needed because the policy-level map is keyed by cover TYPE, and two covers of the same type in
+        one request are routine — a standalone TPD alongside a linked TPD extension, or life inside
+        super alongside life outside it. A single `{tpd: 50}` was then ambiguous: apply it to both, to
+        the first, or to the standalone only? Three conformant implementations, three different
+        premiums, and nothing in `resolved_options` obliged to disclose which reading was used, because
+        from the insurer's point of view the loading WAS applied as asked.
+
+        Where present this replaces the policy-level entry for this cover entirely — it does not merge.
+      $ref: 'quote-request.yaml#/CoverLoadings'
     linked_to:
       description: >-
         The `cover_id` of the parent cover, when this cover is held as an extension of it.
