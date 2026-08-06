@@ -15,6 +15,16 @@
 # request asymmetric with the flat response, and break down anyway where an extension hangs off
 # an extension.
 #
+# NARROWED ENUMS ARE SPELLED OUT IN FULL, NOT COMPOSED. Where a cover offers a subset of a shared
+# enum — business expenses has no long deferral periods, a TPD extension has no three-year buy-back —
+# the permitted values are listed inline and the relationship is stated in the description. The
+# tempting form is `allOf: [$ref to the full enum, {enum: [subset]}]`, which says it more precisely.
+# Do not use it: openapi-python-client answers it with "Cannot take allOf a non-object" and SILENTLY
+# DROPS the whole cover. It took three of the seven with it — TPD, trauma and business expenses —
+# while still exiting successfully and writing 79 files. A generator that fails loudly is a nuisance;
+# one that quietly emits a client missing half the product range is a defect nobody notices until an
+# insurer cannot quote a cover.
+#
 # DO NOT "TIDY" `enum: [x]` INTO `const: x` ON `cover_type`. The two are equivalent in JSON Schema
 # and const reads better, but openapi-generator resolves a discriminator through the variant's
 # allowable values, which only `enum` populates. With `const` it dies with a NullPointerException
@@ -175,10 +185,11 @@ TpdCover:
         tpd_definition:
           $ref: '../../../../core/schemas/cover-vocabulary.yaml#/TpdDefinition'
         life_buyback:
-          description: Reinstatement of the parent cover after this benefit is paid. Extensions only.
-          allOf:
-            - $ref: '#/LifeBuyback'
-            - enum: [exclude, prefer_exclude, immediate, after_1_year, prefer]
+          description: >-
+            Reinstatement of the parent cover after this benefit is paid. Extensions only.
+            A subset of `LifeBuyback` — `after_3_years` is not offered on a TPD extension.
+          type: string
+          enum: [exclude, prefer_exclude, immediate, after_1_year, prefer]
         double_benefit:
           description: >-
             Whether this benefit is paid IN ADDITION to the parent cover rather than reducing it.
@@ -200,10 +211,11 @@ TraumaCover:
         sum_insured:
           $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
         life_buyback:
-          description: Reinstatement of the parent cover after this benefit is paid. Extensions only.
-          allOf:
-            - $ref: '#/LifeBuyback'
-            - enum: [exclude, prefer_exclude, after_1_year, after_3_years, prefer]
+          description: >-
+            Reinstatement of the parent cover after this benefit is paid. Extensions only.
+            A subset of `LifeBuyback` — `immediate` is not offered on a trauma extension.
+          type: string
+          enum: [exclude, prefer_exclude, after_1_year, after_3_years, prefer]
         double_benefit:
           description: Paid in addition to the parent cover rather than reducing it. Extensions only.
           $ref: '#/PreferenceQuad'
@@ -279,15 +291,15 @@ BusinessExpensesCover:
           $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
         waiting_period:
           description: >-
-            Narrower than the income-protection set: the long deferral periods are not offered
-            on this benefit.
-          allOf:
-            - $ref: '#/WaitingPeriod'
-            - enum: ['14d', '30d', '60d', '90d']
+            A subset of `WaitingPeriod` — the long deferral periods are not offered on this
+            benefit.
+          type: string
+          enum: ['14d', '30d', '60d', '90d']
         benefit_period:
-          allOf:
-            - $ref: '#/BenefitPeriod'
-            - enum: ['1y', '2y']
+          description: >-
+            A subset of `BenefitPeriod` — cover for business overheads is short by nature.
+          type: string
+          enum: ['1y', '2y']
 
 NeedleStickCover:
   title: NeedleStickCover

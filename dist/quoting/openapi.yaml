@@ -807,23 +807,6 @@ components:
         - home_duties
         - adl
         - prefer
-    LifeBuyback:
-      title: LifeBuyback
-      description: |-
-        Whether, after an extension benefit is paid and the life cover is correspondingly reduced, the life cover can be reinstated — and how soon.
-          - `exclude` / `prefer_exclude`  leave it out
-          - `immediate`                   reinstated as soon as the extension is paid
-          - `after_1_year` / `after_3_years`  reinstated after that waiting period
-          - `prefer`                      let the insurer apply the best option the product offers
-        Available values differ by which extension the buy-back attaches to; each cover schema below narrows the set accordingly.
-      type: string
-      enum:
-        - exclude
-        - prefer_exclude
-        - immediate
-        - after_1_year
-        - after_3_years
-        - prefer
     PreferenceQuad:
       title: PreferenceQuad
       description: 'A four-state answer to an optional benefit, for the cases where an adviser wants to express a leaning rather than a decision. `prefer_exclude` and `prefer_include` are DEFERRED: the insurer settles them and MUST report what it applied in `resolved_options`.'
@@ -852,15 +835,14 @@ components:
             tpd_definition:
               $ref: '#/components/schemas/TpdDefinition'
             life_buyback:
-              description: Reinstatement of the parent cover after this benefit is paid. Extensions only.
-              allOf:
-                - $ref: '#/components/schemas/LifeBuyback'
-                - enum:
-                    - exclude
-                    - prefer_exclude
-                    - immediate
-                    - after_1_year
-                    - prefer
+              description: Reinstatement of the parent cover after this benefit is paid. Extensions only. A subset of `LifeBuyback` — `after_3_years` is not offered on a TPD extension.
+              type: string
+              enum:
+                - exclude
+                - prefer_exclude
+                - immediate
+                - after_1_year
+                - prefer
             double_benefit:
               description: Whether this benefit is paid IN ADDITION to the parent cover rather than reducing it. Extensions only; materially increases the premium.
               $ref: '#/components/schemas/PreferenceQuad'
@@ -889,15 +871,14 @@ components:
             sum_insured:
               $ref: '#/components/schemas/NonNegativeMoney'
             life_buyback:
-              description: Reinstatement of the parent cover after this benefit is paid. Extensions only.
-              allOf:
-                - $ref: '#/components/schemas/LifeBuyback'
-                - enum:
-                    - exclude
-                    - prefer_exclude
-                    - after_1_year
-                    - after_3_years
-                    - prefer
+              description: Reinstatement of the parent cover after this benefit is paid. Extensions only. A subset of `LifeBuyback` — `immediate` is not offered on a trauma extension.
+              type: string
+              enum:
+                - exclude
+                - prefer_exclude
+                - after_1_year
+                - after_3_years
+                - prefer
             double_benefit:
               description: Paid in addition to the parent cover rather than reducing it. Extensions only.
               $ref: '#/components/schemas/PreferenceQuad'
@@ -996,20 +977,19 @@ components:
             monthly_benefit:
               $ref: '#/components/schemas/NonNegativeMoney'
             waiting_period:
-              description: 'Narrower than the income-protection set: the long deferral periods are not offered on this benefit.'
-              allOf:
-                - $ref: '#/components/schemas/WaitingPeriod'
-                - enum:
-                    - 14d
-                    - 30d
-                    - 60d
-                    - 90d
+              description: A subset of `WaitingPeriod` — the long deferral periods are not offered on this benefit.
+              type: string
+              enum:
+                - 14d
+                - 30d
+                - 60d
+                - 90d
             benefit_period:
-              allOf:
-                - $ref: '#/components/schemas/BenefitPeriod'
-                - enum:
-                    - 1y
-                    - 2y
+              description: A subset of `BenefitPeriod` — cover for business overheads is short by nature.
+              type: string
+              enum:
+                - 1y
+                - 2y
     NeedleStickCover:
       title: NeedleStickCover
       description: A lump sum on occupationally acquired blood-borne infection. Offered to healthcare occupations only, so an insurer will commonly answer this with an unavailable line for anyone else.

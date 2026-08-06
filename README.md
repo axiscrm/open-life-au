@@ -131,6 +131,31 @@ curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/quoting
 Prerequisites are per language: Node 20+ for TypeScript, Python 3.12+ for Python, and a JDK 17+ for
 Java (the Java generator itself is distributed via npm, so you need Node for that too).
 
+### One file or many?
+
+The generators differ, and it is a property of the tool rather than of this contract:
+
+| | Output | Doc comments |
+|---|---|---|
+| `openapi-typescript` | **one** `.d.ts` | JSDoc `@description` on every schema and property |
+| `datamodel-code-generator` | **one** `.py` module | class and enum docstrings, with `--use-schema-description --use-field-description` |
+| `openapi-python-client` | **package**, one module per model | class docstrings and attribute docs |
+| `openapi-generator` (Java) | **package**, one class per model | full Javadoc, including the `@Parameter` descriptions |
+
+Single-file output is not a limitation you have to accept. For TypeScript, `openapi-typescript` has
+no multi-file mode by design — it emits types with no runtime, so there is nothing to split. If you
+want a file-per-model tree with a client, use [`@hey-api/openapi-ts`](https://heyapi.dev/) or
+`openapi-generator -g typescript-fetch`. For Python, `datamodel-code-generator` mirrors its input, so
+a single input document gives a single module regardless of whether you pass a directory as
+`--output`; use `openapi-python-client` if you want a package.
+
+**Every generator here emits the documentation.** Descriptions in this contract are not decoration —
+they carry the normative rules that JSON Schema cannot express, such as an explicit `0` in a loadings
+map meaning something different from an omitted key. So the flags that turn documentation on are
+included in each command below, and for Python they are easy to miss: without
+`--use-schema-description`, descriptions end up only in `Field(...)` metadata and your classes have
+no docstrings at all.
+
 ### TypeScript
 
 ```bash
@@ -164,6 +189,11 @@ prefers its `apis` block over the path you passed.
 
 ### Python
 
+Two options, both tested against every change.
+
+**Pydantic models, single module** — best if you already use Pydantic and want to bring your own
+HTTP layer:
+
 ```bash
 uvx --from datamodel-code-generator datamodel-codegen \
   --input openapi.yaml --input-file-type openapi \
@@ -171,24 +201,35 @@ uvx --from datamodel-code-generator datamodel-codegen \
   --output-model-type pydantic_v2.BaseModel \
   --use-standard-collections --use-union-operator \
   --field-constraints --use-annotated \
+  --use-schema-description --use-field-description \
   --target-python-version 3.12
 ```
 
-(`pipx run` or a plain `pip install datamodel-code-generator` work equally well.)
+> `--use-schema-description --use-field-description` are what put the contract's documentation into
+> class and enum docstrings. Without them the descriptions survive only inside `Field(...)` metadata
+> and your models read as bare type declarations.
 
-You get Pydantic v2 models. `CoverRequest` comes out as a proper discriminated union
-(`Field(discriminator='cover_type')`), so validation rejects an option that belongs to another
-cover, and money round-trips as an exact string — `"1000000.00"` in, `"1000000.00"` out, never a
-float.
+`CoverRequest` comes out as a proper discriminated union (`Field(discriminator='cover_type')`), so
+validation rejects an option belonging to another cover, and money round-trips as an exact string —
+`"1000000.00"` in, `"1000000.00"` out, never a float.
 
 ```python
 from openlife_quoting.models import QuoteRequest
 request = QuoteRequest.model_validate(payload)     # raises on an invalid cover
 ```
 
-These are models, not a client. Add ~200 lines of `httpx` over the top with your OAuth2 token cache,
-or use [`openapi-python-client`](https://github.com/openapi-generators/openapi-python-client) if you
-want a full generated client — note it emits `attrs` models rather than Pydantic.
+(`pipx run` or a plain `pip install datamodel-code-generator` work equally well.)
+
+**Full client package, one module per model** — if you would rather not write the HTTP layer:
+
+```bash
+uvx --from openapi-python-client openapi-python-client generate --path openapi.yaml
+```
+
+This emits `attrs` models rather than Pydantic, plus a configured `httpx` client and one module per
+model. Worth knowing about its failure mode: on a construct it does not support it prints a short
+notice, **drops the affected schema, and still exits successfully**. Check that all seven covers are
+present in `models/` before trusting the output — `ls models/*_cover.py` should return seven files.
 
 ### Java
 
@@ -235,12 +276,23 @@ prioritise it.
 
 Tell us — that is a defect in the contract, not in your setup.
 
-This has already happened once. The cover discriminant was originally pinned with `const`, which is
-correct JSON Schema and reads better; openapi-generator resolves a discriminator through the
-variant's *allowable values*, which only `enum` populates, so it died with a NullPointerException
-and emitted **nothing at all** — no models, no interfaces. Every Java implementer would have been
-blocked, and neither lint nor schema validation noticed. Hence the CI matrix that now runs all three
-generators on every change.
+This has already happened twice, and both were found by running the generators rather than by
+reading the schema.
+
+The cover discriminant was originally pinned with `const`, which is correct JSON Schema and reads
+better. openapi-generator resolves a discriminator through the variant's *allowable values*, which
+only `enum` populates, so it died with a NullPointerException and emitted **nothing at all** — no
+models, no interfaces. Every Java implementer would have been blocked at the first step.
+
+Worse, covers that offered a subset of a shared enum were written as
+`allOf: [$ref to the full enum, {enum: [subset]}]`. openapi-python-client answers that with "Cannot
+take allOf a non-object", **silently drops the entire cover**, and exits successfully. It took TPD,
+trauma and business expenses with it while writing 79 files that looked perfectly healthy. A
+generator that fails loudly is a nuisance; one that quietly hands you a client missing three of
+seven covers is a defect nobody notices until an insurer cannot quote.
+
+So the CI matrix does not merely check that generation succeeded — it asserts all seven covers
+survived into the output of every generator. Counting files would have passed that second bug.
 
 ## Contributing
 

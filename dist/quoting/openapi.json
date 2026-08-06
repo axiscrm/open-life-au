@@ -986,19 +986,6 @@
           "prefer"
         ]
       },
-      "LifeBuyback": {
-        "title": "LifeBuyback",
-        "description": "Whether, after an extension benefit is paid and the life cover is correspondingly reduced, the life cover can be reinstated — and how soon.\n  - `exclude` / `prefer_exclude`  leave it out\n  - `immediate`                   reinstated as soon as the extension is paid\n  - `after_1_year` / `after_3_years`  reinstated after that waiting period\n  - `prefer`                      let the insurer apply the best option the product offers\nAvailable values differ by which extension the buy-back attaches to; each cover schema below narrows the set accordingly.",
-        "type": "string",
-        "enum": [
-          "exclude",
-          "prefer_exclude",
-          "immediate",
-          "after_1_year",
-          "after_3_years",
-          "prefer"
-        ]
-      },
       "PreferenceQuad": {
         "title": "PreferenceQuad",
         "description": "A four-state answer to an optional benefit, for the cases where an adviser wants to express a leaning rather than a decision. `prefer_exclude` and `prefer_include` are DEFERRED: the insurer settles them and MUST report what it applied in `resolved_options`.",
@@ -1037,20 +1024,14 @@
                 "$ref": "#/components/schemas/TpdDefinition"
               },
               "life_buyback": {
-                "description": "Reinstatement of the parent cover after this benefit is paid. Extensions only.",
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/LifeBuyback"
-                  },
-                  {
-                    "enum": [
-                      "exclude",
-                      "prefer_exclude",
-                      "immediate",
-                      "after_1_year",
-                      "prefer"
-                    ]
-                  }
+                "description": "Reinstatement of the parent cover after this benefit is paid. Extensions only. A subset of `LifeBuyback` — `after_3_years` is not offered on a TPD extension.",
+                "type": "string",
+                "enum": [
+                  "exclude",
+                  "prefer_exclude",
+                  "immediate",
+                  "after_1_year",
+                  "prefer"
                 ]
               },
               "double_benefit": {
@@ -1095,20 +1076,14 @@
                 "$ref": "#/components/schemas/NonNegativeMoney"
               },
               "life_buyback": {
-                "description": "Reinstatement of the parent cover after this benefit is paid. Extensions only.",
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/LifeBuyback"
-                  },
-                  {
-                    "enum": [
-                      "exclude",
-                      "prefer_exclude",
-                      "after_1_year",
-                      "after_3_years",
-                      "prefer"
-                    ]
-                  }
+                "description": "Reinstatement of the parent cover after this benefit is paid. Extensions only. A subset of `LifeBuyback` — `immediate` is not offered on a trauma extension.",
+                "type": "string",
+                "enum": [
+                  "exclude",
+                  "prefer_exclude",
+                  "after_1_year",
+                  "after_3_years",
+                  "prefer"
                 ]
               },
               "double_benefit": {
@@ -1248,32 +1223,21 @@
                 "$ref": "#/components/schemas/NonNegativeMoney"
               },
               "waiting_period": {
-                "description": "Narrower than the income-protection set: the long deferral periods are not offered on this benefit.",
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/WaitingPeriod"
-                  },
-                  {
-                    "enum": [
-                      "14d",
-                      "30d",
-                      "60d",
-                      "90d"
-                    ]
-                  }
+                "description": "A subset of `WaitingPeriod` — the long deferral periods are not offered on this benefit.",
+                "type": "string",
+                "enum": [
+                  "14d",
+                  "30d",
+                  "60d",
+                  "90d"
                 ]
               },
               "benefit_period": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/BenefitPeriod"
-                  },
-                  {
-                    "enum": [
-                      "1y",
-                      "2y"
-                    ]
-                  }
+                "description": "A subset of `BenefitPeriod` — cover for business overheads is short by nature.",
+                "type": "string",
+                "enum": [
+                  "1y",
+                  "2y"
                 ]
               }
             }
