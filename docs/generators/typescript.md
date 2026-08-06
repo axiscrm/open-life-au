@@ -270,6 +270,12 @@ You have TypeScript 7 installed. `@hey-api/openapi-ts` drives the TypeScript com
 native port does not expose the same surface. Install `typescript@5` and pin it — a floating
 `typescript@latest` will reintroduce this the day 7 becomes the default.
 
+**`can't resolve reference … .yaml#/Something`** during generation
+
+You pointed it at a split source rather than a bundled file, or it picked up a `redocly.yaml` that
+did. Generate from `dist/quoting/openapi.yaml` or `dist/policy/openapi.yaml` — those have every
+`$ref` already resolved.
+
 **`Cannot find module './sdk.gen'`** (hey-api)
 
 Set `moduleResolution` to `bundler`. The generated imports are extensionless, which a strict

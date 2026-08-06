@@ -83,9 +83,20 @@ case "$LANG_TARGET" in
     # carrying a `default` as REQUIRED, so optional request fields become mandatory in the generated
     # type and a minimal valid request fails to compile.
     #
-    # No path argument: openapi-typescript reads redocly.yaml's `apis` block and the
-    # `x-openapi-ts.output` key declared per contract there, emitting both in one run.
-    npx --yes openapi-typescript@7 --default-non-nullable=false
+    # Generate from `dist/`, with a minimal Redocly config that declares no `apis` block.
+    #
+    # Both details matter. Without `--redocly`, openapi-typescript picks up the repo's redocly.yaml,
+    # prefers its `apis` roots over the path given here, and validates examples across the SPLIT
+    # source — where it fails to resolve relative `$ref`s and aborts with no output. And `dist/` rather
+    # than source because the bundle has no cross-file refs left to trip over.
+    mkdir -p "$OUT/ts"
+    for contract in quoting policy; do
+      out="schema"; [ "$contract" = "policy" ] && out="policy"
+      npx --yes openapi-typescript@7 "$ROOT/dist/$contract/openapi.yaml" \
+        --redocly "$ROOT/redocly-codegen.yaml" \
+        --default-non-nullable=false \
+        -o "$OUT/ts/$out.d.ts"
+    done
     assert_files "$OUT/ts" "*.d.ts" 2 "typescript types (openapi-typescript, both contracts)"
     assert_symbols "typescript quoting" "$OUT/ts/schema.d.ts" $QUOTING_SYMBOLS
     assert_symbols "typescript policy" "$OUT/ts/policy.d.ts" $POLICY_SYMBOLS

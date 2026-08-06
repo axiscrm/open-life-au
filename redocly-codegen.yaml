@@ -1,0 +1,12 @@
+# Minimal Redocly config for openapi-typescript ONLY.
+#
+# openapi-typescript reads redocly.yaml too, and when it finds an `apis` block it uses that in
+# preference to the path on the command line — which pointed it at the SPLIT SOURCE. It then runs its
+# own example validation across those files and fails resolving relative `$ref`s
+# ("can't resolve reference cover-vocabulary.yaml#/Gender"), aborting with no output. It surfaced only
+# in CI, because a locally cached older patch release did not run that validation.
+#
+# This config deliberately declares no `apis`, so the CLI path argument wins and we can point it at
+# `dist/`, where every `$ref` is already resolved and there is nothing cross-file left to fail on.
+extends:
+  - minimal
