@@ -277,3 +277,7 @@ searchable against the documentation and the examples.
 
 **Types resolve to `unknown`** — check you generated from `dist/quoting/openapi.yaml` and not from
 `domains/quoting/openapi.yaml`. The latter is the split source and needs its `$ref`s bundled first.
+
+**Anything else unexplained** — check you are on the current contract before digging further; see
+[Am I on the current contract?](README.md#am-i-on-the-current-contract). A stale local copy is the
+commonest cause of a generator failure that looks inexplicable.

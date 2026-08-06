@@ -173,8 +173,9 @@ one shared token is the difference between an investigation and a guess.
 **`NullPointerException: Cannot invoke "java.util.Map.get(Object)" because "var.allowableValues" is
 null`**
 
-You are generating from an older copy of the contract. Fetch the current
-`dist/quoting/openapi.yaml`.
+You are generating from a copy of the contract taken before this was fixed. Confirm with
+[Am I on the current contract?](README.md#am-i-on-the-current-contract) and re-download — note that
+`info.version` cannot tell you, since it reads `0.1.0` in both.
 
 For the record, since it is a useful thing to recognise in your own specs: the cover discriminant
 was originally pinned with `const`, which is correct JSON Schema. But openapi-generator resolves a

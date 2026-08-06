@@ -175,8 +175,24 @@ honour appears there as `unsupported_ignored`, and the premium does not include 
 
 ## Troubleshooting
 
-**`Cannot take allOf a non-object`** — you are generating from an older copy of the contract. Fetch
-the current `dist/quoting/openapi.yaml`; the construct that caused it was removed.
+**`Cannot take allOf a non-object`, and TpdCover / TraumaCover / BusinessExpensesCover removed**
+
+You are generating from a copy of the contract taken before this was fixed. Confirm with
+[Am I on the current contract?](README.md#am-i-on-the-current-contract) and re-download.
+
+Note that `info.version` will not help you here — it reads `0.1.0` in both the broken and the fixed
+file, because the contract has not had its first release yet. A quick local tell: the fixed file
+contains the phrase `A subset of`, which the old one does not.
+
+```bash
+grep -q "A subset of" openapi.yaml && echo "current" || echo "STALE — re-download"
+```
+
+The cause, for the record: those three covers narrowed a shared enum with
+`allOf: [$ref to the full enum, {enum: [subset]}]`. This tool rejects that construct, drops the whole
+schema, and **still exits successfully** — so a stale copy gives you a client silently missing three
+of the seven covers. The contract now spells the subsets out inline, and CI asserts all seven
+survive every generator.
 
 **Enum members named `field_14d`** — expected. `datamodel-code-generator` prefixes identifiers that
 cannot start with a digit. The wire values are unchanged.

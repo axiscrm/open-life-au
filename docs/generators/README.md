@@ -55,6 +55,25 @@ The flags that turn documentation on are in each page's command. In Python they 
 without them, descriptions end up only in `Field(...)` metadata and your classes have no docstrings
 at all.
 
+## Am I on the current contract?
+
+Check this **first** whenever a generator complains. Most reported failures so far have been a copy
+of `openapi.yaml` taken before a fix, not a live problem — the file gets downloaded once, copied into
+a project, and then outlives the version it came from.
+
+```bash
+curl -s https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/quoting/openapi.yaml \
+  | diff - openapi.yaml && echo "current" || echo "STALE — re-download"
+```
+
+A caveat worth knowing while the contract is pre-1.0: `info.version` reads `0.1.0` and will not move
+until the first release, so **the version field cannot tell you whether your copy is current**. The
+`diff` above is the only reliable answer today. Once releases begin, `info.version` tracks the
+`quoting-v*` tag and comparing it is enough.
+
+If you have pulled a copy into your own repository, pin the refresh rather than the file: fetch it in
+your build, or record the commit you took it from.
+
 ## If a generator misbehaves
 
 Tell us. That is a defect in the contract, not in your setup — and we would rather hear it from you
