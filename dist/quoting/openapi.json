@@ -1836,7 +1836,9 @@
         },
         "then": {
           "properties": {
-            "premiums": false,
+            "premiums": {
+              "not": {}
+            },
             "cover_lines": {
               "maxItems": 0
             },
@@ -1854,8 +1856,8 @@
             "rate_table_version"
           ],
           "properties": {
-            "premiums": true,
-            "rate_table_version": true,
+            "premiums": {},
+            "rate_table_version": {},
             "errors": {
               "maxItems": 0
             }
@@ -2435,11 +2437,6 @@
         "properties": {
           "next_cursor": {
             "$ref": "#/components/schemas/Cursor"
-          },
-          "total_count": {
-            "description": "Total matching items, where the implementation can supply it cheaply. OPTIONAL and advisory: it may be an estimate and may change between pages, so it is for display only and MUST NOT be used to drive a pagination loop.",
-            "type": "integer",
-            "minimum": 0
           }
         }
       },

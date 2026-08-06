@@ -1171,11 +1171,6 @@
         "properties": {
           "next_cursor": {
             "$ref": "#/components/schemas/Cursor"
-          },
-          "total_count": {
-            "description": "Total matching items, where the implementation can supply it cheaply. OPTIONAL and advisory: it may be an estimate and may change between pages, so it is for display only and MUST NOT be used to drive a pagination loop.",
-            "type": "integer",
-            "minimum": 0
           }
         }
       },
@@ -1251,7 +1246,7 @@
             "format": "date-time"
           },
           "total_count": {
-            "description": "Total policies in the snapshot, counted as DISTINCT `policy_id` values across all pages.\nMUST be identical on every page bearing the same `snapshot_id`. A consumer MUST fail the run if it varies mid-walk, because a changing total means the underlying view moved and the pages already fetched no longer describe one book.\nCounted distinct, and compared distinct, deliberately: a cursor that emits one policy twice and skips another leaves the assembled COUNT correct while a live policy is missing. Compare `new Set(policies.map(p => p.policy_id)).size` against this, never `policies.length`.\nNote this is NOT `page.total_count` from the shared pagination schema, which is explicitly advisory and may drift. Use this one.",
+            "description": "Total policies in the snapshot, counted as DISTINCT `policy_id` values across all pages.\nMUST be identical on every page bearing the same `snapshot_id`. A consumer MUST fail the run if it varies mid-walk, because a changing total means the underlying view moved and the pages already fetched no longer describe one book.\nCounted distinct, and compared distinct, deliberately: a cursor that emits one policy twice and skips another leaves the assembled COUNT correct while a live policy is missing. Compare `new Set(policies.map(p => p.policy_id)).size` against this, never `policies.length`.",
             "type": "integer",
             "minimum": 0
           },
@@ -1262,17 +1257,8 @@
             }
           },
           "page": {
-            "description": "Continuation state. `total_count` is forbidden here: the shared pagination schema documents its own as advisory and permitted to drift, and a consumer that built its safety check on that field would have based reconciliation on an estimate. There is exactly one authoritative count, at the top level of this object.",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/PageInfo"
-              },
-              {
-                "properties": {
-                  "total_count": false
-                }
-              }
-            ]
+            "description": "Continuation state. The shared pagination schema deliberately carries no count of its own, so there is exactly one authoritative total for a snapshot — `total_count` above.",
+            "$ref": "#/components/schemas/PageInfo"
           },
           "complete": {
             "description": "`true` on the final page of the walk, and only there. This is the flag a consumer's reconciliation gates on.\nA server MUST NOT send `complete: true` together with `page.next_cursor` — the two contradict each other, and a consumer gating on `complete` would stop early and treat the unfetched remainder as absent. A consumer MUST fail the run if it sees both.\nRequired on every page precisely so that \"the insurer never sends it\" cannot deadlock a consumer that correctly refuses to reconcile without it.",

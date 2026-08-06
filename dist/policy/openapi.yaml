@@ -943,10 +943,6 @@ components:
       properties:
         next_cursor:
           $ref: '#/components/schemas/Cursor'
-        total_count:
-          description: 'Total matching items, where the implementation can supply it cheaply. OPTIONAL and advisory: it may be an estimate and may change between pages, so it is for display only and MUST NOT be used to drive a pagination loop.'
-          type: integer
-          minimum: 0
     SnapshotCoverage:
       title: SnapshotCoverage
       description: What this snapshot claims to contain. Absence means "not in force", but only within the declared scope — a consumer that asked for one adviser code must not lapse policies belonging to another.
@@ -1015,7 +1011,6 @@ components:
             Total policies in the snapshot, counted as DISTINCT `policy_id` values across all pages.
             MUST be identical on every page bearing the same `snapshot_id`. A consumer MUST fail the run if it varies mid-walk, because a changing total means the underlying view moved and the pages already fetched no longer describe one book.
             Counted distinct, and compared distinct, deliberately: a cursor that emits one policy twice and skips another leaves the assembled COUNT correct while a live policy is missing. Compare `new Set(policies.map(p => p.policy_id)).size` against this, never `policies.length`.
-            Note this is NOT `page.total_count` from the shared pagination schema, which is explicitly advisory and may drift. Use this one.
           type: integer
           minimum: 0
         policies:
@@ -1023,11 +1018,8 @@ components:
           items:
             $ref: '#/components/schemas/Policy'
         page:
-          description: 'Continuation state. `total_count` is forbidden here: the shared pagination schema documents its own as advisory and permitted to drift, and a consumer that built its safety check on that field would have based reconciliation on an estimate. There is exactly one authoritative count, at the top level of this object.'
-          allOf:
-            - $ref: '#/components/schemas/PageInfo'
-            - properties:
-                total_count: false
+          description: Continuation state. The shared pagination schema deliberately carries no count of its own, so there is exactly one authoritative total for a snapshot — `total_count` above.
+          $ref: '#/components/schemas/PageInfo'
         complete:
           description: |-
             `true` on the final page of the walk, and only there. This is the flag a consumer's reconciliation gates on.

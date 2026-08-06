@@ -28,10 +28,15 @@ PageInfo:
   properties:
     next_cursor:
       $ref: '#/Cursor'
-    total_count:
-      description: >-
-        Total matching items, where the implementation can supply it cheaply. OPTIONAL and
-        advisory: it may be an estimate and may change between pages, so it is for display
-        only and MUST NOT be used to drive a pagination loop.
-      type: integer
-      minimum: 0
+
+# Deliberately NO total_count here.
+#
+# An earlier version carried one, documented as advisory and free to drift between pages. That put two
+# count fields with opposite guarantees inside one response object: the policy snapshot's own
+# `total_count`, which a consumer's reconciliation gate depends on being exact, and this one, which was
+# explicitly not to be trusted. An insurer whose generic pagination layer populated only the advisory
+# field would leave a consumer's safety check reading `undefined` and silently skipping — or, worse, a
+# consumer would build the check on the field permitted to drift.
+#
+# A collection that needs an authoritative total declares it itself, at the top level, with its own
+# guarantees stated. See `PolicyPage.total_count`.

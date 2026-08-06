@@ -82,7 +82,12 @@ QuoteLine:
         const: false
   then:
     properties:
-      premiums: false
+      # `not: {}` forbids the property. Written this way rather than the equivalent `premiums: false`
+      # because openapi-python-client's schema parser rejects a boolean schema outright — "Input should
+      # be a valid dictionary or instance of Schema" — and fails the whole document, taking the client
+      # with it. Semantically identical, universally parseable.
+      premiums:
+        not: {}
       cover_lines:
         maxItems: 0
       errors:
@@ -95,8 +100,8 @@ QuoteLine:
     # `required` here reads to it as naming undefined members.
     required: [premiums, rate_table_version]
     properties:
-      premiums: true
-      rate_table_version: true
+      premiums: {}
+      rate_table_version: {}
       errors:
         maxItems: 0
   properties:

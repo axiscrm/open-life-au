@@ -79,8 +79,6 @@ PolicyPage:
         and skips another leaves the assembled COUNT correct while a live policy is missing. Compare
         `new Set(policies.map(p => p.policy_id)).size` against this, never `policies.length`.
 
-        Note this is NOT `page.total_count` from the shared pagination schema, which is explicitly
-        advisory and may drift. Use this one.
       type: integer
       minimum: 0
     policies:
@@ -89,14 +87,9 @@ PolicyPage:
         $ref: 'policy.yaml#/Policy'
     page:
       description: >-
-        Continuation state. `total_count` is forbidden here: the shared pagination schema documents
-        its own as advisory and permitted to drift, and a consumer that built its safety check on
-        that field would have based reconciliation on an estimate. There is exactly one authoritative
-        count, at the top level of this object.
-      allOf:
-        - $ref: '../../../../core/schemas/pagination.yaml#/PageInfo'
-        - properties:
-            total_count: false
+        Continuation state. The shared pagination schema deliberately carries no count of its own, so
+        there is exactly one authoritative total for a snapshot — `total_count` above.
+      $ref: '../../../../core/schemas/pagination.yaml#/PageInfo'
     complete:
       description: >-
         `true` on the final page of the walk, and only there. This is the flag a consumer's
