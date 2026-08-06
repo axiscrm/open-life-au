@@ -1,0 +1,349 @@
+# Open Life Data Standards (AU) — Quoting — the covers an adviser asks to be priced.
+#
+# This file is the point of the standard. Everywhere else, a "quote request" tends to carry a
+# loose bag of options whose real vocabulary lives only in a UI and in one integration adapter,
+# so nothing can reject a typo and a misspelled option silently prices as a default. Here every
+# cover is a closed, named schema, discriminated on `cover_type`, and an income-protection
+# waiting period sent on a life cover is a 422 rather than a surprise.
+#
+# The structure follows the order an adviser fills in a quote: one section per benefit, each
+# switched on independently, with the policy-wide answers (structure, ownership, waiver,
+# frequency) held once at the top of the request and inherited here.
+#
+# RIDERS ARE FLAT, NOT NESTED. A cover held as an extension of another names its parent with
+# `linked_to`. Nesting would force every implementer to build parents before children, make the
+# request asymmetric with the flat response, and break down anyway where an extension hangs off
+# an extension.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+# ---------------------------------------------------------------------------------------------
+# Shared option vocabulary
+# ---------------------------------------------------------------------------------------------
+
+PreferenceQuad:
+  title: PreferenceQuad
+  description: >-
+    A four-state answer to an optional benefit, for the cases where an adviser wants to express
+    a leaning rather than a decision. `prefer_exclude` and `prefer_include` are DEFERRED: the
+    insurer settles them and MUST report what it applied in `resolved_options`.
+  type: string
+  enum: [exclude, prefer_exclude, prefer_include, include]
+
+WaitingPeriod:
+  title: WaitingPeriod
+  description: >-
+    How long the insured must be disabled before a monthly benefit starts to accrue. Shorter
+    periods cost materially more. Not every product offers every value; an insurer declares the
+    values it supports in its capability document and rejects the rest with 422
+    `unsupported-value`.
+  type: string
+  enum: ['14d', '30d', '60d', '90d', '180d', '1y', '2y']
+
+BenefitPeriod:
+  title: BenefitPeriod
+  description: >-
+    How long a monthly benefit continues to be paid once a claim is admitted. The `age_*` values
+    pay to that age, which for a younger insured is far longer — and dearer — than any of the
+    fixed terms.
+  type: string
+  enum: ['1y', '2y', '5y', age_55, age_60, age_65, age_67, age_70]
+
+ReplacementRatio:
+  title: ReplacementRatio
+  description: >-
+    The proportion of pre-disability income the monthly benefit is intended to replace, used to
+    select between product variants that differ on this basis. `any` lets the insurer offer
+    whatever its product supports.
+  type: string
+  enum: [any, above_75, '70_to_75', '60_to_69', below_60]
+
+BenefitQuality:
+  title: BenefitQuality
+  description: >-
+    Which end of a product range to select from where an insurer offers several tiers of the
+    same benefit. This is a preference over the insurer's OWN range, not a cross-insurer
+    ranking, and it is resolved by the insurer.
+  type: string
+  enum: [lowest_cost, intermediate, most_comprehensive]
+
+LifeBuyback:
+  title: LifeBuyback
+  description: >-
+    Whether, after an extension benefit is paid and the life cover is correspondingly reduced,
+    the life cover can be reinstated — and how soon.
+      - `exclude` / `prefer_exclude`  leave it out
+      - `immediate`                   reinstated as soon as the extension is paid
+      - `after_1_year` / `after_3_years`  reinstated after that waiting period
+      - `prefer`                      let the insurer apply the best option the product offers
+    Available values differ by which extension the buy-back attaches to; each cover schema below
+    narrows the set accordingly.
+  type: string
+  enum: [exclude, prefer_exclude, immediate, after_1_year, after_3_years, prefer]
+
+LinkType:
+  title: LinkType
+  description: >-
+    How a cover relates to the cover named in `linked_to`. `extension` means the cover is held
+    as a rider on the parent and its benefit reduces the parent's when paid, which is what makes
+    it cheaper than the same cover held standalone.
+  type: string
+  enum: [extension]
+
+# ---------------------------------------------------------------------------------------------
+# The base every cover shares
+# ---------------------------------------------------------------------------------------------
+
+CoverBase:
+  title: CoverBase
+  description: >-
+    Fields common to every cover. `ownership`, `structure` and `premium_waiver` are OPTIONAL
+    here: omitted, they inherit the request's policy-level answer, which is how the quote screen
+    behaves. Supplying one overrides it for this cover only.
+  type: object
+  required: [cover_id, cover_type]
+  properties:
+    cover_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/CoverId'
+    cover_type:
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/CoverType'
+    ownership:
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Ownership'
+    structure:
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Structure'
+    premium_waiver:
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/PremiumWaiver'
+    pay_by_rollover:
+      description: >-
+        Whether the premium may be funded by a rollover from another superannuation fund.
+        Only meaningful where `ownership` resolves to a superannuation type; insurers MUST
+        report it as `unsupported_ignored` rather than silently dropping it otherwise.
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Preference'
+    linked_to:
+      description: >-
+        The `cover_id` of the parent cover, when this cover is held as an extension of it.
+        MUST reference a cover present in the same request, MUST NOT be self-referential, and
+        the graph of links MUST be acyclic. Absent means the cover is standalone.
+      $ref: '../../../../core/schemas/identifiers.yaml#/CoverId'
+    link_type:
+      $ref: '#/LinkType'
+  dependentRequired:
+    linked_to: [link_type]
+    link_type: [linked_to]
+
+# ---------------------------------------------------------------------------------------------
+# The covers
+# ---------------------------------------------------------------------------------------------
+
+LifeCover:
+  title: LifeCover
+  description: A death benefit paid as a lump sum. May be the parent of TPD and trauma extensions.
+  unevaluatedProperties: false
+  allOf:
+    - $ref: '#/CoverBase'
+    - type: object
+      required: [cover_type, sum_insured]
+      properties:
+        cover_type:
+          const: life
+        sum_insured:
+          $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+
+TpdCover:
+  title: TpdCover
+  description: >-
+    Total and permanent disability, as a lump sum. Held standalone, or as an extension of a life
+    or trauma cover via `linked_to`. `life_buyback` and `double_benefit` are only meaningful on
+    an extension, since both describe what happens to the parent cover when this benefit is paid.
+  unevaluatedProperties: false
+  allOf:
+    - $ref: '#/CoverBase'
+    - type: object
+      required: [cover_type, sum_insured]
+      properties:
+        cover_type:
+          const: tpd
+        sum_insured:
+          $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+        tpd_definition:
+          $ref: '../../../../core/schemas/cover-vocabulary.yaml#/TpdDefinition'
+        life_buyback:
+          description: Reinstatement of the parent cover after this benefit is paid. Extensions only.
+          allOf:
+            - $ref: '#/LifeBuyback'
+            - enum: [exclude, prefer_exclude, immediate, after_1_year, prefer]
+        double_benefit:
+          description: >-
+            Whether this benefit is paid IN ADDITION to the parent cover rather than reducing it.
+            Extensions only; materially increases the premium.
+          $ref: '#/PreferenceQuad'
+
+TraumaCover:
+  title: TraumaCover
+  description: >-
+    Critical illness cover, as a lump sum. Held standalone or as an extension of a life cover.
+  unevaluatedProperties: false
+  allOf:
+    - $ref: '#/CoverBase'
+    - type: object
+      required: [cover_type, sum_insured]
+      properties:
+        cover_type:
+          const: trauma
+        sum_insured:
+          $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+        life_buyback:
+          description: Reinstatement of the parent cover after this benefit is paid. Extensions only.
+          allOf:
+            - $ref: '#/LifeBuyback'
+            - enum: [exclude, prefer_exclude, after_1_year, after_3_years, prefer]
+        double_benefit:
+          description: Paid in addition to the parent cover rather than reducing it. Extensions only.
+          $ref: '#/PreferenceQuad'
+        reinstatement:
+          description: >-
+            Whether the trauma benefit itself can be reinstated after a claim, allowing a later
+            unrelated condition to be claimed again.
+          $ref: '#/PreferenceQuad'
+        child_care_benefit:
+          description: >-
+            An additional benefit payable on complications of pregnancy or childbirth, or on a
+            child's serious illness, depending on the product. Only offered where the insured's
+            gender makes the pregnancy component applicable, so insurers commonly report this as
+            `unsupported_ignored` otherwise.
+          $ref: '#/PreferenceQuad'
+        benefit_quality:
+          description: Which tier of the insurer's trauma range to select from.
+          $ref: '#/BenefitQuality'
+
+IncomeProtectionCover:
+  title: IncomeProtectionCover
+  description: >-
+    A monthly benefit while the insured is disabled and unable to earn. The benefit is capped as
+    a proportion of `annual_income`, so that field is required on the insured whenever this cover
+    is requested.
+  unevaluatedProperties: false
+  allOf:
+    - $ref: '#/CoverBase'
+    - type: object
+      required: [cover_type, monthly_benefit]
+      properties:
+        cover_type:
+          const: income_protection
+        monthly_benefit:
+          description: The monthly amount sought, before any cap the insurer applies.
+          $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+        waiting_period:
+          $ref: '#/WaitingPeriod'
+        benefit_period:
+          $ref: '#/BenefitPeriod'
+        replacement_ratio:
+          $ref: '#/ReplacementRatio'
+        benefit_quality:
+          $ref: '#/BenefitQuality'
+        indexed_claim_benefit:
+          description: Whether a benefit in payment is indexed against inflation.
+          $ref: '#/PreferenceQuad'
+        accident_benefit:
+          description: >-
+            Whether the benefit starts from the date of an accident rather than after the full
+            waiting period.
+          $ref: '#/PreferenceQuad'
+        superannuation_contribution:
+          description: >-
+            An additional monthly amount to cover superannuation contributions while on claim.
+            Absent means none.
+          $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+
+BusinessExpensesCover:
+  title: BusinessExpensesCover
+  description: >-
+    Reimbursement of fixed business overheads while the insured is disabled. Benefit periods are
+    short by nature — this covers the cost of keeping a practice open, not the loss of income.
+  unevaluatedProperties: false
+  allOf:
+    - $ref: '#/CoverBase'
+    - type: object
+      required: [cover_type, monthly_benefit]
+      properties:
+        cover_type:
+          const: business_expenses
+        monthly_benefit:
+          $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+        waiting_period:
+          description: >-
+            Narrower than the income-protection set: the long deferral periods are not offered
+            on this benefit.
+          allOf:
+            - $ref: '#/WaitingPeriod'
+            - enum: ['14d', '30d', '60d', '90d']
+        benefit_period:
+          allOf:
+            - $ref: '#/BenefitPeriod'
+            - enum: ['1y', '2y']
+
+NeedleStickCover:
+  title: NeedleStickCover
+  description: >-
+    A lump sum on occupationally acquired blood-borne infection. Offered to healthcare
+    occupations only, so an insurer will commonly answer this with an unavailable line for
+    anyone else.
+  unevaluatedProperties: false
+  allOf:
+    - $ref: '#/CoverBase'
+    - type: object
+      required: [cover_type, sum_insured]
+      properties:
+        cover_type:
+          const: needle_stick
+        sum_insured:
+          $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+
+ChildTraumaCover:
+  title: ChildTraumaCover
+  description: >-
+    Critical illness cover on named children. The amount is per child, so this cover carries no
+    cover-level sum insured — each child names their own.
+  unevaluatedProperties: false
+  allOf:
+    - $ref: '#/CoverBase'
+    - type: object
+      required: [cover_type, children]
+      properties:
+        cover_type:
+          const: child_trauma
+        children:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: '../../../../core/schemas/party.yaml#/InsuredChild'
+
+# ---------------------------------------------------------------------------------------------
+# The union
+# ---------------------------------------------------------------------------------------------
+
+CoverRequest:
+  title: CoverRequest
+  description: >-
+    One cover to be priced. Which fields are permitted is determined entirely by `cover_type`;
+    each variant is closed, so an option that belongs to another cover is a validation failure
+    rather than something an implementer has to remember to ignore.
+  oneOf:
+    - $ref: '#/LifeCover'
+    - $ref: '#/TpdCover'
+    - $ref: '#/TraumaCover'
+    - $ref: '#/IncomeProtectionCover'
+    - $ref: '#/BusinessExpensesCover'
+    - $ref: '#/NeedleStickCover'
+    - $ref: '#/ChildTraumaCover'
+  discriminator:
+    propertyName: cover_type
+    mapping:
+      life: '#/LifeCover'
+      tpd: '#/TpdCover'
+      trauma: '#/TraumaCover'
+      income_protection: '#/IncomeProtectionCover'
+      business_expenses: '#/BusinessExpensesCover'
+      needle_stick: '#/NeedleStickCover'
+      child_trauma: '#/ChildTraumaCover'

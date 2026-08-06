@@ -1,0 +1,106 @@
+name: 📖 Publish docs
+
+# The single owner of the GitHub Pages deployment. Pages has one deployment target, so if this
+# workflow and the release workflow both deployed it they would race and the published site would
+# alternate between the released contract and the tip of main depending on which finished last.
+#
+# Publishing from main rather than only from a release is a deliberate trade. It means the site is
+# always something we can send an insurer today, which matters far more at this stage than the site
+# only ever showing a taggable version. The page states which it is: `info.version` is kept in step
+# with the quoting-v* tag by release-please, and the banner below says whether this build is that
+# release or ahead of it.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - core/**
+      - domains/**
+      - taxonomy/**
+      - redocly.yaml
+      - package.json
+      - package-lock.json
+      - .github/workflows/docs-deploy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never cancel a Pages deploy in flight — a half-published site is worse than a stale one. Queue
+# instead, so the last commit to land is the one that ends up live.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: 📖 Build and publish
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Build reference docs
+        run: npm run docs
+
+      # Tell the reader whether they are looking at a released contract or work in progress. Without
+      # this, publishing from main would quietly present unreleased changes as though an insurer could
+      # rely on them — which is the one real cost of not publishing from releases only.
+      - name: Stamp the build
+        run: |
+          version=$(node -e "
+            const YAML=require('yaml'),fs=require('fs');
+            process.stdout.write(YAML.parse(fs.readFileSync('domains/quoting/openapi.yaml','utf8')).info.version);
+          ")
+          if git describe --tags --exact-match --match "quoting-v*" HEAD >/dev/null 2>&1; then
+            banner="Quoting contract <strong>v${version}</strong> — released"
+            colour="#0b7285"
+          else
+            sha=$(git rev-parse --short HEAD)
+            banner="Quoting contract <strong>v${version}</strong> — unreleased build (${sha}). May differ from the released contract."
+            colour="#a15c00"
+          fi
+          python3 - "$banner" "$colour" <<'PY'
+          import sys, pathlib
+          banner, colour = sys.argv[1], sys.argv[2]
+          p = pathlib.Path("site/quoting/index.html")
+          html = p.read_text()
+          bar = (
+              f'<div style="background:{colour};color:#fff;font:14px/1.5 system-ui,sans-serif;'
+              f'padding:8px 16px;text-align:center">{banner}</div>'
+          )
+          # Insert immediately after <body...> so it sits above the rendered reference.
+          i = html.find(">", html.find("<body")) + 1
+          p.write_text(html[:i] + bar + html[i:])
+          PY
+          grep -c "Quoting contract" site/quoting/index.html
+
+      # A bare /open-life-au/ should not 404. Send it at the only contract that exists so far.
+      - name: Root redirect
+        run: |
+          cat > site/index.html <<'HTML'
+          <!doctype html>
+          <meta charset="utf-8">
+          <title>Open Life Data Standards (AU)</title>
+          <meta http-equiv="refresh" content="0; url=./quoting/">
+          <link rel="canonical" href="./quoting/">
+          <p>Redirecting to the <a href="./quoting/">Open Life Quoting API (AU)</a> reference.</p>
+          HTML
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/
+      - id: deploy
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,37 @@
+{
+  "name": "@openlife-au/workspace",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Open Life Data Standards (AU) — vendor-neutral contracts for Australian life insurance",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/axiscrm/open-life-au.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module",
+  "scripts": {
+    "lint": "redocly lint domains/quoting/openapi.yaml",
+    "bundle": "npm run bundle:quoting",
+    "bundle:quoting": "redocly bundle domains/quoting/openapi.yaml -o dist/quoting/openapi.yaml && redocly bundle domains/quoting/openapi.yaml -o dist/quoting/openapi.json",
+    "docs": "redocly build-docs domains/quoting/openapi.yaml -o site/quoting/index.html",
+    "postman": "openapi2postmanv2 -s dist/quoting/openapi.yaml -o postman/quoting.postman_collection.json -p -O folderStrategy=Tags,requestParametersResolution=Example",
+    "mock": "prism mock dist/quoting/openapi.yaml --port 4010",
+    "proxy": "prism proxy dist/quoting/openapi.yaml",
+    "examples": "node scripts/validate-examples.mjs",
+    "audit": "node scripts/npm-audit-gate.mjs --level moderate",
+    "provenance": "node scripts/check-provenance.mjs",
+    "verify": "npm run lint && npm run bundle && npm run examples && npm run rejections && npm run provenance",
+    "rejections": "node scripts/check-rejections.mjs"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^2.6.0",
+    "@stoplight/prism-cli": "^5.14.2",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "openapi-to-postmanv2": "^6.3.2",
+    "yaml": "^2.8.1"
+  }
+}

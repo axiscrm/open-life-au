@@ -1,0 +1,39 @@
+name: 🔒 Daily Security Audit
+
+# Nightly npm audit over the toolchain. Ported from the pattern already in use in our CRM
+# monorepo, and it matters more here: the SDKs generated from this contract are things insurers
+# install, so an unreviewed advisory in our published toolchain becomes their exposure.
+#
+# The gate is scripts/npm-audit-gate.mjs rather than bare `npm audit`, because
+# `npm audit --audit-level` is all-or-nothing: a single advisory whose only fix is a breaking major
+# blocks every PR with no way to accept the risk explicitly. The gate honours
+# scripts/npm-audit-exceptions.json, where each accepted advisory carries a reason AND an expiry —
+# so an expired exception fails the build again and the risk is re-decided rather than rotting.
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+      - scripts/npm-audit-*
+      - .github/workflows/npm-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: 🔒 Toolchain dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Run npm audit gate
+        run: node scripts/npm-audit-gate.mjs --level moderate

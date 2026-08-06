@@ -1,0 +1,367 @@
+# Open Life Data Standards (AU) — Quoting — the response.
+#
+# Three rules here carry more weight than anything else in the standard, because each one guards
+# against a failure that is SILENT — it produces a plausible number rather than an error:
+#
+#   1. All six frequencies are returned on every priced line. A monthly premium is not the annual
+#      premium over twelve; insurers apply a frequency loading. Anyone who divides will understate
+#      the cost, and nothing in the response will look wrong.
+#   2. A line that could not be assembled is flagged, never priced. An insurer that can meet some
+#      of the requested covers but not all of them must say so, because a partial policy shown at
+#      its lower premium reads as a better offer than a complete one.
+#   3. Every deferred choice is reported back. An option the insurer could not honour must appear
+#      in `resolved_options` as `unsupported_ignored`, or a quote that quietly dropped a benefit
+#      is indistinguishable from one that included it.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+QuoteResponse:
+  title: QuoteResponse
+  description: >-
+    The result of a pricing request: every line the insurer can offer for the covers requested,
+    plus the lines it had to decline. Lines are a FLAT array, never a map keyed by brand or
+    product — one brand routinely produces several lines once campaigns are in play.
+  type: object
+  required: [quote_id, quoted_at, lines]
+  additionalProperties: false
+  properties:
+    quote_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/QuoteId'
+    quoted_at:
+      description: When the quote was priced. RFC 3339 with an explicit offset.
+      type: string
+      format: date-time
+    valid_until:
+      description: >-
+        When these premiums cease to be reliable. Advisory but strongly RECOMMENDED: without it a
+        consumer cannot tell a stale saved quote from a current one.
+      type: string
+      format: date-time
+    client_reference:
+      description: Echoed verbatim from the request, so the response can be reconciled.
+      $ref: '../../../../core/schemas/identifiers.yaml#/ClientReference'
+    lines:
+      description: >-
+        Every line the insurer produced, priced and unpriced alike. MAY be empty, which means the
+        insurer offers nothing at all for this insured — a legitimate answer, not an error.
+      type: array
+      items:
+        $ref: '#/QuoteLine'
+    warnings:
+      description: >-
+        Adviser-facing notes that apply to the whole quote rather than one line. For information
+        only: a warning MUST NOT be the sole indication that something was not priced as asked —
+        that belongs in `resolved_options` or `errors` on the affected line.
+      type: array
+      items:
+        type: string
+      default: []
+
+QuoteLine:
+  title: QuoteLine
+  description: >-
+    One row of a comparison table: one product or product combination, from one brand, at one
+    campaign variant.
+  type: object
+  required: [line_id, insurer_id, brand_id, product_name, all_needs_met, resolved_occupation]
+  additionalProperties: false
+  properties:
+    line_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/LineId'
+    insurer_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/InsurerId'
+    brand_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/BrandId'
+    product_name:
+      $ref: '../../../../core/schemas/identifiers.yaml#/ProductName'
+    component_products:
+      description: >-
+        The insurer's own names for each product this line was assembled from, where a line
+        combines more than one. Display only.
+      type: array
+      items:
+        $ref: '../../../../core/schemas/identifiers.yaml#/ProductName'
+      default: []
+    rate_table_version:
+      $ref: '../../../../core/schemas/identifiers.yaml#/RateTableVersion'
+
+    all_needs_met:
+      description: >-
+        Whether the insurer assembled EVERY cover requested. `false` means it could not, and
+        `errors` MUST then be non-empty and `premiums` MUST be absent.
+
+        This is not an error response. The insurer was able to answer; the answer is that this
+        combination cannot be written. Consumers MUST NOT present such a line as a price, MUST
+        NOT include it in a cheapest-first sort, and MUST NOT allow it to be selected.
+      type: boolean
+    errors:
+      description: >-
+        Why the requested covers could not be assembled, in terms an adviser can act on ("the
+        linked TPD amount cannot exceed the life cover"). Non-empty exactly when `all_needs_met`
+        is `false`.
+      type: array
+      items:
+        type: string
+      default: []
+
+    premiums:
+      description: >-
+        The price of this line at every payment frequency. REQUIRED on a line where
+        `all_needs_met` is `true`; MUST be absent otherwise.
+      $ref: '#/PremiumSet'
+    cover_lines:
+      description: >-
+        The priced covers making up this line, one per cover the insurer wrote. Includes covers
+        the insurer added of its own accord where a product requires them.
+      type: array
+      items:
+        $ref: '#/CoverLine'
+      default: []
+
+    resolved_occupation:
+      $ref: '../../../../core/schemas/occupation.yaml#/ResolvedOccupation'
+    resolved_options:
+      description: >-
+        What the insurer did with every option that it decided rather than simply obeyed. See
+        `ResolvedOption` — this array is how a consumer learns that an option was dropped.
+      type: array
+      items:
+        $ref: '#/ResolvedOption'
+      default: []
+
+    campaign:
+      description: >-
+        The campaign variant this line was priced under. Absent on a standard-rates line.
+      type: object
+      required: [code, name]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          maxLength: 64
+        name:
+          description: The insurer's own wording for the campaign, for display.
+          type: string
+          maxLength: 200
+
+    medical_requirements:
+      description: >-
+        Mandatory medical underwriting this insurer requires before it will issue THIS line, in
+        the insurer's own wording. Requirements scale with the sum insured, so two lines from the
+        same insurer can legitimately differ.
+
+        An EMPTY array means "none required" and is a positive statement. It is distinct from
+        `underwriting_reported: false`, which means the insurer has not told us either way — a
+        consumer MUST NOT render the latter as "no medicals required".
+      type: array
+      items:
+        type: string
+        maxLength: 200
+      default: []
+    underwriting_reported:
+      description: Whether `medical_requirements` is a complete answer for this line.
+      type: boolean
+      default: false
+
+    inclusions:
+      description: >-
+        The line's as-priced configuration, as structured values rather than rendered text, so a
+        consumer can display it in its own words. Read from what the insurer actually wrote,
+        which differs from the request wherever a deferred choice was settled.
+      type: array
+      items:
+        $ref: '#/InclusionGroup'
+      default: []
+
+InclusionGroup:
+  title: InclusionGroup
+  description: One grouping of as-priced settings — typically one per cover written.
+  type: object
+  required: [title, items]
+  additionalProperties: false
+  properties:
+    title:
+      type: string
+      maxLength: 120
+    items:
+      type: array
+      items:
+        type: object
+        required: [field, value]
+        additionalProperties: false
+        properties:
+          field:
+            description: >-
+              The name of the setting, as a standard field path where one applies (for example
+              `waiting_period`), so a consumer can label it in its own vocabulary.
+            type: string
+            maxLength: 120
+          value:
+            description: The as-priced value. A standard enum value where one applies.
+          display_label:
+            description: The insurer's own wording, where it wants a specific rendering.
+            type: string
+            maxLength: 200
+
+ResolvedOption:
+  title: ResolvedOption
+  description: >-
+    What became of one requested option. An entry is REQUIRED for every option the insurer did
+    not apply exactly as asked, and for every deferred choice (`prefer`, `prefer_include`,
+    `prefer_exclude`, `any`) whether or not the outcome matched the leaning.
+
+    NORMATIVE: any option present in the request but NOT reflected in this array with an
+    `applied` value equal to the requested value MUST be reported here — and an option the
+    product cannot honour at all MUST be reported as `unsupported_ignored`. An insurer that
+    silently ignores an option produces a line that looks like it included a benefit it did not,
+    which is the most consequential defect this standard exists to prevent.
+  type: object
+  required: [cover_id, option, resolution]
+  additionalProperties: false
+  properties:
+    cover_id:
+      description: >-
+        The cover the option was given on, echoed from the request. Use the literal `policy` for
+        an option given at policy level.
+      type: string
+      maxLength: 64
+    option:
+      description: The field name of the option, as it appears in the request schema.
+      type: string
+      maxLength: 120
+      examples: [double_benefit, waiting_period, structure]
+    requested:
+      description: The value the consumer asked for. Absent where the consumer did not supply one.
+    applied:
+      description: >-
+        The value the insurer actually priced. Absent where the option was ignored entirely.
+    resolution:
+      type: string
+      enum:
+        # The insurer applied exactly what was asked. Reported for deferred choices so the
+        # consumer can distinguish a confirmed answer from an unanswered one.
+        - as_requested
+        # The consumer deferred and the insurer chose. Surface these: an adviser needs to know
+        # which settings they chose and which were chosen for them.
+        - resolved_by_insurer
+        # The consumer supplied nothing and the insurer applied its product default.
+        - defaulted
+        # The product cannot honour this option and it was NOT applied. The premium therefore
+        # does not include it.
+        - unsupported_ignored
+    detail:
+      description: Why, in adviser-facing terms. RECOMMENDED whenever the resolution is `unsupported_ignored`.
+      type: string
+      maxLength: 300
+
+PremiumSet:
+  title: PremiumSet
+  description: >-
+    The same line priced at all six payment frequencies. ALL SIX ARE REQUIRED.
+
+    An insurer must not return only the frequency it was asked for, because there is no way to
+    derive the others: sub-annual premiums carry a frequency loading, so
+    `weekly x 52 >= fortnightly x 26 >= monthly x 12 >= quarterly x 4 >= half_yearly x 2 >= annual`.
+    Returning all six also means a consumer can let an adviser switch frequency without
+    re-pricing, which removes a whole class of billable round-trips.
+
+    An insurer that levies no frequency loading returns six internally consistent sets where the
+    products happen to be equal; that is valid.
+  type: object
+  required: [weekly, fortnightly, monthly, quarterly, half_yearly, annual]
+  additionalProperties: false
+  properties:
+    weekly: { $ref: '#/PremiumBreakdown' }
+    fortnightly: { $ref: '#/PremiumBreakdown' }
+    monthly: { $ref: '#/PremiumBreakdown' }
+    quarterly: { $ref: '#/PremiumBreakdown' }
+    half_yearly: { $ref: '#/PremiumBreakdown' }
+    annual: { $ref: '#/PremiumBreakdown' }
+
+PremiumBreakdown:
+  title: PremiumBreakdown
+  description: >-
+    One frequency's premium, split by whether it is funded inside or outside superannuation and
+    with stamp duty shown separately on each side.
+
+    ARITHMETIC INVARIANT, NORMATIVE AND TESTED:
+
+      total == premium_super + stamp_duty_super + premium_non_super + stamp_duty_non_super
+
+    exactly, to the cent, with no tolerance. `policy_fee` is INCLUDED within `total` and within
+    whichever premium component bears it — it is not a further addition. Keeping the fee outside
+    the total is a recurring source of comparison tables that understate the real cost.
+
+    The super/non-super split is a genuine split, not a bucketing: one cover can carry both sides
+    at once where it is written under a linked ownership structure.
+  type: object
+  required:
+    - total
+    - premium_super
+    - premium_non_super
+    - stamp_duty_super
+    - stamp_duty_non_super
+  additionalProperties: false
+  properties:
+    total:
+      description: The all-in amount payable at this frequency.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    premium_super:
+      description: Premium funded from superannuation, excluding stamp duty.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    premium_non_super:
+      description: Premium funded outside superannuation, excluding stamp duty.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    stamp_duty_super:
+      description: Stamp duty attributable to the superannuation-funded premium.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    stamp_duty_non_super:
+      description: Stamp duty attributable to the non-superannuation premium.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    policy_fee:
+      description: >-
+        The policy or administration fee component at this frequency, already included in
+        `total`. Reported separately because it is not attributable to any one cover, so it
+        cannot be recovered by summing `cover_lines`.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+
+CoverLine:
+  title: CoverLine
+  description: >-
+    One priced cover within a line. `cover_id` is echoed from the request so a consumer can match
+    a priced cover to the one it asked for without guessing from type and amount.
+  type: object
+  required: [cover_type, sum_insured, premiums]
+  additionalProperties: false
+  properties:
+    cover_id:
+      description: >-
+        Echoed from the request. Absent only where the insurer added this cover of its own
+        accord because the product requires it.
+      $ref: '../../../../core/schemas/identifiers.yaml#/CoverId'
+    cover_type:
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/CoverType'
+    description:
+      description: The insurer's own name for this cover as written.
+      type: string
+      maxLength: 200
+    sum_insured:
+      description: >-
+        The amount actually written, which may differ from the amount requested where the insurer
+        applied a cap or a product minimum. Any such difference MUST also appear in
+        `resolved_options`.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    ownership:
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Ownership'
+    structure:
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Structure'
+    linked_to:
+      description: Echoed from the request where this cover was written as an extension.
+      $ref: '../../../../core/schemas/identifiers.yaml#/CoverId'
+    premiums:
+      description: >-
+        This cover's contribution to the line's premium, at all six frequencies. The same
+        arithmetic invariant applies per cover. Summing `cover_lines[].premiums[f].total` will
+        NOT reach the line total wherever a policy fee applies — read the line total, do not
+        derive it.
+      $ref: '#/PremiumSet'

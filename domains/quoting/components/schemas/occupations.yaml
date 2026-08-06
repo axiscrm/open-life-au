@@ -1,0 +1,116 @@
+# Open Life Data Standards (AU) — Quoting — occupation discovery.
+#
+# The insurer serves its OWN occupation list here. It is not asked to adopt anyone else's
+# taxonomy: it publishes what it rates, and the standard supplies the baseline (ABS OSCA) that
+# lets a consumer arrive at the right row from a single occupation picker shared across insurers.
+#
+# Two flows, for two moments in the adviser's work:
+#
+#   `/occupations:match`  the adviser picked an occupation once; resolve it per insurer. Ranked
+#                         candidates, because a baseline code plus qualifiers does not always
+#                         land on exactly one row.
+#   `/occupations`        the adviser wants to correct one insurer's choice by hand, and needs to
+#                         search that insurer's own wording.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+InsurerOccupation:
+  title: InsurerOccupation
+  description: >-
+    One row of the insurer's occupation list, carrying the rating matrix so a consumer can show
+    what a change of occupation would do before re-pricing.
+  type: object
+  required: [insurer_occupation_id, description, ratings]
+  additionalProperties: false
+  properties:
+    insurer_occupation_id:
+      type: string
+      minLength: 1
+      maxLength: 128
+    description:
+      description: The insurer's own wording, shown to the adviser verbatim.
+      type: string
+      maxLength: 200
+    ratings:
+      $ref: '../../../../core/schemas/occupation.yaml#/OccupationRatings'
+    osca:
+      description: >-
+        The baseline code this row corresponds to, where the insurer maintains the correspondence.
+        Publishing it is what allows a consumer to pre-resolve occupations in bulk rather than
+        calling `:match` per quote.
+      type: string
+      pattern: '^\d{4}-?\d{2}$'
+    requires_employment_status:
+      description: >-
+        An employment status this occupation implies, where one is mandatory. A non-working
+        occupation paired with a working status is the commonest cause of a nil premium, so an
+        insurer that constrains this SHOULD say so here.
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/EmploymentStatus'
+    effective_from:
+      type: string
+      format: date
+    effective_to:
+      description: Absent while the row is current. A past date means the row is closed to new business.
+      type: string
+      format: date
+
+OccupationListResponse:
+  title: OccupationListResponse
+  type: object
+  required: [occupations]
+  additionalProperties: false
+  properties:
+    occupations:
+      type: array
+      items:
+        $ref: '#/InsurerOccupation'
+    page:
+      $ref: '../../../../core/schemas/pagination.yaml#/PageInfo'
+
+OccupationMatchRequest:
+  title: OccupationMatchRequest
+  description: >-
+    Ask the insurer which of its own occupations corresponds to a baseline reference.
+  type: object
+  required: [occupation]
+  additionalProperties: false
+  properties:
+    occupation:
+      $ref: '../../../../core/schemas/occupation.yaml#/OccupationRef'
+    max_candidates:
+      type: integer
+      minimum: 1
+      maximum: 50
+      default: 10
+
+OccupationMatchResponse:
+  title: OccupationMatchResponse
+  description: >-
+    Candidate matches, most confident first.
+
+    An EMPTY `candidates` array is a valid and important answer: it means the insurer has no
+    occupation corresponding to the reference given. A consumer MUST treat that as unquotable for
+    this insurer and MUST NOT fall back to a nearby occupation of its own choosing — a wrong
+    occupation produces a wrong premium that looks entirely normal, which is worse than a visible
+    gap.
+  type: object
+  required: [candidates]
+  additionalProperties: false
+  properties:
+    candidates:
+      type: array
+      items:
+        allOf:
+          - $ref: '#/InsurerOccupation'
+          - type: object
+            required: [match_confidence]
+            properties:
+              match_confidence:
+                type: string
+                enum: [exact, high, moderate, low]
+              match_detail:
+                description: >-
+                  Why this candidate was proposed, and which qualifiers drove it. Worth
+                  populating: it is what lets an adviser choose between two plausible rows.
+                type: string
+                maxLength: 300

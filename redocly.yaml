@@ -1,0 +1,103 @@
+# Open Life Data Standards (AU) — spec governance.
+#
+# These rules are the standard's style guide, enforced. They exist because an open contract with N
+# independent implementers cannot rely on review catching inconsistency — an operation without a
+# summary or an amount typed as a raw number will be copied into every generated SDK and every
+# insurer's implementation before anyone notices.
+
+apis:
+  quoting:
+    root: domains/quoting/openapi.yaml
+
+extends:
+  - recommended-strict
+
+rules:
+  # --- discoverability: an insurer's developer reads the generated docs, not the YAML ---
+  operation-operationId: error
+  operation-operationId-unique: error
+  operation-operationId-url-safe: error
+  operation-summary: error
+  operation-description: error
+  tag-description: error
+  tags-alphabetical: off
+  operation-tag-defined: error
+  info-license: error
+  info-contact: error
+
+  # --- correctness of the artefacts we publish ---
+  no-invalid-media-type-examples: error
+  no-invalid-schema-examples: error
+  no-unresolved-refs: error
+  struct: error
+  spec-strict-refs: off
+
+  # --- every operation must document its failure modes, not just its happy path ---
+  operation-4xx-response: error
+  operation-4xx-problem-details-rfc7807: error
+  operation-2xx-response: error
+
+  # --- security must be explicit per operation, never inherited by accident ---
+  security-defined: error
+
+  # --- enum hygiene: a mismatch here becomes a broken generated client ---
+  no-enum-type-mismatch: error
+
+  # --- descriptions carry the normative rules; empty ones are a real defect here ---
+  no-empty-servers: error
+  no-server-trailing-slash: error
+  no-ambiguous-paths: error
+  path-parameters-defined: error
+  # Deliberately off. Almost every required string in these contracts is either an enum or
+  # carries `format`/`pattern`, for which a minLength is meaningless — the rule fires 30+ times
+  # on those and hides the real findings. Free-text fields are length-bounded by hand instead.
+  required-string-property-missing-min-length: off
+
+  # --- house rules ---
+  # Amounts must reference the shared Money/Decimal schemas rather than being retyped inline.
+  # A `type: number` amount silently becomes a double in Java and TypeScript.
+  # `amount` is deliberately absent from this list: it is the inner field of the Money schemas
+  # themselves, where narrowing it in place (NonNegativeMoney) is correct. Everything below is a
+  # field that carries money at a call site and must therefore point at the shared schema.
+  rule/money-never-a-bare-number:
+    subject:
+      type: SchemaProperties
+      property:
+        - sum_insured
+        - monthly_benefit
+        - total
+        - policy_fee
+        - premium_super
+        - premium_non_super
+        - stamp_duty_super
+        - stamp_duty_non_super
+        - annual_income
+        - superannuation_contribution
+        - min_sum_insured
+        - max_sum_insured
+    assertions:
+      ref: true
+    severity: error
+    message: >-
+      Monetary fields must $ref the shared Money schemas (core/schemas/money.yaml), never declare
+      an inline type. Amounts are decimal strings; a bare `number` becomes a float in generated
+      clients and drifts by cents.
+
+  # Request bodies must be closed. An unrecognised field in a request is a consumer bug we want
+  # surfaced, not absorbed.
+  rule/request-schemas-are-closed:
+    subject:
+      type: Schema
+    where:
+      - subject:
+          type: MediaTypesMap
+        assertions:
+          defined: true
+    assertions:
+      mutuallyExclusive:
+        - additionalProperties
+        - unevaluatedProperties
+    severity: warn
+    message: >-
+      Prefer `additionalProperties: false` on request schemas (or `unevaluatedProperties: false`
+      where composed with allOf), so an unrecognised field is rejected rather than ignored.

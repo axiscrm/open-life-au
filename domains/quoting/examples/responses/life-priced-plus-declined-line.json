@@ -1,0 +1,447 @@
+{
+  "quote_id": "q_01JQ8Z9YB4T7M2XR5K3P",
+  "quoted_at": "2026-08-06T14:32:05+10:00",
+  "valid_until": "2026-09-05T14:32:05+10:00",
+  "client_reference": "c:8f14e45fceea167a",
+  "lines": [
+    {
+      "line_id": "ln_1",
+      "insurer_id": "example-life",
+      "brand_id": "example-life",
+      "product_name": "Protection Plus Life Cover",
+      "component_products": [
+        "Protection Plus Life Cover"
+      ],
+      "rate_table_version": "2026-07-01",
+      "all_needs_met": true,
+      "errors": [],
+      "premiums": {
+        "weekly": {
+          "total": {
+            "amount": "23.81",
+            "currency": "AUD"
+          },
+          "premium_super": {
+            "amount": "22.68",
+            "currency": "AUD"
+          },
+          "premium_non_super": {
+            "amount": "0",
+            "currency": "AUD"
+          },
+          "stamp_duty_super": {
+            "amount": "1.13",
+            "currency": "AUD"
+          },
+          "stamp_duty_non_super": {
+            "amount": "0",
+            "currency": "AUD"
+          },
+          "policy_fee": {
+            "amount": "2.09",
+            "currency": "AUD"
+          }
+        },
+        "fortnightly": {
+          "total": {
+            "amount": "47.60",
+            "currency": "AUD"
+          },
+          "premium_super": {
+            "amount": "45.33",
+            "currency": "AUD"
+          },
+          "premium_non_super": {
+            "amount": "0",
+            "currency": "AUD"
+          },
+          "stamp_duty_super": {
+            "amount": "2.27",
+            "currency": "AUD"
+          },
+          "stamp_duty_non_super": {
+            "amount": "0",
+            "currency": "AUD"
+          },
+          "policy_fee": {
+            "amount": "4.17",
+            "currency": "AUD"
+          }
+        },
+        "monthly": {
+          "total": {
+            "amount": "103.11",
+            "currency": "AUD"
+          },
+          "premium_super": {
+            "amount": "98.20",
+            "currency": "AUD"
+          },
+          "premium_non_super": {
+            "amount": "0",
+            "currency": "AUD"
+          },
+          "stamp_duty_super": {
+            "amount": "4.91",
+            "currency": "AUD"
+          },
+          "stamp_duty_non_super": {
+            "amount": "0",
+            "currency": "AUD"
+          },
+          "policy_fee": {
+            "amount": "9.04",
+            "currency": "AUD"
+          }
+        },
+        "quarterly": {
+          "total": {
+            "amount": "305.55",
+            "currency": "AUD"
+          },
+          "premium_super": {
+            "amount": "291.00",
+            "currency": "AUD"
+          },
+          "premium_non_super": {
+            "amount": "0",
+            "currency": "AUD"
+          },
+          "stamp_duty_super": {
+            "amount": "14.55",
+            "currency": "AUD"
+          },
+          "stamp_duty_non_super": {
+            "amount": "0",
+            "currency": "AUD"
+          },
+          "policy_fee": {
+            "amount": "26.79",
+            "currency": "AUD"
+          }
+        },
+        "half_yearly": {
+          "total": {
+            "amount": "604.80",
+            "currency": "AUD"
+          },
+          "premium_super": {
+            "amount": "576.00",
+            "currency": "AUD"
+          },
+          "premium_non_super": {
+            "amount": "0",
+            "currency": "AUD"
+          },
+          "stamp_duty_super": {
+            "amount": "28.80",
+            "currency": "AUD"
+          },
+          "stamp_duty_non_super": {
+            "amount": "0",
+            "currency": "AUD"
+          },
+          "policy_fee": {
+            "amount": "53.03",
+            "currency": "AUD"
+          }
+        },
+        "annual": {
+          "total": {
+            "amount": "1197.00",
+            "currency": "AUD"
+          },
+          "premium_super": {
+            "amount": "1140.00",
+            "currency": "AUD"
+          },
+          "premium_non_super": {
+            "amount": "0",
+            "currency": "AUD"
+          },
+          "stamp_duty_super": {
+            "amount": "57.00",
+            "currency": "AUD"
+          },
+          "stamp_duty_non_super": {
+            "amount": "0",
+            "currency": "AUD"
+          },
+          "policy_fee": {
+            "amount": "105.00",
+            "currency": "AUD"
+          }
+        }
+      },
+      "cover_lines": [
+        {
+          "cover_id": "life-1",
+          "cover_type": "life",
+          "description": "Life Cover (Superannuation)",
+          "sum_insured": {
+            "amount": "1000000.00",
+            "currency": "AUD"
+          },
+          "ownership": "super",
+          "structure": "stepped",
+          "premiums": {
+            "weekly": {
+              "total": {
+                "amount": "21.72",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "20.69",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "1.03",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "0",
+                "currency": "AUD"
+              }
+            },
+            "fortnightly": {
+              "total": {
+                "amount": "43.43",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "41.36",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "2.07",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "0",
+                "currency": "AUD"
+              }
+            },
+            "monthly": {
+              "total": {
+                "amount": "94.07",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "89.59",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "4.48",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "0",
+                "currency": "AUD"
+              }
+            },
+            "quarterly": {
+              "total": {
+                "amount": "278.76",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "265.49",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "13.27",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "0",
+                "currency": "AUD"
+              }
+            },
+            "half_yearly": {
+              "total": {
+                "amount": "551.77",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "525.50",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "26.27",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "0",
+                "currency": "AUD"
+              }
+            },
+            "annual": {
+              "total": {
+                "amount": "1092.00",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "1040.00",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "0",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "52.00",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "0",
+                "currency": "AUD"
+              }
+            }
+          }
+        }
+      ],
+      "resolved_occupation": {
+        "insurer_occupation_id": "OCC-4471",
+        "description": "Painter — trade qualified — heights to 10 metres",
+        "match_confidence": "exact",
+        "ratings": {
+          "life": {
+            "supported": true,
+            "rating_class": "2",
+            "rating_class_label": "Light Manual"
+          },
+          "trauma": {
+            "supported": true,
+            "rating_class": "2",
+            "rating_class_label": "Light Manual"
+          },
+          "tpd_own_occupation": {
+            "supported": true,
+            "rating_class": "3"
+          },
+          "tpd_any_occupation": {
+            "supported": true,
+            "rating_class": "3"
+          },
+          "tpd_adl": {
+            "supported": false
+          },
+          "income_protection": {
+            "supported": true,
+            "rating_class": "4"
+          },
+          "business_expenses": {
+            "supported": false
+          }
+        }
+      },
+      "resolved_options": [
+        {
+          "cover_id": "life-1",
+          "option": "pay_by_rollover",
+          "requested": "prefer",
+          "applied": "include",
+          "resolution": "resolved_by_insurer",
+          "detail": "Rollover funding is available on this product for superannuation-owned cover."
+        },
+        {
+          "cover_id": "tpd-ext-1",
+          "option": "double_benefit",
+          "requested": "prefer_exclude",
+          "applied": "exclude",
+          "resolution": "as_requested"
+        }
+      ],
+      "medical_requirements": [
+        "Medical examination",
+        "Blood profile"
+      ],
+      "underwriting_reported": true,
+      "inclusions": [
+        {
+          "title": "Life Cover",
+          "items": [
+            {
+              "field": "structure",
+              "value": "stepped"
+            },
+            {
+              "field": "ownership",
+              "value": "super"
+            },
+            {
+              "field": "pay_by_rollover",
+              "value": "include",
+              "display_label": "Premiums funded by rollover"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "line_id": "ln_2",
+      "insurer_id": "example-life",
+      "brand_id": "example-select",
+      "product_name": "Select Life",
+      "rate_table_version": "2026-07-01",
+      "all_needs_met": false,
+      "errors": [
+        "A linked TPD benefit cannot exceed the life cover it is attached to on this product. Reduce the TPD amount to $1,000,000 or less, or hold it as a standalone cover.",
+        "Rollover-funded premiums are not available on Select Life."
+      ],
+      "resolved_occupation": {
+        "insurer_occupation_id": "SEL-118",
+        "description": "Painter and Decorator",
+        "match_confidence": "high",
+        "ratings": {
+          "life": {
+            "supported": true,
+            "rating_class": "B"
+          },
+          "trauma": {
+            "supported": true,
+            "rating_class": "B"
+          },
+          "tpd_own_occupation": {
+            "supported": false
+          },
+          "tpd_any_occupation": {
+            "supported": true,
+            "rating_class": "C"
+          },
+          "tpd_adl": {
+            "supported": false
+          },
+          "income_protection": {
+            "supported": true,
+            "rating_class": "C"
+          },
+          "business_expenses": {
+            "supported": false
+          }
+        }
+      }
+    }
+  ],
+  "warnings": []
+}

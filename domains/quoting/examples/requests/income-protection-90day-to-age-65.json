@@ -1,0 +1,47 @@
+{
+  "client_reference": "c:2b4f0a91cd3e7756",
+  "insured": {
+    "age_next_birthday": 35,
+    "gender": "female",
+    "smoker": false,
+    "state": "VIC",
+    "employment_status": "self_employed_sole_trader",
+    "annual_income": {
+      "amount": "180000.00",
+      "currency": "AUD"
+    },
+    "occupation": {
+      "osca": "2211-11",
+      "description": "Accountant",
+      "qualifiers": {
+        "trade_qualified": true,
+        "manual_duties_percent": 0,
+        "hours_per_week": 45
+      }
+    }
+  },
+  "policy": {
+    "structure": "stepped",
+    "ownership": "ordinary"
+  },
+  "covers": [
+    {
+      "cover_id": "ip-1",
+      "cover_type": "income_protection",
+      "monthly_benefit": {
+        "amount": "10500.00",
+        "currency": "AUD"
+      },
+      "waiting_period": "90d",
+      "benefit_period": "age_65",
+      "replacement_ratio": "70_to_75",
+      "benefit_quality": "most_comprehensive",
+      "indexed_claim_benefit": "include",
+      "accident_benefit": "prefer_include",
+      "superannuation_contribution": {
+        "amount": "1650.00",
+        "currency": "AUD"
+      }
+    }
+  ]
+}

@@ -1,0 +1,195 @@
+# Open Life Data Standards (AU) — occupation reference.
+#
+# Occupation is the hardest thing in life-risk quoting to standardise, because the party that
+# owns the classification owns the mis-mapping risk. This standard resolves it by making
+# nobody in the value chain the custodian:
+#
+#   1. The BASELINE is the Australian Bureau of Statistics' Occupation Standard Classification
+#      for Australia (OSCA), which the ABS maintains and publishes under Creative Commons.
+#      Consumers send an OSCA code.
+#   2. The QUALIFIERS below carry what OSCA does not: the risk discriminators insurers actually
+#      rate on. OSCA exists for labour statistics, so it has no concept of working at height,
+#      trade qualification or the proportion of manual duties — yet two OSCA-identical clients
+#      can rate several classes apart on exactly those facts.
+#   3. The INSURER matches the baseline plus qualifiers to its OWN occupation, prices on it, and
+#      MUST echo what it matched. Insurers keep their own lists and their own rating classes;
+#      nobody is asked to adopt someone else's taxonomy.
+#
+# ANZSCO, which OSCA replaced in December 2024, may be sent alongside as a legacy alias: the
+# ABS publishes ANZSCO-to-OSCA correspondence tables, and many underwriting manuals still cite
+# ANZSCO. Where both are present, `osca` wins.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+OccupationRef:
+  title: OccupationRef
+  description: >-
+    How a consumer names an occupation. At least one of `osca`, `anzsco` or
+    `insurer_occupation_id` MUST be present.
+
+    `insurer_occupation_id` is the authoritative form: it names a row in the insurer's own list
+    and removes all matching ambiguity, so it is what a consumer SHOULD send once the adviser
+    has confirmed a per-insurer occupation. The others ask the insurer to match, and the
+    insurer MUST report what it matched to.
+  type: object
+  additionalProperties: false
+  anyOf:
+    - required: [osca]
+    - required: [anzsco]
+    - required: [insurer_occupation_id]
+  properties:
+    osca:
+      title: OscaCode
+      description: >-
+        ABS Occupation Standard Classification for Australia code. Six digits, optionally
+        hyphenated at the four-digit unit-group boundary for readability.
+      type: string
+      pattern: '^\d{4}-?\d{2}$'
+      examples: ['3323-11']
+    anzsco:
+      title: AnzscoCode
+      description: >-
+        Legacy ANZSCO code, accepted as an alias for consumers and manuals still using it.
+        Ignored when `osca` is present.
+      type: string
+      pattern: '^\d{4}-?\d{2}$'
+    insurer_occupation_id:
+      description: >-
+        An identifier from this insurer's own occupation list, as returned by
+        `GET /occupations`. Opaque; scoped to the insurer. When present, the insurer MUST rate
+        on exactly this occupation and MUST NOT re-match.
+      type: string
+      minLength: 1
+      maxLength: 128
+    qualifiers:
+      $ref: '#/OccupationQualifiers'
+    description:
+      description: >-
+        The adviser-facing description shown on screen, for display and diagnostics only.
+        NON-NORMATIVE: an insurer MUST NOT rate on this string.
+      type: string
+      maxLength: 200
+      examples: ['Painter']
+
+OccupationQualifiers:
+  title: OccupationQualifiers
+  description: >-
+    The risk discriminators that sit beneath an occupation code. Every field is optional, and
+    an absent field means "not stated" rather than "no" — an insurer SHOULD rate an unstated
+    qualifier at its own default and MUST NOT infer a favourable answer from silence.
+  type: object
+  additionalProperties: false
+  properties:
+    trade_qualified:
+      description: >-
+        Whether the insured holds a recognised trade or professional qualification for the
+        occupation. Frequently the difference of one or more rating classes in the trades.
+      type: boolean
+    working_height_m:
+      description: >-
+        The greatest height above ground at which the insured routinely works, in metres.
+        `0` means they do not work at height. Insurers commonly band this (for example at 10m).
+      type: number
+      minimum: 0
+      maximum: 500
+    works_underground:
+      type: boolean
+    works_offshore:
+      description: Routinely works offshore or on vessels, including oil and gas platforms.
+      type: boolean
+    manual_duties_percent:
+      description: >-
+        Proportion of working time spent on manual duties, 0-100. The usual axis distinguishing
+        a white-collar rating from a light- or heavy-manual one within the same occupation.
+      type: number
+      minimum: 0
+      maximum: 100
+    hours_per_week:
+      description: >-
+        Ordinary hours worked per week. Most income-protection products require a minimum
+        (commonly 20-25 hours) before they will offer the full benefit basis.
+      type: number
+      minimum: 0
+      maximum: 168
+    handles_explosives:
+      type: boolean
+    licensed_to_carry_firearm:
+      description: Carries a firearm as a requirement of the occupation.
+      type: boolean
+  examples:
+    - trade_qualified: false
+      working_height_m: 10
+      manual_duties_percent: 80
+      hours_per_week: 38
+
+CoverRating:
+  title: CoverRating
+  description: >-
+    One cell of an insurer's occupation rating matrix: the class it would rate this occupation
+    at for one benefit, and whether that benefit is available to the occupation at all.
+  type: object
+  required: [supported]
+  additionalProperties: false
+  properties:
+    supported:
+      description: >-
+        Whether this benefit can be offered to this occupation. `false` means the occupation is
+        uninsurable for this benefit — distinct from a poor rating class.
+      type: boolean
+    rating_class:
+      description: >-
+        The insurer's own class code. INSURER-SCOPED: class "1" at one insurer has no defined
+        relationship to class "1" at another, and consumers MUST NOT compare, sort or average
+        this value across insurers. Absent when `supported` is `false`.
+      type: string
+      maxLength: 32
+    rating_class_label:
+      description: A human-readable rendering of the class, for display where the code is cryptic.
+      type: string
+      maxLength: 100
+
+OccupationRatings:
+  title: OccupationRatings
+  description: >-
+    An insurer's rating of one occupation across every benefit it offers. Keys are `CoverType`
+    values, except that TPD is split by definition because a single occupation is routinely
+    ratable under one TPD test and uninsurable under another.
+  type: object
+  additionalProperties: false
+  properties:
+    life: { $ref: '#/CoverRating' }
+    trauma: { $ref: '#/CoverRating' }
+    tpd_own_occupation: { $ref: '#/CoverRating' }
+    tpd_any_occupation: { $ref: '#/CoverRating' }
+    tpd_adl: { $ref: '#/CoverRating' }
+    income_protection: { $ref: '#/CoverRating' }
+    business_expenses: { $ref: '#/CoverRating' }
+
+ResolvedOccupation:
+  title: ResolvedOccupation
+  description: >-
+    What the insurer actually rated on. REQUIRED on every priced line, because a quote whose
+    occupation cannot be reproduced cannot be audited, and because a wrong occupation produces
+    a wrong premium that looks entirely normal.
+  type: object
+  required: [insurer_occupation_id, description, ratings]
+  additionalProperties: false
+  properties:
+    insurer_occupation_id:
+      type: string
+      minLength: 1
+      maxLength: 128
+    description:
+      description: The insurer's own wording for the occupation it rated.
+      type: string
+      maxLength: 200
+    ratings:
+      $ref: '#/OccupationRatings'
+    match_confidence:
+      description: >-
+        How confident the insurer is in the match, when it matched from a baseline code rather
+        than being given `insurer_occupation_id`. `exact` means a maintained one-to-one
+        mapping. Consumers SHOULD surface anything below `exact` to the adviser for
+        confirmation rather than pricing silently.
+      type: string
+      enum: [exact, high, moderate, low]

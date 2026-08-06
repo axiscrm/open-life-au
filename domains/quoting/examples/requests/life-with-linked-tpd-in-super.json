@@ -1,0 +1,54 @@
+{
+  "client_reference": "c:8f14e45fceea167a",
+  "insured": {
+    "age_next_birthday": 41,
+    "gender": "male",
+    "smoker": false,
+    "state": "NSW",
+    "employment_status": "employee",
+    "annual_income": {
+      "amount": "145000.00",
+      "currency": "AUD"
+    },
+    "occupation": {
+      "osca": "3323-11",
+      "description": "Painter",
+      "qualifiers": {
+        "trade_qualified": true,
+        "working_height_m": 10,
+        "manual_duties_percent": 80,
+        "hours_per_week": 38
+      }
+    }
+  },
+  "policy": {
+    "structure": "stepped",
+    "ownership": "super",
+    "premium_waiver": "exclude"
+  },
+  "covers": [
+    {
+      "cover_id": "life-1",
+      "cover_type": "life",
+      "sum_insured": {
+        "amount": "1000000.00",
+        "currency": "AUD"
+      },
+      "pay_by_rollover": "prefer"
+    },
+    {
+      "cover_id": "tpd-ext-1",
+      "cover_type": "tpd",
+      "linked_to": "life-1",
+      "link_type": "extension",
+      "sum_insured": {
+        "amount": "750000.00",
+        "currency": "AUD"
+      },
+      "ownership": "ordinary",
+      "tpd_definition": "any_occupation",
+      "life_buyback": "after_1_year",
+      "double_benefit": "prefer_exclude"
+    }
+  ]
+}

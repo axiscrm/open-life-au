@@ -1,0 +1,48 @@
+{
+  "//": "Accepted npm-audit advisories, consumed by scripts/npm-audit-gate.mjs. Every entry needs a reason and an expiry — an expired entry fails the gate again, forcing a re-decision instead of rotting silently. This matters more here than in a private repo: the SDKs generated from this contract are things insurers install, so an unreviewed advisory in our toolchain becomes their exposure too.",
+  "//scope": "Every entry below is a transitive dependency of @stoplight/prism-cli, which is dev-only: it serves a mock of our own committed contract during development and in CI. It is not a dependency of anything published, it never runs in an insurer's or consumer's environment, and the only input it processes is dist/quoting/openapi.yaml — a file in this repository. prism-cli 5.14.2 is the current release, so there is no version to move to; the fix has to come from upstream. Re-check at expiry: if Stoplight has not shipped, consider replacing the mock with a small hand-written stub server, which reference-impl/ largely already is.",
+  "exceptions": [
+    {
+      "advisory": "GHSA-r5fr-rjxr-66jc",
+      "package": "lodash",
+      "severity": "high",
+      "reason": "Code injection via `_.template` import key names, reachable only by templating attacker-controlled strings. Pulled in transitively by @stoplight/prism-cli (dev-only mock server); no code path here calls `_.template`, and the only document Prism parses is our own committed dist/quoting/openapi.yaml. No fix available — prism-cli 5.14.2 is current.",
+      "expires": "2026-11-06"
+    },
+    {
+      "advisory": "GHSA-f23m-r3pf-42rh",
+      "package": "lodash",
+      "severity": "moderate",
+      "reason": "Prototype pollution via array-path bypass in `_.unset`/`_.omit`, requiring attacker-controlled property paths. Transitive under @stoplight/prism-cli (dev-only); paths come from our own contract file. No fix available upstream.",
+      "expires": "2026-11-06"
+    },
+    {
+      "advisory": "GHSA-xxjr-mmjv-4gpg",
+      "package": "lodash",
+      "severity": "moderate",
+      "reason": "Second prototype-pollution advisory against the same `_.unset`/`_.omit` functions, same reachability argument and same transitive path via @stoplight/prism-cli. No fix available upstream.",
+      "expires": "2026-11-06"
+    },
+    {
+      "advisory": "GHSA-48c2-rrv3-qjmp",
+      "package": "yaml",
+      "severity": "moderate",
+      "reason": "Stack overflow on deeply nested YAML, affecting yaml 1.x. Reaches us only as yaml@1.10.3 under openapi3-ts inside @stoplight/prism-cli. Our own direct dependency is yaml@2.x, which is not in the affected range. The only YAML Prism reads is our committed contract, whose nesting depth is bounded and reviewed. No fix available upstream.",
+      "expires": "2026-11-06"
+    },
+    {
+      "advisory": "GHSA-w5hq-g745-h8pq",
+      "package": "uuid",
+      "severity": "moderate",
+      "reason": "Missing buffer bounds check in uuid v3/v5/v6 when an explicit `buf` argument is supplied. Transitive via postman-collection under @stoplight/prism-cli (dev-only); nothing here generates namespaced UUIDs into a caller-supplied buffer. No fix available upstream.",
+      "expires": "2026-11-06"
+    },
+    {
+      "advisory": "GHSA-gh4j-gqv2-49f6",
+      "package": "fast-xml-parser",
+      "severity": "moderate",
+      "reason": "XML comment/CDATA injection in XMLBuilder when building XML from untrusted values. Transitive under @stoplight/prism-cli (dev-only). This contract is JSON-only — no operation declares an XML media type, so the XML builder is never exercised. No fix available upstream.",
+      "expires": "2026-11-06"
+    }
+  ]
+}

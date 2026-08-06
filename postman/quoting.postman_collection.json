@@ -1,0 +1,2754 @@
+{
+    "item": [
+        {
+            "name": "Quotes",
+            "description": "Pricing.",
+            "item": [
+                {
+                    "id": "e3e084e5-f9a9-40a9-a796-06eea3e4a4fe",
+                    "name": "Price a set of covers",
+                    "request": {
+                        "name": "Price a set of covers",
+                        "description": {
+                            "content": "Price the requested covers for one insured and return every line the insurer can offer, plus the lines it had to decline.\n### What a response means\nOne request yields MANY lines. An insurer with two brands and a campaign on one of them may answer a single life-cover request with three lines. Consumers must treat the response as a set of comparable offers, never as \"the price\".\n### Three things a consumer must not do\n- **Do not derive a frequency.** Every line carries all six. `annual / 12` is not the monthly\n  premium, because sub-annual premiums carry a frequency loading.\n- **Do not price a failed line.** A line with `all_needs_met: false` carries no `premiums` and\n  is not an offer. It exists so the adviser can see that this insurer was asked and could not\n  write the combination.\n- **Do not assume an option was applied.** Check `resolved_options`. An option the product\n  cannot honour appears there as `unsupported_ignored`, and the premium does not include it.\n\n### Caching\nQuote responses carry personal information about the insured and MUST NOT be cached by intermediaries. Servers MUST send `Cache-Control: no-store`.",
+                            "type": "text/plain"
+                        },
+                        "url": {
+                            "path": [
+                                "quotes"
+                            ],
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "query": [],
+                            "variable": []
+                        },
+                        "header": [
+                            {
+                                "disabled": false,
+                                "description": {
+                                    "content": "A consumer-generated UUID identifying this logical request. Replaying the same key with an identical body MUST return the stored response rather than re-pricing; replaying it with a different body MUST fail with 409 `idempotency-conflict`. Servers SHOULD retain keys for at least 24 hours.\nPricing is computationally idempotent but commercially metered — many insurers count quotes, and some bill on them. This header is what stops a network timeout and retry from being counted twice, which protects both sides.",
+                                    "type": "text/plain"
+                                },
+                                "key": "Idempotency-Key",
+                                "value": "<uuid>"
+                            },
+                            {
+                                "disabled": false,
+                                "description": {
+                                    "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                    "type": "text/plain"
+                                },
+                                "key": "X-Request-Id",
+                                "value": "<string>"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "method": "POST",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                            "options": {
+                                "raw": {
+                                    "headerFamily": "json",
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "auth": {
+                            "type": "oauth2",
+                            "oauth2": [
+                                {
+                                    "key": "scope",
+                                    "value": "quotes.write capabilities.read occupations.read"
+                                },
+                                {
+                                    "key": "redirect_uri",
+                                    "value": "https://auth.insurer.example.com.au/oauth2/token"
+                                },
+                                {
+                                    "key": "accessTokenUrl",
+                                    "value": "https://auth.insurer.example.com.au/oauth2/token"
+                                },
+                                {
+                                    "key": "grant_type",
+                                    "value": "client_credentials"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "id": "ca54c983-713f-4ffd-8d06-510a59621ac0",
+                            "name": "The quote was produced. Note that a 200 does not mean every requested cover was priced — inspect `all_needs_met` and `resolved_options` per line.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "quotes"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "A consumer-generated UUID identifying this logical request. Replaying the same key with an identical body MUST return the stored response rather than re-pricing; replaying it with a different body MUST fail with 409 `idempotency-conflict`. Servers SHOULD retain keys for at least 24 hours.\nPricing is computationally idempotent but commercially metered — many insurers count quotes, and some bill on them. This header is what stops a network timeout and retry from being counted twice, which protects both sides.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Idempotency-Key",
+                                        "value": "<uuid>"
+                                    },
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "(Required) MUST be `no-store`.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "Cache-Control",
+                                    "value": "<string>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-OpenLife-Spec-Version",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"quote_id\": \"<string>\",\n  \"quoted_at\": \"<dateTime>\",\n  \"lines\": [\n    {\n      \"line_id\": \"<string>\",\n      \"insurer_id\": \"vdktr6p4o\",\n      \"brand_id\": \"zvgwvjkxmi6ym\",\n      \"product_name\": \"<string>\",\n      \"all_needs_met\": \"<boolean>\",\n      \"resolved_occupation\": {\n        \"insurer_occupation_id\": \"<string>\",\n        \"description\": \"<string>\",\n        \"ratings\": {\n          \"life\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"trauma\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"tpd_own_occupation\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"tpd_any_occupation\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"tpd_adl\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"income_protection\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          },\n          \"business_expenses\": {\n            \"supported\": \"<boolean>\",\n            \"rating_class\": \"<string>\",\n            \"rating_class_label\": \"<string>\"\n          }\n        },\n        \"match_confidence\": \"low\"\n      },\n      \"rate_table_version\": \"<string>\",\n      \"premiums\": {\n        \"weekly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"fortnightly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"monthly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"quarterly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"half_yearly\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        },\n        \"annual\": {\n          \"total\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"premium_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"stamp_duty_non_super\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          },\n          \"policy_fee\": {\n            \"amount\": \"\",\n            \"currency\": \"<string>\"\n          }\n        }\n      },\n      \"campaign\": {\n        \"code\": \"<string>\",\n        \"name\": \"<string>\"\n      },\n      \"underwriting_reported\": false\n    }\n  ],\n  \"valid_until\": \"<dateTime>\",\n  \"client_reference\": \"lfoOFQunKrV-vyDHfc6lrnPBy_deTmBcQLmj25xkH\"\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "380b21a8-d526-47ba-a93e-4e16558cff6a",
+                            "name": "The request could not be parsed, or a value was structurally invalid. Problem type `invalid-request`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "quotes"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "A consumer-generated UUID identifying this logical request. Replaying the same key with an identical body MUST return the stored response rather than re-pricing; replaying it with a different body MUST fail with 409 `idempotency-conflict`. Servers SHOULD retain keys for at least 24 hours.\nPricing is computationally idempotent but commercially metered — many insurers count quotes, and some bill on them. This header is what stops a network timeout and retry from being counted twice, which protects both sides.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Idempotency-Key",
+                                        "value": "<uuid>"
+                                    },
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Bad Request",
+                            "code": 400,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "2bfdd7e9-a675-4fce-8a2c-c958bb137a3e",
+                            "name": "No access token was presented, or it was malformed or expired. Problem type `unauthenticated`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "quotes"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "A consumer-generated UUID identifying this logical request. Replaying the same key with an identical body MUST return the stored response rather than re-pricing; replaying it with a different body MUST fail with 409 `idempotency-conflict`. Servers SHOULD retain keys for at least 24 hours.\nPricing is computationally idempotent but commercially metered — many insurers count quotes, and some bill on them. This header is what stops a network timeout and retry from being counted twice, which protects both sides.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Idempotency-Key",
+                                        "value": "<uuid>"
+                                    },
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "RFC 6750 challenge.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "WWW-Authenticate",
+                                    "value": "<string>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "2bcc40e6-28d6-41df-a4cf-4c67590c772b",
+                            "name": "The token is valid but lacks the scope required for this operation, or names a campaign the consumer is not authorised for. Problem type `forbidden`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "quotes"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "A consumer-generated UUID identifying this logical request. Replaying the same key with an identical body MUST return the stored response rather than re-pricing; replaying it with a different body MUST fail with 409 `idempotency-conflict`. Servers SHOULD retain keys for at least 24 hours.\nPricing is computationally idempotent but commercially metered — many insurers count quotes, and some bill on them. This header is what stops a network timeout and retry from being counted twice, which protects both sides.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Idempotency-Key",
+                                        "value": "<uuid>"
+                                    },
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Forbidden",
+                            "code": 403,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "47668c6d-cde7-4d0d-9bd2-c04697c7d922",
+                            "name": "An `Idempotency-Key` was reused with a different request body. Problem type `idempotency-conflict`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "quotes"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "A consumer-generated UUID identifying this logical request. Replaying the same key with an identical body MUST return the stored response rather than re-pricing; replaying it with a different body MUST fail with 409 `idempotency-conflict`. Servers SHOULD retain keys for at least 24 hours.\nPricing is computationally idempotent but commercially metered — many insurers count quotes, and some bill on them. This header is what stops a network timeout and retry from being counted twice, which protects both sides.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Idempotency-Key",
+                                        "value": "<uuid>"
+                                    },
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Conflict",
+                            "code": 409,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "5b2af66f-9326-40c7-a8b0-185de881796c",
+                            "name": "The request was well formed but cannot be priced as asked — an unsupported cover, an unsupported option value, or a combination the product does not permit. Problem types `unsupported-cover`, `unsupported-value`, `invalid-combination`, `incomplete-request`.\nNOTE the boundary: this status is for a request the insurer will not accept. An insurer that accepts the request but cannot assemble the covers returns 200 with the line flagged `all_needs_met: false`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "quotes"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "A consumer-generated UUID identifying this logical request. Replaying the same key with an identical body MUST return the stored response rather than re-pricing; replaying it with a different body MUST fail with 409 `idempotency-conflict`. Servers SHOULD retain keys for at least 24 hours.\nPricing is computationally idempotent but commercially metered — many insurers count quotes, and some bill on them. This header is what stops a network timeout and retry from being counted twice, which protects both sides.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Idempotency-Key",
+                                        "value": "<uuid>"
+                                    },
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                            "code": 422,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "799891f6-377d-4bdf-98fb-69c7a2d1633d",
+                            "name": "Rate limit exceeded. Problem type `rate-limited`. `Retry-After` is REQUIRED — without it a consumer fanning out across several insurers has no basis for a backoff and will retry into the limit.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "quotes"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "A consumer-generated UUID identifying this logical request. Replaying the same key with an identical body MUST return the stored response rather than re-pricing; replaying it with a different body MUST fail with 409 `idempotency-conflict`. Servers SHOULD retain keys for at least 24 hours.\nPricing is computationally idempotent but commercially metered — many insurers count quotes, and some bill on them. This header is what stops a network timeout and retry from being counted twice, which protects both sides.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Idempotency-Key",
+                                        "value": "<uuid>"
+                                    },
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Too Many Requests",
+                            "code": 429,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "(Required) Seconds to wait before retrying.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "Retry-After",
+                                    "value": "<integer>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "a28b746b-d8df-492a-adad-5b907f8b2486",
+                            "name": "Unexpected failure. Problem type `internal-error`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "quotes"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "A consumer-generated UUID identifying this logical request. Replaying the same key with an identical body MUST return the stored response rather than re-pricing; replaying it with a different body MUST fail with 409 `idempotency-conflict`. Servers SHOULD retain keys for at least 24 hours.\nPricing is computationally idempotent but commercially metered — many insurers count quotes, and some bill on them. This header is what stops a network timeout and retry from being counted twice, which protects both sides.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Idempotency-Key",
+                                        "value": "<uuid>"
+                                    },
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Internal Server Error",
+                            "code": 500,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "413cf0e3-e7e2-472d-b206-5039349104d5",
+                            "name": "A dependency of the pricing engine is unavailable. Problem type `upstream-unavailable`. Distinguished from `internal-error` so a consumer can retry this and not that.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "quotes"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "A consumer-generated UUID identifying this logical request. Replaying the same key with an identical body MUST return the stored response rather than re-pricing; replaying it with a different body MUST fail with 409 `idempotency-conflict`. Servers SHOULD retain keys for at least 24 hours.\nPricing is computationally idempotent but commercially metered — many insurers count quotes, and some bill on them. This header is what stops a network timeout and retry from being counted twice, which protects both sides.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Idempotency-Key",
+                                        "value": "<uuid>"
+                                    },
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"insured\": {\n    \"age_next_birthday\": 4310\n  },\n  \"covers\": [\n    {\n      \"cover_id\": \"R63oBtVGqtcf0WK\",\n      \"cover_type\": \"income_protection\",\n      \"sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"ownership\": \"super\",\n      \"structure\": \"level_65\",\n      \"premium_waiver\": \"exclude\",\n      \"pay_by_rollover\": \"exclude\",\n      \"linked_to\": \"mt0lLcjI0_8bfs_n-Qq3p8CxRsBj4L6A\",\n      \"link_type\": \"extension\"\n    }\n  ],\n  \"client_reference\": \"H9TkFyxADefuHDqV2oD:\",\n  \"policy\": {\n    \"structure\": \"stepped\",\n    \"ownership\": \"smsf\",\n    \"premium_waiver\": \"prefer\",\n    \"loadings\": {\n      \"percentage\": {},\n      \"rate_per_thousand\": {}\n    }\n  }\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Service Unavailable",
+                            "code": 503,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "Retry-After",
+                                    "value": "<integer>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        }
+                    ],
+                    "event": [],
+                    "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Discovery",
+            "description": "What an implementation supports.",
+            "item": [
+                {
+                    "id": "10bd78fc-6b73-4123-ab7c-d7db7b0ebbc8",
+                    "name": "What this implementation supports",
+                    "request": {
+                        "name": "What this implementation supports",
+                        "description": {
+                            "content": "Describe the covers, option values, brands, campaigns and optional features this implementation offers.\nA consumer calls this once and caches it. It drives which controls an adviser is offered, so an unsupported combination can be prevented rather than rejected after the fact.\nThis is the mechanism that makes a partial implementation conformant: an insurer that writes four covers and three waiting periods declares exactly that, and the conformance suite tests it against what it declared rather than against the whole standard.\nConsumers MUST NOT treat this document as authoritative. Hand-maintained capability documents drift from the pricing engine, so the runtime paths — 422 `unsupported-value` and `resolved_options` — stay mandatory regardless of what is declared here.",
+                            "type": "text/plain"
+                        },
+                        "url": {
+                            "path": [
+                                "capabilities"
+                            ],
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "query": [],
+                            "variable": []
+                        },
+                        "header": [
+                            {
+                                "disabled": false,
+                                "description": {
+                                    "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                    "type": "text/plain"
+                                },
+                                "key": "X-Request-Id",
+                                "value": "<string>"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "method": "GET",
+                        "body": {},
+                        "auth": {
+                            "type": "oauth2",
+                            "oauth2": [
+                                {
+                                    "key": "scope",
+                                    "value": "quotes.write capabilities.read occupations.read"
+                                },
+                                {
+                                    "key": "redirect_uri",
+                                    "value": "https://auth.insurer.example.com.au/oauth2/token"
+                                },
+                                {
+                                    "key": "accessTokenUrl",
+                                    "value": "https://auth.insurer.example.com.au/oauth2/token"
+                                },
+                                {
+                                    "key": "grant_type",
+                                    "value": "client_credentials"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "id": "fc1408c9-3e8d-4c09-b4f9-3bafa30982e4",
+                            "name": "The capability document.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "capabilities"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "Entity tag for the document. Servers SHOULD supply it and honour `If-None-Match`, so consumers can revalidate cheaply instead of re-fetching.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "ETag",
+                                    "value": "<string>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "Servers SHOULD permit caching for at least one hour — this document changes when a product range changes, not per request.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "Cache-Control",
+                                    "value": "<string>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-OpenLife-Spec-Version",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"spec_version\": \"05598953.22951083939.3477\",\n  \"insurer_id\": \"88esiiz92l-amdn\",\n  \"brands\": [\n    {\n      \"brand_id\": \"w7j5ukpxeewncn\",\n      \"name\": \"<string>\"\n    }\n  ],\n  \"covers\": [\n    {\n      \"cover_type\": \"income_protection\",\n      \"ownerships\": [\n        \"smsf_superlink\",\n        \"ordinary\"\n      ],\n      \"structures\": [\n        \"level_65\",\n        \"stepped\"\n      ],\n      \"can_be_standalone\": true,\n      \"min_sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"max_sum_insured\": {\n        \"amount\": \"\",\n        \"currency\": \"<string>\"\n      },\n      \"min_age_next_birthday\": \"<integer>\",\n      \"max_age_next_birthday\": \"<integer>\",\n      \"supported_options\": {\n        \"key_0\": [\n          \"\",\n          \"\"\n        ]\n      }\n    }\n  ],\n  \"frequencies\": [\n    \"monthly\",\n    \"monthly\"\n  ],\n  \"split_frequency_supported\": false,\n  \"occupation_resolution\": [\n    \"insurer_occupation_id\"\n  ],\n  \"occupation_qualifiers_used\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"features\": {\n    \"loadings_percentage\": false,\n    \"loadings_rate_per_thousand\": false,\n    \"campaigns\": false,\n    \"medical_requirements\": false,\n    \"inclusions\": false,\n    \"idempotency\": false,\n    \"quote_retrieval\": false,\n    \"line_diagnostics\": false\n  },\n  \"campaigns\": [\n    {\n      \"code\": \"<string>\",\n      \"name\": \"<string>\",\n      \"description\": \"<string>\",\n      \"requires_authorisation\": false\n    },\n    {\n      \"code\": \"<string>\",\n      \"name\": \"<string>\",\n      \"description\": \"<string>\",\n      \"requires_authorisation\": false\n    }\n  ],\n  \"limits\": {\n    \"max_covers_per_request\": \"<integer>\",\n    \"max_concurrent_requests\": \"<integer>\",\n    \"target_p95_latency_ms\": \"<integer>\"\n  }\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "14299e46-1bf2-4690-84b4-f0fe2b52bc1b",
+                            "name": "Not modified — the consumer's cached copy is current.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "capabilities"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "Not Modified",
+                            "code": 304,
+                            "header": [],
+                            "cookie": [],
+                            "_postman_previewlanguage": "text"
+                        },
+                        {
+                            "id": "d26588cd-8ac8-427b-8ab3-2ea78412ea71",
+                            "name": "No access token was presented, or it was malformed or expired. Problem type `unauthenticated`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "capabilities"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "RFC 6750 challenge.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "WWW-Authenticate",
+                                    "value": "<string>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "84efca0a-06f6-4595-8b68-12e376647cce",
+                            "name": "The token is valid but lacks the scope required for this operation, or names a campaign the consumer is not authorised for. Problem type `forbidden`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "capabilities"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "Forbidden",
+                            "code": 403,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "05306002-156d-4957-98eb-25e8779146e3",
+                            "name": "Rate limit exceeded. Problem type `rate-limited`. `Retry-After` is REQUIRED — without it a consumer fanning out across several insurers has no basis for a backoff and will retry into the limit.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "capabilities"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "Too Many Requests",
+                            "code": 429,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "(Required) Seconds to wait before retrying.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "Retry-After",
+                                    "value": "<integer>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "3f60c122-f646-41b8-a75e-d2298f20f64b",
+                            "name": "Unexpected failure. Problem type `internal-error`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "capabilities"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "Internal Server Error",
+                            "code": 500,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        }
+                    ],
+                    "event": [],
+                    "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Occupations",
+            "description": "Resolving an occupation to the insurer's own rating manual.",
+            "item": [
+                {
+                    "id": "dce061ed-de80-4591-b066-5da8bab8c34d",
+                    "name": "Search this insurer's own occupation list",
+                    "request": {
+                        "name": "Search this insurer's own occupation list",
+                        "description": {
+                            "content": "Return the occupations this insurer rates, in its own wording, each with its rating matrix.\nThis exists so an adviser can correct one insurer's occupation by hand. The usual flow resolves an occupation once via `POST /occupations:match`, but where the match is imperfect — or where the adviser knows this insurer's product better — they need to search the insurer's own list and choose. That choice is then sent as `occupation.insurer_occupation_id` on the next quote, and the insurer rates on it without re-matching.\nReturning the rating matrix inline is deliberate: it lets a consumer show the consequence of a change before spending a pricing call on it.\nAn empty `q` returns the whole list, paged, so a consumer can pre-load it.",
+                            "type": "text/plain"
+                        },
+                        "url": {
+                            "path": [
+                                "occupations"
+                            ],
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "query": [
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "Free-text search over the insurer's own occupation descriptions. Matching is implementation-defined; servers SHOULD match on substrings of any word rather than a prefix of the whole string, since advisers search on the distinguishing word (\"painter\") rather than the leading one.\nAn absent or empty `q` returns the full list, paged. That is deliberate — consumers pre-load the whole list to build a picker.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "q",
+                                    "value": "<string>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "Continuation token from the previous page's `page.next_cursor`.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "cursor",
+                                    "value": "<string>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "Maximum items per page. A server MAY return fewer for its own reasons, so completion is signalled only by the absence of `page.next_cursor`.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "limit",
+                                    "value": "100"
+                                }
+                            ],
+                            "variable": []
+                        },
+                        "header": [
+                            {
+                                "disabled": false,
+                                "description": {
+                                    "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                    "type": "text/plain"
+                                },
+                                "key": "X-Request-Id",
+                                "value": "<string>"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "method": "GET",
+                        "body": {},
+                        "auth": {
+                            "type": "oauth2",
+                            "oauth2": [
+                                {
+                                    "key": "scope",
+                                    "value": "quotes.write capabilities.read occupations.read"
+                                },
+                                {
+                                    "key": "redirect_uri",
+                                    "value": "https://auth.insurer.example.com.au/oauth2/token"
+                                },
+                                {
+                                    "key": "accessTokenUrl",
+                                    "value": "https://auth.insurer.example.com.au/oauth2/token"
+                                },
+                                {
+                                    "key": "grant_type",
+                                    "value": "client_credentials"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "id": "b22f73b8-1b07-470b-80ca-9bc28bc59567",
+                            "name": "Matching occupations. An empty array is a valid answer and means this insurer rates nothing matching the query — not that the query was malformed.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "occupations"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Free-text search over the insurer's own occupation descriptions. Matching is implementation-defined; servers SHOULD match on substrings of any word rather than a prefix of the whole string, since advisers search on the distinguishing word (\"painter\") rather than the leading one.\nAn absent or empty `q` returns the full list, paged. That is deliberate — consumers pre-load the whole list to build a picker.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "q",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Continuation token from the previous page's `page.next_cursor`.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "cursor",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Maximum items per page. A server MAY return fewer for its own reasons, so completion is signalled only by the absence of `page.next_cursor`.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "limit",
+                                            "value": "100"
+                                        }
+                                    ],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "ETag",
+                                    "value": "<string>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "Occupation lists change rarely; servers SHOULD permit caching for at least an hour. The response carries no personal information, so it is safe to cache.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "Cache-Control",
+                                    "value": "<string>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"occupations\": [\n    {\n      \"insurer_occupation_id\": \"<string>\",\n      \"description\": \"<string>\",\n      \"ratings\": {\n        \"life\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"trauma\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_own_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_any_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_adl\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"income_protection\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"business_expenses\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        }\n      },\n      \"osca\": \"4654-71\",\n      \"requires_employment_status\": \"unemployed\",\n      \"effective_from\": \"<date>\",\n      \"effective_to\": \"<date>\"\n    },\n    {\n      \"insurer_occupation_id\": \"<string>\",\n      \"description\": \"<string>\",\n      \"ratings\": {\n        \"life\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"trauma\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_own_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_any_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_adl\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"income_protection\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"business_expenses\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        }\n      },\n      \"osca\": \"142076\",\n      \"requires_employment_status\": \"self_employed_business_owner\",\n      \"effective_from\": \"<date>\",\n      \"effective_to\": \"<date>\"\n    }\n  ],\n  \"page\": {\n    \"next_cursor\": \"<string>\",\n    \"total_count\": \"<integer>\"\n  }\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "25146b3d-c421-4b86-a04f-f8a9a1b1db2b",
+                            "name": "Not modified.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "occupations"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Free-text search over the insurer's own occupation descriptions. Matching is implementation-defined; servers SHOULD match on substrings of any word rather than a prefix of the whole string, since advisers search on the distinguishing word (\"painter\") rather than the leading one.\nAn absent or empty `q` returns the full list, paged. That is deliberate — consumers pre-load the whole list to build a picker.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "q",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Continuation token from the previous page's `page.next_cursor`.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "cursor",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Maximum items per page. A server MAY return fewer for its own reasons, so completion is signalled only by the absence of `page.next_cursor`.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "limit",
+                                            "value": "100"
+                                        }
+                                    ],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "Not Modified",
+                            "code": 304,
+                            "header": [],
+                            "cookie": [],
+                            "_postman_previewlanguage": "text"
+                        },
+                        {
+                            "id": "8635d602-31d9-4ecf-a96e-573af4683aa5",
+                            "name": "The request could not be parsed, or a value was structurally invalid. Problem type `invalid-request`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "occupations"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Free-text search over the insurer's own occupation descriptions. Matching is implementation-defined; servers SHOULD match on substrings of any word rather than a prefix of the whole string, since advisers search on the distinguishing word (\"painter\") rather than the leading one.\nAn absent or empty `q` returns the full list, paged. That is deliberate — consumers pre-load the whole list to build a picker.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "q",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Continuation token from the previous page's `page.next_cursor`.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "cursor",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Maximum items per page. A server MAY return fewer for its own reasons, so completion is signalled only by the absence of `page.next_cursor`.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "limit",
+                                            "value": "100"
+                                        }
+                                    ],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "Bad Request",
+                            "code": 400,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "045173be-b6a1-4355-86c0-ea2bc591d1bf",
+                            "name": "No access token was presented, or it was malformed or expired. Problem type `unauthenticated`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "occupations"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Free-text search over the insurer's own occupation descriptions. Matching is implementation-defined; servers SHOULD match on substrings of any word rather than a prefix of the whole string, since advisers search on the distinguishing word (\"painter\") rather than the leading one.\nAn absent or empty `q` returns the full list, paged. That is deliberate — consumers pre-load the whole list to build a picker.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "q",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Continuation token from the previous page's `page.next_cursor`.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "cursor",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Maximum items per page. A server MAY return fewer for its own reasons, so completion is signalled only by the absence of `page.next_cursor`.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "limit",
+                                            "value": "100"
+                                        }
+                                    ],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "RFC 6750 challenge.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "WWW-Authenticate",
+                                    "value": "<string>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "9e9f104b-0b52-48db-a646-34f55e990c92",
+                            "name": "The token is valid but lacks the scope required for this operation, or names a campaign the consumer is not authorised for. Problem type `forbidden`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "occupations"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Free-text search over the insurer's own occupation descriptions. Matching is implementation-defined; servers SHOULD match on substrings of any word rather than a prefix of the whole string, since advisers search on the distinguishing word (\"painter\") rather than the leading one.\nAn absent or empty `q` returns the full list, paged. That is deliberate — consumers pre-load the whole list to build a picker.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "q",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Continuation token from the previous page's `page.next_cursor`.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "cursor",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Maximum items per page. A server MAY return fewer for its own reasons, so completion is signalled only by the absence of `page.next_cursor`.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "limit",
+                                            "value": "100"
+                                        }
+                                    ],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "Forbidden",
+                            "code": 403,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "40645af7-b8c0-49df-a9fe-422810fcc660",
+                            "name": "Rate limit exceeded. Problem type `rate-limited`. `Retry-After` is REQUIRED — without it a consumer fanning out across several insurers has no basis for a backoff and will retry into the limit.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "occupations"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Free-text search over the insurer's own occupation descriptions. Matching is implementation-defined; servers SHOULD match on substrings of any word rather than a prefix of the whole string, since advisers search on the distinguishing word (\"painter\") rather than the leading one.\nAn absent or empty `q` returns the full list, paged. That is deliberate — consumers pre-load the whole list to build a picker.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "q",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Continuation token from the previous page's `page.next_cursor`.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "cursor",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Maximum items per page. A server MAY return fewer for its own reasons, so completion is signalled only by the absence of `page.next_cursor`.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "limit",
+                                            "value": "100"
+                                        }
+                                    ],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "Too Many Requests",
+                            "code": 429,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "(Required) Seconds to wait before retrying.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "Retry-After",
+                                    "value": "<integer>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "c9643e46-00f3-4e0c-bc02-d429d7913d94",
+                            "name": "Unexpected failure. Problem type `internal-error`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "occupations"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Free-text search over the insurer's own occupation descriptions. Matching is implementation-defined; servers SHOULD match on substrings of any word rather than a prefix of the whole string, since advisers search on the distinguishing word (\"painter\") rather than the leading one.\nAn absent or empty `q` returns the full list, paged. That is deliberate — consumers pre-load the whole list to build a picker.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "q",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Continuation token from the previous page's `page.next_cursor`.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "cursor",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "Maximum items per page. A server MAY return fewer for its own reasons, so completion is signalled only by the absence of `page.next_cursor`.",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "limit",
+                                            "value": "100"
+                                        }
+                                    ],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "Internal Server Error",
+                            "code": 500,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        }
+                    ],
+                    "event": [],
+                    "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                    }
+                },
+                {
+                    "id": "09c200fc-7104-44fe-ad88-e9c5345423af",
+                    "name": "Resolve a baseline occupation to this insurer's own",
+                    "request": {
+                        "name": "Resolve a baseline occupation to this insurer's own",
+                        "description": {
+                            "content": "Given an ABS OSCA code and the qualifiers that sit beneath it, return the insurer's own occupations that correspond, most confident first.\n### Why this endpoint exists\nAn adviser picks an occupation once, from one picker, and expects to compare every insurer on the panel. Each insurer rates its own list, so something has to bridge the two. Putting the bridge here — inside the insurer, which is the only party that knows its own manual — avoids making anyone else the custodian of a mapping they cannot maintain.\n### An empty result is a real answer\n`candidates: []` means this insurer has no occupation corresponding to the reference. The consumer MUST show the insurer as unquotable for this client and MUST NOT substitute a nearby occupation of its own choosing. A silently wrong occupation produces a wrong premium that looks entirely normal, and an adviser has no way to detect it.\n### Confidence\nWhere the insurer maintains a one-to-one correspondence to the baseline it returns `exact`. A match derived from qualifiers alone will usually be `moderate` or below, and a consumer SHOULD ask the adviser to confirm anything below `exact` rather than pricing straight through.\nResults depend only on the occupation reference, never on the insured, so they are safely cacheable by the consumer per insurer.",
+                            "type": "text/plain"
+                        },
+                        "url": {
+                            "path": [
+                                "occupations:match"
+                            ],
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "query": [],
+                            "variable": []
+                        },
+                        "header": [
+                            {
+                                "disabled": false,
+                                "description": {
+                                    "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                    "type": "text/plain"
+                                },
+                                "key": "X-Request-Id",
+                                "value": "<string>"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "method": "POST",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                            "options": {
+                                "raw": {
+                                    "headerFamily": "json",
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "auth": {
+                            "type": "oauth2",
+                            "oauth2": [
+                                {
+                                    "key": "scope",
+                                    "value": "quotes.write capabilities.read occupations.read"
+                                },
+                                {
+                                    "key": "redirect_uri",
+                                    "value": "https://auth.insurer.example.com.au/oauth2/token"
+                                },
+                                {
+                                    "key": "accessTokenUrl",
+                                    "value": "https://auth.insurer.example.com.au/oauth2/token"
+                                },
+                                {
+                                    "key": "grant_type",
+                                    "value": "client_credentials"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "id": "a40ba9a8-c501-4252-b056-68c2d796a070",
+                            "name": "Candidate matches, possibly empty.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "occupations:match"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"candidates\": [\n    {\n      \"description\": \"<string>\",\n      \"insurer_occupation_id\": \"<string>\",\n      \"match_confidence\": \"high\",\n      \"ratings\": {\n        \"life\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"trauma\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_own_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_any_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_adl\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"income_protection\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"business_expenses\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        }\n      },\n      \"osca\": \"331538\",\n      \"requires_employment_status\": \"self_employed_business_owner\",\n      \"effective_from\": \"<date>\",\n      \"effective_to\": \"<date>\",\n      \"match_detail\": \"<string>\"\n    },\n    {\n      \"description\": \"<string>\",\n      \"insurer_occupation_id\": \"<string>\",\n      \"match_confidence\": \"low\",\n      \"ratings\": {\n        \"life\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"trauma\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_own_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_any_occupation\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"tpd_adl\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"income_protection\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        },\n        \"business_expenses\": {\n          \"supported\": \"<boolean>\",\n          \"rating_class\": \"<string>\",\n          \"rating_class_label\": \"<string>\"\n        }\n      },\n      \"osca\": \"278752\",\n      \"requires_employment_status\": \"pensioner\",\n      \"effective_from\": \"<date>\",\n      \"effective_to\": \"<date>\",\n      \"match_detail\": \"<string>\"\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "9f401745-b360-428e-99e8-f4736f9fce5c",
+                            "name": "The request could not be parsed, or a value was structurally invalid. Problem type `invalid-request`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "occupations:match"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Bad Request",
+                            "code": 400,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "cc392af8-fed9-4f19-b1db-3ed5c7451a11",
+                            "name": "No access token was presented, or it was malformed or expired. Problem type `unauthenticated`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "occupations:match"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "RFC 6750 challenge.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "WWW-Authenticate",
+                                    "value": "<string>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "0310aa2b-1d87-42eb-9b68-544844cc6415",
+                            "name": "The token is valid but lacks the scope required for this operation, or names a campaign the consumer is not authorised for. Problem type `forbidden`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "occupations:match"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Forbidden",
+                            "code": 403,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "e36a84db-c791-4db3-9814-97eae4eb5edd",
+                            "name": "The request was well formed but cannot be priced as asked — an unsupported cover, an unsupported option value, or a combination the product does not permit. Problem types `unsupported-cover`, `unsupported-value`, `invalid-combination`, `incomplete-request`.\nNOTE the boundary: this status is for a request the insurer will not accept. An insurer that accepts the request but cannot assemble the covers returns 200 with the line flagged `all_needs_met: false`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "occupations:match"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+                            "code": 422,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "27b23515-3425-483a-ab9b-316701cedb8e",
+                            "name": "Rate limit exceeded. Problem type `rate-limited`. `Retry-After` is REQUIRED — without it a consumer fanning out across several insurers has no basis for a backoff and will retry into the limit.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "occupations:match"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Too Many Requests",
+                            "code": 429,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "(Required) Seconds to wait before retrying.",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "Retry-After",
+                                    "value": "<integer>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "9402abec-a76a-4b5c-88a4-e5b56c63c137",
+                            "name": "Unexpected failure. Problem type `internal-error`.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "occupations:match"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "disabled": false,
+                                        "description": {
+                                            "content": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "X-Request-Id",
+                                        "value": "<string>"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/problem+json"
+                                    },
+                                    {
+                                        "description": {
+                                            "content": "Added as a part of security scheme: oauth2",
+                                            "type": "text/plain"
+                                        },
+                                        "key": "Authorization",
+                                        "value": "<token>"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"occupation\": {\n    \"osca\": 8099\n  },\n  \"max_candidates\": 10\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Internal Server Error",
+                            "code": 500,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/problem+json"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "X-Request-Id",
+                                    "value": ""
+                                }
+                            ],
+                            "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"<string>\",\n  \"status\": \"<integer>\",\n  \"detail\": \"<string>\",\n  \"instance\": \"<uri-reference>\",\n  \"request_id\": \"<string>\",\n  \"errors\": [\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    },\n    {\n      \"pointer\": \"<string>\",\n      \"detail\": \"<string>\",\n      \"value_supplied\": \"\",\n      \"values_supported\": [\n        \"\",\n        \"\"\n      ]\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        }
+                    ],
+                    "event": [],
+                    "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                    }
+                }
+            ]
+        }
+    ],
+    "auth": {
+        "type": "oauth2",
+        "oauth2": [
+            {
+                "type": "any",
+                "value": "quotes.write capabilities.read occupations.read",
+                "key": "scope"
+            },
+            {
+                "type": "any",
+                "value": "https://auth.insurer.example.com.au/oauth2/token",
+                "key": "redirect_uri"
+            },
+            {
+                "type": "any",
+                "value": "https://auth.insurer.example.com.au/oauth2/token",
+                "key": "accessTokenUrl"
+            },
+            {
+                "type": "any",
+                "value": "client_credentials",
+                "key": "grant_type"
+            }
+        ]
+    },
+    "event": [],
+    "variable": [
+        {
+            "key": "host",
+            "value": "api.insurer.example.com.au"
+        },
+        {
+            "key": "basePath",
+            "value": "openlife/quoting/v1"
+        },
+        {
+            "key": "baseUrl",
+            "value": "https://{{host}}/{{basePath}}"
+        }
+    ],
+    "info": {
+        "_postman_id": "4d782422-7f8b-4ee6-936b-e1b0379b545a",
+        "name": "Open Life Quoting API (AU)",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        "description": {
+            "content": "A contract an insurer implements so that adviser software can obtain quotes directly, in one\nshape, without a per-insurer integration.\n\n## What this is\n\nFour operations. An insurer prices a set of covers for one insured (`POST /quotes`), describes\nwhat it supports (`GET /capabilities`), and helps resolve an occupation to its own rating\nmanual (`GET /occupations`, `POST /occupations:match`).\n\nThe request is modelled on the questions an adviser actually answers, in the order they answer\nthem: who is being insured, the answers that apply to the whole policy, then one section per\nbenefit. It is deliberately not modelled on any existing engine's wire format.\n\n## The rules that matter most\n\nThese guard against failures that are **silent** — they produce a plausible number rather than\nan error, so nobody notices until a client complains.\n\n1. **All six payment frequencies on every priced line.** Sub-annual premiums carry a frequency\n   loading, so the monthly premium is not the annual over twelve. A consumer that divides will\n   understate the cost and nothing will look wrong.\n2. **Never price what you could not assemble.** If some requested covers cannot be written,\n   return the line with `all_needs_met: false`, populated `errors` and no premium. A partial\n   policy priced as though complete reads as the best offer on the table.\n3. **Report every option you did not apply.** An option the product cannot honour appears in\n   `resolved_options` as `unsupported_ignored`. Otherwise a quote that quietly dropped a\n   benefit is indistinguishable from one that included it, and the adviser recommends the\n   wrong product.\n4. **Echo what you rated.** `resolved_occupation` and `rate_table_version` are what make a\n   quote reproducible months later, which is what an adviser needs to justify a\n   recommendation.\n\n## Money\n\nAmounts are decimal strings with an explicit currency, never JSON numbers. Premiums are summed\nand compared to the cent, and JSON numbers are IEEE-754 doubles in JavaScript and in most\ngenerated clients.\n\n## Privacy\n\nThe request carries no name, no address, no contact details and no health data, and\n`Insured` is a closed schema so there is nowhere to put them. Age is sent as age next birthday\nrather than a date of birth wherever the insurer permits. This is a design constraint, not a\nrecommendation: a consumer sends the same client to several insurers, so every field\nmultiplies into several separate collections by several separate entities.\n\n## Conformance\n\nAn implementation need not offer every cover or every option value. Declare what you offer in\n`GET /capabilities` and the conformance suite tests you against that declaration. What is not\noptional is the four rules above.\n\n\nContact Support:\n Name: Open Life Data Standards (AU)",
+            "type": "text/plain"
+        }
+    }
+}

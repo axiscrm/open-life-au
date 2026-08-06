@@ -1,0 +1,46 @@
+{
+  "insured": {
+    "age_next_birthday": 38,
+    "gender": "female",
+    "smoker": false,
+    "state": "WA",
+    "occupation": {
+      "osca": "2411-11",
+      "description": "Early Childhood Teacher"
+    }
+  },
+  "covers": [
+    {
+      "cover_id": "life-1",
+      "cover_type": "life",
+      "sum_insured": {
+        "amount": "500000.00",
+        "currency": "AUD"
+      }
+    },
+    {
+      "cover_id": "child-trauma-1",
+      "cover_type": "child_trauma",
+      "children": [
+        {
+          "child_id": "child-a",
+          "age_next_birthday": 9,
+          "gender": "female",
+          "sum_insured": {
+            "amount": "50000.00",
+            "currency": "AUD"
+          }
+        },
+        {
+          "child_id": "child-b",
+          "age_next_birthday": 6,
+          "gender": "male",
+          "sum_insured": {
+            "amount": "50000.00",
+            "currency": "AUD"
+          }
+        }
+      ]
+    }
+  ]
+}

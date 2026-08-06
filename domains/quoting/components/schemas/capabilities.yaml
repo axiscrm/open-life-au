@@ -1,0 +1,229 @@
+# Open Life Data Standards (AU) — Quoting — capability declaration.
+#
+# This document is what lets a PARTIAL implementation be a CONFORMANT implementation. An insurer
+# that writes four of the seven covers, or offers three waiting periods rather than seven, is not
+# failing the standard — it is describing its product range, and this is where it does so.
+#
+# Two consequences worth stating plainly:
+#
+#   For a consumer, this is what drives the UI. Controls for unsupported covers and unsupported
+#   option values can be disabled before the adviser fills them in, rather than producing a 422
+#   after the fact.
+#
+#   For a consumer, this is ALSO only a hint. Capability documents are maintained by hand and
+#   they drift: an insurer will declare a combination it cannot actually price. The runtime paths
+#   — 422 `unsupported-value` and `resolved_options` with `unsupported_ignored` — remain
+#   mandatory, and a consumer MUST NOT rely on this document being complete or correct.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+Capabilities:
+  title: Capabilities
+  description: >-
+    What this implementation supports. Cacheable — servers SHOULD send an `ETag` and a
+    `Cache-Control` max-age of at least an hour, and consumers SHOULD revalidate rather than
+    fetching on every quote.
+  type: object
+  required: [spec_version, insurer_id, brands, covers]
+  additionalProperties: false
+  properties:
+    spec_version:
+      description: >-
+        The version of this standard the implementation is built against, as a semver string.
+        A consumer compares this against its own to decide which optional features to use.
+      type: string
+      pattern: '^\d+\.\d+\.\d+$'
+      examples: ['0.1.0']
+    insurer_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/InsurerId'
+    brands:
+      description: >-
+        The brands this endpoint can price. More than one is normal and is why `brand_id` is
+        required on every line even from a single-insurer endpoint.
+      type: array
+      minItems: 1
+      items:
+        type: object
+        required: [brand_id, name]
+        additionalProperties: false
+        properties:
+          brand_id:
+            $ref: '../../../../core/schemas/identifiers.yaml#/BrandId'
+          name:
+            type: string
+            maxLength: 120
+
+    covers:
+      description: >-
+        One entry per cover type offered. A cover type absent from this array is not offered at
+        all, and a request for it MUST be answered with 422 `unsupported-cover`.
+      type: array
+      minItems: 1
+      items:
+        $ref: '#/CoverCapability'
+
+    frequencies:
+      description: >-
+        Which payment frequencies the insurer's own billing supports. Note this does NOT narrow
+        the response: `PremiumSet` requires all six regardless, because a consumer compares and
+        annualises across insurers. This field says which ones a policy can actually be BILLED
+        at.
+      type: array
+      items:
+        $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Frequency'
+    split_frequency_supported:
+      description: >-
+        Whether the superannuation and non-superannuation portions of one policy can be billed at
+        different frequencies.
+      type: boolean
+      default: false
+
+    occupation_resolution:
+      description: >-
+        Which forms of `OccupationRef` this implementation accepts. `insurer_occupation_id` MUST
+        always be supported; the others are optional, and an implementation that supports none of
+        the baseline forms requires consumers to resolve an occupation via `/occupations` first.
+      type: array
+      items:
+        type: string
+        enum: [insurer_occupation_id, osca, anzsco]
+      default: [insurer_occupation_id]
+    occupation_qualifiers_used:
+      description: >-
+        Which `OccupationQualifiers` fields actually affect this insurer's rating. Lets a consumer
+        avoid collecting facts that will not change the answer.
+      type: array
+      items:
+        type: string
+
+    features:
+      description: Optional parts of the standard this implementation provides.
+      type: object
+      additionalProperties: false
+      properties:
+        loadings_percentage:
+          type: boolean
+          default: false
+        loadings_rate_per_thousand:
+          type: boolean
+          default: false
+        campaigns:
+          type: boolean
+          default: false
+        medical_requirements:
+          type: boolean
+          default: false
+        inclusions:
+          type: boolean
+          default: false
+        idempotency:
+          type: boolean
+          default: false
+        quote_retrieval:
+          description: Whether `GET /quotes/{quote_id}` is implemented.
+          type: boolean
+          default: false
+        line_diagnostics:
+          description: Whether the per-line unmet-needs diagnostic endpoint is implemented.
+          type: boolean
+          default: false
+
+    campaigns:
+      description: Campaign variants that can be named in `campaign_codes`.
+      type: array
+      items:
+        type: object
+        required: [code, name]
+        additionalProperties: false
+        properties:
+          code:
+            type: string
+            maxLength: 64
+          name:
+            type: string
+            maxLength: 200
+          description:
+            type: string
+            maxLength: 1000
+          requires_authorisation:
+            description: >-
+              Whether this campaign is only available to consumers specifically authorised for
+              it. An unauthorised request for it is a 403, not a silently standard-rated line.
+            type: boolean
+            default: false
+
+    limits:
+      type: object
+      additionalProperties: false
+      properties:
+        max_covers_per_request:
+          type: integer
+          minimum: 1
+        max_concurrent_requests:
+          type: integer
+          minimum: 1
+        target_p95_latency_ms:
+          description: >-
+            The latency the insurer expects to meet at `max_concurrent_requests`. Consumers of
+            several insurers at once fan out in parallel and are bounded by the slowest, so this
+            figure determines whether a consumer must apply a shorter timeout than its own
+            overall budget.
+          type: integer
+          minimum: 1
+
+CoverCapability:
+  title: CoverCapability
+  description: >-
+    What one cover type supports. `supported_options` carries VALUE SETS rather than a list of
+    field names, so an insurer can narrow an enum — three waiting periods out of seven — without
+    the standard needing a new version.
+  type: object
+  required: [cover_type]
+  additionalProperties: false
+  properties:
+    cover_type:
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/CoverType'
+    ownerships:
+      type: array
+      items:
+        $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Ownership'
+    structures:
+      type: array
+      items:
+        $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Structure'
+    can_be_standalone:
+      type: boolean
+      default: true
+    can_extend:
+      description: >-
+        The cover types this cover may be written as an extension of, named with `linked_to`. An
+        empty array means it is only available standalone.
+      type: array
+      items:
+        $ref: '../../../../core/schemas/cover-vocabulary.yaml#/CoverType'
+      default: []
+    min_sum_insured:
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    max_sum_insured:
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    min_age_next_birthday:
+      type: integer
+      minimum: 0
+      maximum: 100
+    max_age_next_birthday:
+      type: integer
+      minimum: 0
+      maximum: 100
+    supported_options:
+      description: >-
+        Permitted values per option field, keyed by the field name as it appears in the cover
+        schema. An option field ABSENT from this map is not supported at all for this cover and
+        MUST be reported as `unsupported_ignored` if sent.
+      type: object
+      additionalProperties:
+        type: array
+        items: {}
+      examples:
+        - waiting_period: ['30d', '60d', '90d']
+          benefit_period: ['2y', 'age_65']
+          tpd_definition: [own_occupation, any_occupation, prefer]

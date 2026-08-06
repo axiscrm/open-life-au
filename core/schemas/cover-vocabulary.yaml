@@ -1,0 +1,144 @@
+# Open Life Data Standards (AU) — the shared cover vocabulary.
+#
+# These enums are the words an adviser uses on screen, rendered as stable snake_case
+# identifiers. They are shared by the quoting and policy contracts: a policy record and a
+# quote must agree on what "level to 65" or "SuperLink" means, or reconciling one against
+# the other is guesswork.
+#
+# ENUM DIRECTION MATTERS (see docs/VERSIONING.md):
+#   - In a REQUEST, these enums are CLOSED. A server MUST reject an unrecognised value with
+#     422 `unsupported-value` rather than silently substituting a default — a typo that
+#     prices as "stepped" instead of failing is a silent mis-quote.
+#   - In a RESPONSE, they are EXTENSIBLE (`x-extensible-enum`). Consumers MUST tolerate an
+#     unknown value by passing it through for display rather than crashing. Without this,
+#     adding a cover type would be a MAJOR version forever and the standard would freeze.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+CoverType:
+  title: CoverType
+  description: >-
+    The benefits an adviser can ask to be priced, in the order they are presented on a quote
+    screen. A cover may be requested standalone or, for some combinations, as a rider linked
+    to a parent cover — see `link_type` on the cover schemas.
+  type: string
+  enum:
+    - life                # Death benefit, paid as a lump sum
+    - tpd                 # Total and Permanent Disability, lump sum
+    - trauma              # Critical illness / recovery, lump sum
+    - income_protection   # Monthly benefit while disabled, subject to waiting/benefit period
+    - business_expenses   # Monthly reimbursement of fixed business costs while disabled
+    - needle_stick        # Lump sum on occupationally acquired blood-borne infection
+    - child_trauma        # Critical illness cover on one or more named children
+
+Ownership:
+  title: Ownership
+  description: >-
+    Who owns the cover, which determines the tax treatment, whether the premium can be paid
+    from superannuation, and which side of the super/non-super premium split each amount
+    falls on.
+      - `super`           held inside a retail superannuation fund
+      - `ordinary`        held personally, outside super
+      - `smsf`            held inside a self-managed superannuation fund
+      - `superlink`       split structure: one benefit part-owned inside super, part outside,
+                          linked so the parts cannot be claimed twice
+      - `smsf_superlink`  the same split structure where the super side is an SMSF
+  type: string
+  enum: [super, ordinary, smsf, superlink, smsf_superlink]
+
+Structure:
+  title: Structure
+  description: >-
+    How the premium behaves over the life of the policy.
+      - `stepped`   re-rated each year as the insured ages
+      - `level_65`  held level (bar indexation and rate changes) to age 65, then stepped
+      - `level_70`  as above, to age 70
+      - `blended`   a stepped/level mix, where the insurer blends the two rate bases
+    `blended` is incompatible with indexation on some products; where an insurer cannot
+    honour it, that is reported as `unsupported_ignored` rather than silently substituted.
+  type: string
+  enum: [stepped, level_65, level_70, blended]
+
+PremiumWaiver:
+  title: PremiumWaiver
+  description: >-
+    Whether to include the waiver-of-premium option, which suspends premiums while the
+    insured is disabled. `prefer` is a DEFERRED CHOICE — the adviser is asking the insurer to
+    include it where the product allows and to price without it where not, and the insurer
+    MUST report which it did in `resolved_options`.
+  type: string
+  enum: [exclude, include, prefer]
+
+Preference:
+  title: Preference
+  description: >-
+    The general three-state answer to an optional benefit: leave it out, put it in, or let
+    the insurer decide (`prefer`). Every `prefer` in a request MUST come back as an entry in
+    `resolved_options` saying what was actually applied.
+  type: string
+  enum: [exclude, include, prefer]
+
+Frequency:
+  title: Frequency
+  description: >-
+    How often the premium is paid. A premium at a sub-annual frequency is NOT the annual
+    premium divided by the number of periods: insurers apply a frequency loading, so
+    `monthly x 12 >= annual`. Every priced product therefore carries all six frequencies —
+    see `PremiumSet` — and consumers MUST read the frequency they need rather than deriving it.
+  type: string
+  enum: [weekly, fortnightly, monthly, quarterly, half_yearly, annual]
+
+Gender:
+  title: Gender
+  description: >-
+    The gender used for rating. Life insurance rate tables in this market are published for
+    two values, so this enum carries only those two; it describes a pricing input, not the
+    insured's identity, and it is deliberately separate from any demographic field a CRM
+    might hold.
+  type: string
+  enum: [male, female]
+
+AustralianState:
+  title: AustralianState
+  description: >-
+    State or territory of residence. Required because stamp duty on life insurance is levied
+    per jurisdiction, so the same cover carries a different total depending on this value.
+  type: string
+  enum: [NSW, VIC, QLD, SA, WA, TAS, NT, ACT]
+
+EmploymentStatus:
+  title: EmploymentStatus
+  description: >-
+    The insured's working status. This is a rating input in its own right, not a duplicate of
+    the occupation: disability covers (`income_protection`, `business_expenses`, `tpd`)
+    generally require a working status, and a working occupation paired with a non-working
+    status is a contradiction that many insurers answer with a nil premium rather than an
+    error. Consumers SHOULD reconcile the two before quoting.
+    The `working` set is `employee` and the three `self_employed_*` values; the remainder are
+    non-working.
+  type: string
+  enum:
+    - employee
+    - self_employed_sole_trader
+    - self_employed_partnership
+    - self_employed_business_owner
+    - home_duties
+    - retired
+    - pensioner
+    - unemployed
+    - student
+
+TpdDefinition:
+  title: TpdDefinition
+  description: >-
+    Which test of total and permanent disability applies, in descending order of how
+    favourable it is to the insured.
+      - `own_occupation`  unable to work in their own occupation
+      - `any_occupation`  unable to work in any occupation they are suited to
+      - `home_duties`     the domestic-duties test, for a non-working insured
+      - `adl`             the activities-of-daily-living test
+      - `prefer`          let the insurer apply the best definition the occupation allows
+    Availability is occupation-dependent: an insurer that cannot offer the requested
+    definition for the rated occupation reports it via `resolved_options`.
+  type: string
+  enum: [own_occupation, any_occupation, home_duties, adl, prefer]

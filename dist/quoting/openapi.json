@@ -1,0 +1,2679 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Open Life Quoting API (AU)",
+    "version": "0.1.0",
+    "summary": "A vendor-neutral contract for pricing Australian life risk cover.",
+    "description": "A contract an insurer implements so that adviser software can obtain quotes directly, in one\nshape, without a per-insurer integration.\n\n## What this is\n\nFour operations. An insurer prices a set of covers for one insured (`POST /quotes`), describes\nwhat it supports (`GET /capabilities`), and helps resolve an occupation to its own rating\nmanual (`GET /occupations`, `POST /occupations:match`).\n\nThe request is modelled on the questions an adviser actually answers, in the order they answer\nthem: who is being insured, the answers that apply to the whole policy, then one section per\nbenefit. It is deliberately not modelled on any existing engine's wire format.\n\n## The rules that matter most\n\nThese guard against failures that are **silent** — they produce a plausible number rather than\nan error, so nobody notices until a client complains.\n\n1. **All six payment frequencies on every priced line.** Sub-annual premiums carry a frequency\n   loading, so the monthly premium is not the annual over twelve. A consumer that divides will\n   understate the cost and nothing will look wrong.\n2. **Never price what you could not assemble.** If some requested covers cannot be written,\n   return the line with `all_needs_met: false`, populated `errors` and no premium. A partial\n   policy priced as though complete reads as the best offer on the table.\n3. **Report every option you did not apply.** An option the product cannot honour appears in\n   `resolved_options` as `unsupported_ignored`. Otherwise a quote that quietly dropped a\n   benefit is indistinguishable from one that included it, and the adviser recommends the\n   wrong product.\n4. **Echo what you rated.** `resolved_occupation` and `rate_table_version` are what make a\n   quote reproducible months later, which is what an adviser needs to justify a\n   recommendation.\n\n## Money\n\nAmounts are decimal strings with an explicit currency, never JSON numbers. Premiums are summed\nand compared to the cent, and JSON numbers are IEEE-754 doubles in JavaScript and in most\ngenerated clients.\n\n## Privacy\n\nThe request carries no name, no address, no contact details and no health data, and\n`Insured` is a closed schema so there is nowhere to put them. Age is sent as age next birthday\nrather than a date of birth wherever the insurer permits. This is a design constraint, not a\nrecommendation: a consumer sends the same client to several insurers, so every field\nmultiplies into several separate collections by several separate entities.\n\n## Conformance\n\nAn implementation need not offer every cover or every option value. Declare what you offer in\n`GET /capabilities` and the conformance suite tests you against that declaration. What is not\noptional is the four rules above.\n",
+    "license": {
+      "name": "Apache-2.0",
+      "identifier": "Apache-2.0"
+    },
+    "contact": {
+      "name": "Open Life Data Standards (AU)",
+      "url": "https://github.com/axiscrm/open-life-au"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://{host}/{basePath}",
+      "description": "An insurer's implementation.",
+      "variables": {
+        "host": {
+          "default": "api.insurer.example.com.au"
+        },
+        "basePath": {
+          "default": "openlife/quoting/v1"
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "oauth2": [
+        "quotes.write"
+      ]
+    }
+  ],
+  "tags": [
+    {
+      "name": "Quotes",
+      "description": "Pricing."
+    },
+    {
+      "name": "Discovery",
+      "description": "What an implementation supports."
+    },
+    {
+      "name": "Occupations",
+      "description": "Resolving an occupation to the insurer's own rating manual."
+    }
+  ],
+  "paths": {
+    "/quotes": {
+      "post": {
+        "operationId": "createQuote",
+        "summary": "Price a set of covers",
+        "description": "Price the requested covers for one insured and return every line the insurer can offer, plus the lines it had to decline.\n### What a response means\nOne request yields MANY lines. An insurer with two brands and a campaign on one of them may answer a single life-cover request with three lines. Consumers must treat the response as a set of comparable offers, never as \"the price\".\n### Three things a consumer must not do\n- **Do not derive a frequency.** Every line carries all six. `annual / 12` is not the monthly\n  premium, because sub-annual premiums carry a frequency loading.\n- **Do not price a failed line.** A line with `all_needs_met: false` carries no `premiums` and\n  is not an offer. It exists so the adviser can see that this insurer was asked and could not\n  write the combination.\n- **Do not assume an option was applied.** Check `resolved_options`. An option the product\n  cannot honour appears there as `unsupported_ignored`, and the premium does not include it.\n\n### Caching\nQuote responses carry personal information about the insured and MUST NOT be cached by intermediaries. Servers MUST send `Cache-Control: no-store`.",
+        "tags": [
+          "Quotes"
+        ],
+        "security": [
+          {
+            "oauth2": [
+              "quotes.write"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The quote was produced. Note that a 200 does not mean every requested cover was priced — inspect `all_needs_met` and `resolved_options` per line.",
+            "headers": {
+              "Cache-Control": {
+                "description": "MUST be `no-store`.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "X-OpenLife-Spec-Version": {
+                "$ref": "#/components/headers/SpecVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/capabilities": {
+      "get": {
+        "operationId": "getCapabilities",
+        "summary": "What this implementation supports",
+        "description": "Describe the covers, option values, brands, campaigns and optional features this implementation offers.\nA consumer calls this once and caches it. It drives which controls an adviser is offered, so an unsupported combination can be prevented rather than rejected after the fact.\nThis is the mechanism that makes a partial implementation conformant: an insurer that writes four covers and three waiting periods declares exactly that, and the conformance suite tests it against what it declared rather than against the whole standard.\nConsumers MUST NOT treat this document as authoritative. Hand-maintained capability documents drift from the pricing engine, so the runtime paths — 422 `unsupported-value` and `resolved_options` — stay mandatory regardless of what is declared here.",
+        "tags": [
+          "Discovery"
+        ],
+        "security": [
+          {
+            "oauth2": [
+              "capabilities.read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The capability document.",
+            "headers": {
+              "ETag": {
+                "description": "Entity tag for the document. Servers SHOULD supply it and honour `If-None-Match`, so consumers can revalidate cheaply instead of re-fetching.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "Servers SHOULD permit caching for at least one hour — this document changes when a product range changes, not per request.",
+                "schema": {
+                  "type": "string",
+                  "example": "public, max-age=3600"
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "X-OpenLife-Spec-Version": {
+                "$ref": "#/components/headers/SpecVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified — the consumer's cached copy is current."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/occupations": {
+      "get": {
+        "operationId": "listOccupations",
+        "summary": "Search this insurer's own occupation list",
+        "description": "Return the occupations this insurer rates, in its own wording, each with its rating matrix.\nThis exists so an adviser can correct one insurer's occupation by hand. The usual flow resolves an occupation once via `POST /occupations:match`, but where the match is imperfect — or where the adviser knows this insurer's product better — they need to search the insurer's own list and choose. That choice is then sent as `occupation.insurer_occupation_id` on the next quote, and the insurer rates on it without re-matching.\nReturning the rating matrix inline is deliberate: it lets a consumer show the consequence of a change before spending a pricing call on it.\nAn empty `q` returns the whole list, paged, so a consumer can pre-load it.",
+        "tags": [
+          "Occupations"
+        ],
+        "security": [
+          {
+            "oauth2": [
+              "occupations.read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OccupationQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/RequestId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching occupations. An empty array is a valid answer and means this insurer rates nothing matching the query — not that the query was malformed.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "Occupation lists change rarely; servers SHOULD permit caching for at least an hour. The response carries no personal information, so it is safe to cache.",
+                "schema": {
+                  "type": "string",
+                  "example": "public, max-age=3600"
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OccupationListResponse"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/occupations:match": {
+      "post": {
+        "operationId": "matchOccupation",
+        "summary": "Resolve a baseline occupation to this insurer's own",
+        "description": "Given an ABS OSCA code and the qualifiers that sit beneath it, return the insurer's own occupations that correspond, most confident first.\n### Why this endpoint exists\nAn adviser picks an occupation once, from one picker, and expects to compare every insurer on the panel. Each insurer rates its own list, so something has to bridge the two. Putting the bridge here — inside the insurer, which is the only party that knows its own manual — avoids making anyone else the custodian of a mapping they cannot maintain.\n### An empty result is a real answer\n`candidates: []` means this insurer has no occupation corresponding to the reference. The consumer MUST show the insurer as unquotable for this client and MUST NOT substitute a nearby occupation of its own choosing. A silently wrong occupation produces a wrong premium that looks entirely normal, and an adviser has no way to detect it.\n### Confidence\nWhere the insurer maintains a one-to-one correspondence to the baseline it returns `exact`. A match derived from qualifiers alone will usually be `moderate` or below, and a consumer SHOULD ask the adviser to confirm anything below `exact` rather than pricing straight through.\nResults depend only on the occupation reference, never on the insured, so they are safely cacheable by the consumer per insurer.",
+        "tags": [
+          "Occupations"
+        ],
+        "security": [
+          {
+            "oauth2": [
+              "occupations.read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OccupationMatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Candidate matches, possibly empty.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OccupationMatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "oauth2": {
+        "type": "oauth2",
+        "description": "OAuth 2.0 client credentials (RFC 6749, section 4.4). Machine-to-machine only.\n\nThe consumer is a system, not a person, so there is no interactive flow: an authorisation\ncode flow would oblige insurers to provision and maintain an account per adviser, and to\nanswer \"is this adviser appointed with us?\" on every token request.\n\nInsurers who need adviser or licensee attribution — for distribution reporting or campaign\nentitlement — should take it from the token's own claims or from the client registration,\nnot by pushing identity into the quote request.\n\nServers SHOULD publish an RFC 8414 metadata document so consumers can discover the token\nendpoint rather than having it configured by hand. mTLS MAY additionally be required.\n",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://auth.insurer.example.com.au/oauth2/token",
+            "refreshUrl": "https://auth.insurer.example.com.au/oauth2/token",
+            "scopes": {
+              "quotes.write": "Create quotes.",
+              "capabilities.read": "Read the capability document.",
+              "occupations.read": "Search and match occupations."
+            }
+          }
+        }
+      }
+    },
+    "parameters": {
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "description": "A consumer-generated UUID identifying this logical request. Replaying the same key with an identical body MUST return the stored response rather than re-pricing; replaying it with a different body MUST fail with 409 `idempotency-conflict`. Servers SHOULD retain keys for at least 24 hours.\nPricing is computationally idempotent but commercially metered — many insurers count quotes, and some bill on them. This header is what stops a network timeout and retry from being counted twice, which protects both sides.",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "RequestId": {
+        "name": "X-Request-Id",
+        "in": "header",
+        "description": "Consumer-supplied correlation identifier. Echoed on the response; the server generates one if absent.",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "OccupationQuery": {
+        "name": "q",
+        "in": "query",
+        "description": "Free-text search over the insurer's own occupation descriptions. Matching is implementation-defined; servers SHOULD match on substrings of any word rather than a prefix of the whole string, since advisers search on the distinguishing word (\"painter\") rather than the leading one.\nAn absent or empty `q` returns the full list, paged. That is deliberate — consumers pre-load the whole list to build a picker.",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 100
+        }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "description": "Continuation token from the previous page's `page.next_cursor`.",
+        "required": false,
+        "schema": {
+          "$ref": "#/components/schemas/Cursor"
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Maximum items per page. A server MAY return fewer for its own reasons, so completion is signalled only by the absence of `page.next_cursor`.",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500,
+          "default": 100
+        }
+      }
+    },
+    "schemas": {
+      "ClientReference": {
+        "title": "ClientReference",
+        "description": "The consumer's own reference for the person being quoted, echoed back on the response so a quote can be reconciled against the requesting system.\nThis MUST be a pseudonymous token, not a name, email, customer number or anything else that identifies the person outside the requesting system — the recommended construction is an HMAC of the internal record id under a per-insurer salt. Deriving it per insurer means two insurers cannot correlate their request streams to reconstruct a consumer's client base, and it keeps the request within data-minimisation obligations.",
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_.:-]{1,128}$",
+        "examples": [
+          "c:8f14e45fceea167a"
+        ]
+      },
+      "Gender": {
+        "title": "Gender",
+        "description": "The gender used for rating. Life insurance rate tables in this market are published for two values, so this enum carries only those two; it describes a pricing input, not the insured's identity, and it is deliberately separate from any demographic field a CRM might hold.",
+        "type": "string",
+        "enum": [
+          "male",
+          "female"
+        ]
+      },
+      "AustralianState": {
+        "title": "AustralianState",
+        "description": "State or territory of residence. Required because stamp duty on life insurance is levied per jurisdiction, so the same cover carries a different total depending on this value.",
+        "type": "string",
+        "enum": [
+          "NSW",
+          "VIC",
+          "QLD",
+          "SA",
+          "WA",
+          "TAS",
+          "NT",
+          "ACT"
+        ]
+      },
+      "EmploymentStatus": {
+        "title": "EmploymentStatus",
+        "description": "The insured's working status. This is a rating input in its own right, not a duplicate of the occupation: disability covers (`income_protection`, `business_expenses`, `tpd`) generally require a working status, and a working occupation paired with a non-working status is a contradiction that many insurers answer with a nil premium rather than an error. Consumers SHOULD reconcile the two before quoting. The `working` set is `employee` and the three `self_employed_*` values; the remainder are non-working.",
+        "type": "string",
+        "enum": [
+          "employee",
+          "self_employed_sole_trader",
+          "self_employed_partnership",
+          "self_employed_business_owner",
+          "home_duties",
+          "retired",
+          "pensioner",
+          "unemployed",
+          "student"
+        ]
+      },
+      "Decimal": {
+        "title": "Decimal",
+        "description": "A fixed-point decimal amount serialised as a string, with at most two fractional digits. Scientific notation, thousands separators, currency symbols and leading `+` are not permitted. Implementations MUST NOT normalise `\"0.00\"` to `\"0\"` or vice versa when echoing a value back — but consumers MUST treat the two as numerically equal.",
+        "type": "string",
+        "pattern": "^-?\\d{1,12}(\\.\\d{1,2})?$",
+        "examples": [
+          "1234.56",
+          "0",
+          "-19.95"
+        ]
+      },
+      "Money": {
+        "title": "Money",
+        "description": "An amount of money. Currency is carried explicitly even though this standard is Australia-only, so a future market does not become a breaking change.",
+        "type": "object",
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Decimal"
+          },
+          "currency": {
+            "title": "CurrencyCode",
+            "description": "ISO 4217 alphabetic code. Only AUD is defined by this version of the standard.",
+            "type": "string",
+            "const": "AUD"
+          }
+        },
+        "examples": [
+          {
+            "amount": "1000000.00",
+            "currency": "AUD"
+          }
+        ]
+      },
+      "NonNegativeMoney": {
+        "title": "NonNegativeMoney",
+        "description": "Money that cannot be negative — sums insured, premiums, stamp duty, policy fees. A negative value here is always a defect, so it is rejected at the schema boundary rather than surfacing as a nonsensical premium.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Money"
+          },
+          {
+            "properties": {
+              "amount": {
+                "type": "string",
+                "pattern": "^\\d{1,12}(\\.\\d{1,2})?$"
+              }
+            }
+          }
+        ]
+      },
+      "OccupationQualifiers": {
+        "title": "OccupationQualifiers",
+        "description": "The risk discriminators that sit beneath an occupation code. Every field is optional, and an absent field means \"not stated\" rather than \"no\" — an insurer SHOULD rate an unstated qualifier at its own default and MUST NOT infer a favourable answer from silence.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "trade_qualified": {
+            "description": "Whether the insured holds a recognised trade or professional qualification for the occupation. Frequently the difference of one or more rating classes in the trades.",
+            "type": "boolean"
+          },
+          "working_height_m": {
+            "description": "The greatest height above ground at which the insured routinely works, in metres. `0` means they do not work at height. Insurers commonly band this (for example at 10m).",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 500
+          },
+          "works_underground": {
+            "type": "boolean"
+          },
+          "works_offshore": {
+            "description": "Routinely works offshore or on vessels, including oil and gas platforms.",
+            "type": "boolean"
+          },
+          "manual_duties_percent": {
+            "description": "Proportion of working time spent on manual duties, 0-100. The usual axis distinguishing a white-collar rating from a light- or heavy-manual one within the same occupation.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "hours_per_week": {
+            "description": "Ordinary hours worked per week. Most income-protection products require a minimum (commonly 20-25 hours) before they will offer the full benefit basis.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 168
+          },
+          "handles_explosives": {
+            "type": "boolean"
+          },
+          "licensed_to_carry_firearm": {
+            "description": "Carries a firearm as a requirement of the occupation.",
+            "type": "boolean"
+          }
+        },
+        "examples": [
+          {
+            "trade_qualified": false,
+            "working_height_m": 10,
+            "manual_duties_percent": 80,
+            "hours_per_week": 38
+          }
+        ]
+      },
+      "OccupationRef": {
+        "title": "OccupationRef",
+        "description": "How a consumer names an occupation. At least one of `osca`, `anzsco` or `insurer_occupation_id` MUST be present.\n`insurer_occupation_id` is the authoritative form: it names a row in the insurer's own list and removes all matching ambiguity, so it is what a consumer SHOULD send once the adviser has confirmed a per-insurer occupation. The others ask the insurer to match, and the insurer MUST report what it matched to.",
+        "type": "object",
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "osca"
+            ]
+          },
+          {
+            "required": [
+              "anzsco"
+            ]
+          },
+          {
+            "required": [
+              "insurer_occupation_id"
+            ]
+          }
+        ],
+        "properties": {
+          "osca": {
+            "title": "OscaCode",
+            "description": "ABS Occupation Standard Classification for Australia code. Six digits, optionally hyphenated at the four-digit unit-group boundary for readability.",
+            "type": "string",
+            "pattern": "^\\d{4}-?\\d{2}$",
+            "examples": [
+              "3323-11"
+            ]
+          },
+          "anzsco": {
+            "title": "AnzscoCode",
+            "description": "Legacy ANZSCO code, accepted as an alias for consumers and manuals still using it. Ignored when `osca` is present.",
+            "type": "string",
+            "pattern": "^\\d{4}-?\\d{2}$"
+          },
+          "insurer_occupation_id": {
+            "description": "An identifier from this insurer's own occupation list, as returned by `GET /occupations`. Opaque; scoped to the insurer. When present, the insurer MUST rate on exactly this occupation and MUST NOT re-match.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "qualifiers": {
+            "$ref": "#/components/schemas/OccupationQualifiers"
+          },
+          "description": {
+            "description": "The adviser-facing description shown on screen, for display and diagnostics only. NON-NORMATIVE: an insurer MUST NOT rate on this string.",
+            "type": "string",
+            "maxLength": 200,
+            "examples": [
+              "Painter"
+            ]
+          }
+        }
+      },
+      "Insured": {
+        "title": "Insured",
+        "description": "The person whose risk is being priced. Exactly one of `age_next_birthday` or `date_of_birth` MUST be present; `age_next_birthday` SHOULD be preferred.",
+        "type": "object",
+        "required": [
+          "gender",
+          "smoker",
+          "state",
+          "occupation"
+        ],
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": [
+              "age_next_birthday"
+            ]
+          },
+          {
+            "required": [
+              "date_of_birth"
+            ]
+          }
+        ],
+        "properties": {
+          "age_next_birthday": {
+            "description": "The insured's age at their next birthday, which is the basis life rate tables are indexed on in this market. Bounds are the widest any product issues at; individual products declare their own limits in the capability document.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "date_of_birth": {
+            "description": "Full date of birth, RFC 3339 full-date. Send only where the insurer has declared it necessary — see the privacy note at the head of this file.",
+            "type": "string",
+            "format": "date",
+            "examples": [
+              "1985-03-14"
+            ]
+          },
+          "gender": {
+            "$ref": "#/components/schemas/Gender"
+          },
+          "smoker": {
+            "description": "Whether the insured meets the insurer's definition of a smoker. Definitions differ between insurers (typically on the lookback period and on whether occasional or non-tobacco nicotine use counts), so this is the consumer's answer to the insurer's own question rather than an objective fact. Insurers SHOULD publish their definition in their documentation.",
+            "type": "boolean"
+          },
+          "state": {
+            "$ref": "#/components/schemas/AustralianState"
+          },
+          "employment_status": {
+            "$ref": "#/components/schemas/EmploymentStatus"
+          },
+          "annual_income": {
+            "description": "Gross annual income before tax. Required to price income protection and business expenses, which are capped as a proportion of it, and used by some insurers to band occupation ratings for white-collar roles. Omit where no income-based cover is requested.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "occupation": {
+            "$ref": "#/components/schemas/OccupationRef"
+          }
+        },
+        "examples": [
+          {
+            "age_next_birthday": 41,
+            "gender": "male",
+            "smoker": false,
+            "state": "NSW",
+            "employment_status": "employee",
+            "annual_income": {
+              "amount": "145000.00",
+              "currency": "AUD"
+            },
+            "occupation": {
+              "osca": "3323-11",
+              "description": "Painter",
+              "qualifiers": {
+                "trade_qualified": true,
+                "working_height_m": 10,
+                "manual_duties_percent": 80
+              }
+            }
+          }
+        ]
+      },
+      "Structure": {
+        "title": "Structure",
+        "description": "How the premium behaves over the life of the policy.\n  - `stepped`   re-rated each year as the insured ages\n  - `level_65`  held level (bar indexation and rate changes) to age 65, then stepped\n  - `level_70`  as above, to age 70\n  - `blended`   a stepped/level mix, where the insurer blends the two rate bases\n`blended` is incompatible with indexation on some products; where an insurer cannot honour it, that is reported as `unsupported_ignored` rather than silently substituted.",
+        "type": "string",
+        "enum": [
+          "stepped",
+          "level_65",
+          "level_70",
+          "blended"
+        ]
+      },
+      "Ownership": {
+        "title": "Ownership",
+        "description": "Who owns the cover, which determines the tax treatment, whether the premium can be paid from superannuation, and which side of the super/non-super premium split each amount falls on.\n  - `super`           held inside a retail superannuation fund\n  - `ordinary`        held personally, outside super\n  - `smsf`            held inside a self-managed superannuation fund\n  - `superlink`       split structure: one benefit part-owned inside super, part outside,\n                      linked so the parts cannot be claimed twice\n  - `smsf_superlink`  the same split structure where the super side is an SMSF",
+        "type": "string",
+        "enum": [
+          "super",
+          "ordinary",
+          "smsf",
+          "superlink",
+          "smsf_superlink"
+        ]
+      },
+      "PremiumWaiver": {
+        "title": "PremiumWaiver",
+        "description": "Whether to include the waiver-of-premium option, which suspends premiums while the insured is disabled. `prefer` is a DEFERRED CHOICE — the adviser is asking the insurer to include it where the product allows and to price without it where not, and the insurer MUST report which it did in `resolved_options`.",
+        "type": "string",
+        "enum": [
+          "exclude",
+          "include",
+          "prefer"
+        ]
+      },
+      "Percentage": {
+        "title": "Percentage",
+        "description": "A percentage expressed as a number (not a string, and not a 0-1 ratio): `25` means 25%. Rates and percentages are numeric because they are inputs to arithmetic rather than amounts to be stored to the cent, and at most three decimal places they are exactly representable. `0` is a MEANINGFUL value — see the loadings schema, where an explicit zero cancels an inherited loading and is not the same as omitting the field.",
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1000,
+        "multipleOf": 0.001,
+        "examples": [
+          0,
+          25,
+          62.5
+        ]
+      },
+      "RatePerThousand": {
+        "title": "RatePerThousand",
+        "description": "A dollar rate applied per $1,000 of sum insured, the second axis on which underwriting loadings are expressed. Serialised as a decimal string for the same reason as `Decimal`.",
+        "type": "string",
+        "pattern": "^\\d{1,6}(\\.\\d{1,2})?$",
+        "examples": [
+          "0",
+          "1.50",
+          "12.00"
+        ]
+      },
+      "Loadings": {
+        "title": "Loadings",
+        "description": "Underwriting loadings the adviser expects the insurer to apply, expressed per benefit on two independent axes. Both axes may apply to the same benefit, in which case the insurer applies both.\nSPARSE-MAP SEMANTICS, NORMATIVE. These maps are sparse and every present key is meaningful:\n\n  - a benefit ABSENT from a map carries no loading on that axis;\n  - a benefit present with a value of `0` carries an EXPLICIT nil loading.\n\nThe two are NOT interchangeable. An implementation MUST NOT normalise a `0` into an omission or an omission into a `0`, and MUST NOT reject `0` as pointless — a consumer sends it to state positively that this benefit is not loaded, which is a different instruction from declining to say. JSON Schema cannot express this constraint, which is precisely why it is stated here and tested by the conformance suite.\nKeys are `CoverType` values, restricted to the five benefits a loading can attach to. Needle stick and child trauma have no loading axis and MUST be rejected as keys.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "percentage": {
+            "description": "A percentage uplift on the risk premium for that benefit. `25` means the premium is loaded by 25%.",
+            "type": "object",
+            "additionalProperties": false,
+            "propertyNames": {
+              "enum": [
+                "life",
+                "tpd",
+                "trauma",
+                "income_protection",
+                "business_expenses"
+              ]
+            },
+            "patternProperties": {
+              "^(life|tpd|trauma|income_protection|business_expenses)$": {
+                "$ref": "#/components/schemas/Percentage"
+              }
+            }
+          },
+          "rate_per_thousand": {
+            "description": "A flat dollar amount per $1,000 of sum insured, added to the risk premium for that benefit. Not applicable to the monthly-benefit covers on every product; insurers report an inapplicable axis via `resolved_options`.",
+            "type": "object",
+            "additionalProperties": false,
+            "propertyNames": {
+              "enum": [
+                "life",
+                "tpd",
+                "trauma",
+                "income_protection",
+                "business_expenses"
+              ]
+            },
+            "patternProperties": {
+              "^(life|tpd|trauma|income_protection|business_expenses)$": {
+                "$ref": "#/components/schemas/RatePerThousand"
+              }
+            }
+          }
+        },
+        "examples": [
+          {
+            "percentage": {
+              "life": 50,
+              "trauma": 0
+            },
+            "rate_per_thousand": {
+              "life": "1.50"
+            }
+          }
+        ]
+      },
+      "PolicyDefaults": {
+        "title": "PolicyDefaults",
+        "description": "The answers that apply to the policy as a whole. Every field is optional and every field has a defined default, so a minimal request is valid; a cover may override any of them for itself.\nOn a quote screen these controls are usually drawn inside the first benefit's panel, because that is where an adviser looks for them. They are hoisted here deliberately: an insurer should not have to know that the policy-wide premium structure is to be read off the life cover.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "structure": {
+            "description": "Default premium structure for every cover. Defaults to `stepped`.",
+            "$ref": "#/components/schemas/Structure",
+            "default": "stepped"
+          },
+          "ownership": {
+            "description": "Default ownership for every cover. Defaults to `ordinary`.",
+            "$ref": "#/components/schemas/Ownership",
+            "default": "ordinary"
+          },
+          "premium_waiver": {
+            "description": "Default waiver-of-premium answer for every cover. Defaults to `exclude`.",
+            "$ref": "#/components/schemas/PremiumWaiver",
+            "default": "exclude"
+          },
+          "loadings": {
+            "$ref": "#/components/schemas/Loadings"
+          }
+        }
+      },
+      "CoverId": {
+        "title": "CoverId",
+        "description": "CLIENT-assigned identifier for one requested cover, unique within the request. It does two jobs: a rider names its parent with it (`linked_to`), and every priced line echoes it so the consumer knows which requested cover produced which priced cover without inferring from cover type and amount.",
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{1,64}$",
+        "examples": [
+          "life-1",
+          "tpd-rider-1"
+        ]
+      },
+      "CoverType": {
+        "title": "CoverType",
+        "description": "The benefits an adviser can ask to be priced, in the order they are presented on a quote screen. A cover may be requested standalone or, for some combinations, as a rider linked to a parent cover — see `link_type` on the cover schemas.",
+        "type": "string",
+        "enum": [
+          "life",
+          "tpd",
+          "trauma",
+          "income_protection",
+          "business_expenses",
+          "needle_stick",
+          "child_trauma"
+        ]
+      },
+      "Preference": {
+        "title": "Preference",
+        "description": "The general three-state answer to an optional benefit: leave it out, put it in, or let the insurer decide (`prefer`). Every `prefer` in a request MUST come back as an entry in `resolved_options` saying what was actually applied.",
+        "type": "string",
+        "enum": [
+          "exclude",
+          "include",
+          "prefer"
+        ]
+      },
+      "LinkType": {
+        "title": "LinkType",
+        "description": "How a cover relates to the cover named in `linked_to`. `extension` means the cover is held as a rider on the parent and its benefit reduces the parent's when paid, which is what makes it cheaper than the same cover held standalone.",
+        "type": "string",
+        "enum": [
+          "extension"
+        ]
+      },
+      "CoverBase": {
+        "title": "CoverBase",
+        "description": "Fields common to every cover. `ownership`, `structure` and `premium_waiver` are OPTIONAL here: omitted, they inherit the request's policy-level answer, which is how the quote screen behaves. Supplying one overrides it for this cover only.",
+        "type": "object",
+        "required": [
+          "cover_id",
+          "cover_type"
+        ],
+        "properties": {
+          "cover_id": {
+            "$ref": "#/components/schemas/CoverId"
+          },
+          "cover_type": {
+            "$ref": "#/components/schemas/CoverType"
+          },
+          "ownership": {
+            "$ref": "#/components/schemas/Ownership"
+          },
+          "structure": {
+            "$ref": "#/components/schemas/Structure"
+          },
+          "premium_waiver": {
+            "$ref": "#/components/schemas/PremiumWaiver"
+          },
+          "pay_by_rollover": {
+            "description": "Whether the premium may be funded by a rollover from another superannuation fund. Only meaningful where `ownership` resolves to a superannuation type; insurers MUST report it as `unsupported_ignored` rather than silently dropping it otherwise.",
+            "$ref": "#/components/schemas/Preference"
+          },
+          "linked_to": {
+            "description": "The `cover_id` of the parent cover, when this cover is held as an extension of it. MUST reference a cover present in the same request, MUST NOT be self-referential, and the graph of links MUST be acyclic. Absent means the cover is standalone.",
+            "$ref": "#/components/schemas/CoverId"
+          },
+          "link_type": {
+            "$ref": "#/components/schemas/LinkType"
+          }
+        },
+        "dependentRequired": {
+          "linked_to": [
+            "link_type"
+          ],
+          "link_type": [
+            "linked_to"
+          ]
+        }
+      },
+      "LifeCover": {
+        "title": "LifeCover",
+        "description": "A death benefit paid as a lump sum. May be the parent of TPD and trauma extensions.",
+        "unevaluatedProperties": false,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CoverBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "cover_type",
+              "sum_insured"
+            ],
+            "properties": {
+              "cover_type": {
+                "const": "life"
+              },
+              "sum_insured": {
+                "$ref": "#/components/schemas/NonNegativeMoney"
+              }
+            }
+          }
+        ]
+      },
+      "TpdDefinition": {
+        "title": "TpdDefinition",
+        "description": "Which test of total and permanent disability applies, in descending order of how favourable it is to the insured.\n  - `own_occupation`  unable to work in their own occupation\n  - `any_occupation`  unable to work in any occupation they are suited to\n  - `home_duties`     the domestic-duties test, for a non-working insured\n  - `adl`             the activities-of-daily-living test\n  - `prefer`          let the insurer apply the best definition the occupation allows\nAvailability is occupation-dependent: an insurer that cannot offer the requested definition for the rated occupation reports it via `resolved_options`.",
+        "type": "string",
+        "enum": [
+          "own_occupation",
+          "any_occupation",
+          "home_duties",
+          "adl",
+          "prefer"
+        ]
+      },
+      "LifeBuyback": {
+        "title": "LifeBuyback",
+        "description": "Whether, after an extension benefit is paid and the life cover is correspondingly reduced, the life cover can be reinstated — and how soon.\n  - `exclude` / `prefer_exclude`  leave it out\n  - `immediate`                   reinstated as soon as the extension is paid\n  - `after_1_year` / `after_3_years`  reinstated after that waiting period\n  - `prefer`                      let the insurer apply the best option the product offers\nAvailable values differ by which extension the buy-back attaches to; each cover schema below narrows the set accordingly.",
+        "type": "string",
+        "enum": [
+          "exclude",
+          "prefer_exclude",
+          "immediate",
+          "after_1_year",
+          "after_3_years",
+          "prefer"
+        ]
+      },
+      "PreferenceQuad": {
+        "title": "PreferenceQuad",
+        "description": "A four-state answer to an optional benefit, for the cases where an adviser wants to express a leaning rather than a decision. `prefer_exclude` and `prefer_include` are DEFERRED: the insurer settles them and MUST report what it applied in `resolved_options`.",
+        "type": "string",
+        "enum": [
+          "exclude",
+          "prefer_exclude",
+          "prefer_include",
+          "include"
+        ]
+      },
+      "TpdCover": {
+        "title": "TpdCover",
+        "description": "Total and permanent disability, as a lump sum. Held standalone, or as an extension of a life or trauma cover via `linked_to`. `life_buyback` and `double_benefit` are only meaningful on an extension, since both describe what happens to the parent cover when this benefit is paid.",
+        "unevaluatedProperties": false,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CoverBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "cover_type",
+              "sum_insured"
+            ],
+            "properties": {
+              "cover_type": {
+                "const": "tpd"
+              },
+              "sum_insured": {
+                "$ref": "#/components/schemas/NonNegativeMoney"
+              },
+              "tpd_definition": {
+                "$ref": "#/components/schemas/TpdDefinition"
+              },
+              "life_buyback": {
+                "description": "Reinstatement of the parent cover after this benefit is paid. Extensions only.",
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/LifeBuyback"
+                  },
+                  {
+                    "enum": [
+                      "exclude",
+                      "prefer_exclude",
+                      "immediate",
+                      "after_1_year",
+                      "prefer"
+                    ]
+                  }
+                ]
+              },
+              "double_benefit": {
+                "description": "Whether this benefit is paid IN ADDITION to the parent cover rather than reducing it. Extensions only; materially increases the premium.",
+                "$ref": "#/components/schemas/PreferenceQuad"
+              }
+            }
+          }
+        ]
+      },
+      "BenefitQuality": {
+        "title": "BenefitQuality",
+        "description": "Which end of a product range to select from where an insurer offers several tiers of the same benefit. This is a preference over the insurer's OWN range, not a cross-insurer ranking, and it is resolved by the insurer.",
+        "type": "string",
+        "enum": [
+          "lowest_cost",
+          "intermediate",
+          "most_comprehensive"
+        ]
+      },
+      "TraumaCover": {
+        "title": "TraumaCover",
+        "description": "Critical illness cover, as a lump sum. Held standalone or as an extension of a life cover.",
+        "unevaluatedProperties": false,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CoverBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "cover_type",
+              "sum_insured"
+            ],
+            "properties": {
+              "cover_type": {
+                "const": "trauma"
+              },
+              "sum_insured": {
+                "$ref": "#/components/schemas/NonNegativeMoney"
+              },
+              "life_buyback": {
+                "description": "Reinstatement of the parent cover after this benefit is paid. Extensions only.",
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/LifeBuyback"
+                  },
+                  {
+                    "enum": [
+                      "exclude",
+                      "prefer_exclude",
+                      "after_1_year",
+                      "after_3_years",
+                      "prefer"
+                    ]
+                  }
+                ]
+              },
+              "double_benefit": {
+                "description": "Paid in addition to the parent cover rather than reducing it. Extensions only.",
+                "$ref": "#/components/schemas/PreferenceQuad"
+              },
+              "reinstatement": {
+                "description": "Whether the trauma benefit itself can be reinstated after a claim, allowing a later unrelated condition to be claimed again.",
+                "$ref": "#/components/schemas/PreferenceQuad"
+              },
+              "child_care_benefit": {
+                "description": "An additional benefit payable on complications of pregnancy or childbirth, or on a child's serious illness, depending on the product. Only offered where the insured's gender makes the pregnancy component applicable, so insurers commonly report this as `unsupported_ignored` otherwise.",
+                "$ref": "#/components/schemas/PreferenceQuad"
+              },
+              "benefit_quality": {
+                "description": "Which tier of the insurer's trauma range to select from.",
+                "$ref": "#/components/schemas/BenefitQuality"
+              }
+            }
+          }
+        ]
+      },
+      "WaitingPeriod": {
+        "title": "WaitingPeriod",
+        "description": "How long the insured must be disabled before a monthly benefit starts to accrue. Shorter periods cost materially more. Not every product offers every value; an insurer declares the values it supports in its capability document and rejects the rest with 422 `unsupported-value`.",
+        "type": "string",
+        "enum": [
+          "14d",
+          "30d",
+          "60d",
+          "90d",
+          "180d",
+          "1y",
+          "2y"
+        ]
+      },
+      "BenefitPeriod": {
+        "title": "BenefitPeriod",
+        "description": "How long a monthly benefit continues to be paid once a claim is admitted. The `age_*` values pay to that age, which for a younger insured is far longer — and dearer — than any of the fixed terms.",
+        "type": "string",
+        "enum": [
+          "1y",
+          "2y",
+          "5y",
+          "age_55",
+          "age_60",
+          "age_65",
+          "age_67",
+          "age_70"
+        ]
+      },
+      "ReplacementRatio": {
+        "title": "ReplacementRatio",
+        "description": "The proportion of pre-disability income the monthly benefit is intended to replace, used to select between product variants that differ on this basis. `any` lets the insurer offer whatever its product supports.",
+        "type": "string",
+        "enum": [
+          "any",
+          "above_75",
+          "70_to_75",
+          "60_to_69",
+          "below_60"
+        ]
+      },
+      "IncomeProtectionCover": {
+        "title": "IncomeProtectionCover",
+        "description": "A monthly benefit while the insured is disabled and unable to earn. The benefit is capped as a proportion of `annual_income`, so that field is required on the insured whenever this cover is requested.",
+        "unevaluatedProperties": false,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CoverBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "cover_type",
+              "monthly_benefit"
+            ],
+            "properties": {
+              "cover_type": {
+                "const": "income_protection"
+              },
+              "monthly_benefit": {
+                "description": "The monthly amount sought, before any cap the insurer applies.",
+                "$ref": "#/components/schemas/NonNegativeMoney"
+              },
+              "waiting_period": {
+                "$ref": "#/components/schemas/WaitingPeriod"
+              },
+              "benefit_period": {
+                "$ref": "#/components/schemas/BenefitPeriod"
+              },
+              "replacement_ratio": {
+                "$ref": "#/components/schemas/ReplacementRatio"
+              },
+              "benefit_quality": {
+                "$ref": "#/components/schemas/BenefitQuality"
+              },
+              "indexed_claim_benefit": {
+                "description": "Whether a benefit in payment is indexed against inflation.",
+                "$ref": "#/components/schemas/PreferenceQuad"
+              },
+              "accident_benefit": {
+                "description": "Whether the benefit starts from the date of an accident rather than after the full waiting period.",
+                "$ref": "#/components/schemas/PreferenceQuad"
+              },
+              "superannuation_contribution": {
+                "description": "An additional monthly amount to cover superannuation contributions while on claim. Absent means none.",
+                "$ref": "#/components/schemas/NonNegativeMoney"
+              }
+            }
+          }
+        ]
+      },
+      "BusinessExpensesCover": {
+        "title": "BusinessExpensesCover",
+        "description": "Reimbursement of fixed business overheads while the insured is disabled. Benefit periods are short by nature — this covers the cost of keeping a practice open, not the loss of income.",
+        "unevaluatedProperties": false,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CoverBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "cover_type",
+              "monthly_benefit"
+            ],
+            "properties": {
+              "cover_type": {
+                "const": "business_expenses"
+              },
+              "monthly_benefit": {
+                "$ref": "#/components/schemas/NonNegativeMoney"
+              },
+              "waiting_period": {
+                "description": "Narrower than the income-protection set: the long deferral periods are not offered on this benefit.",
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/WaitingPeriod"
+                  },
+                  {
+                    "enum": [
+                      "14d",
+                      "30d",
+                      "60d",
+                      "90d"
+                    ]
+                  }
+                ]
+              },
+              "benefit_period": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/BenefitPeriod"
+                  },
+                  {
+                    "enum": [
+                      "1y",
+                      "2y"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "NeedleStickCover": {
+        "title": "NeedleStickCover",
+        "description": "A lump sum on occupationally acquired blood-borne infection. Offered to healthcare occupations only, so an insurer will commonly answer this with an unavailable line for anyone else.",
+        "unevaluatedProperties": false,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CoverBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "cover_type",
+              "sum_insured"
+            ],
+            "properties": {
+              "cover_type": {
+                "const": "needle_stick"
+              },
+              "sum_insured": {
+                "$ref": "#/components/schemas/NonNegativeMoney"
+              }
+            }
+          }
+        ]
+      },
+      "InsuredChild": {
+        "title": "InsuredChild",
+        "description": "A child named on a child trauma cover. Deliberately narrower than `Insured`: children are rated on age and gender alone, so nothing else is collected.",
+        "type": "object",
+        "required": [
+          "age_next_birthday",
+          "gender",
+          "sum_insured"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "child_id": {
+            "description": "Consumer-assigned identifier, unique within the cover, so per-child results and per-child validation errors can be attributed without relying on array position.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$"
+          },
+          "age_next_birthday": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 25
+          },
+          "gender": {
+            "$ref": "#/components/schemas/Gender"
+          },
+          "sum_insured": {
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          }
+        }
+      },
+      "ChildTraumaCover": {
+        "title": "ChildTraumaCover",
+        "description": "Critical illness cover on named children. The amount is per child, so this cover carries no cover-level sum insured — each child names their own.",
+        "unevaluatedProperties": false,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CoverBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "cover_type",
+              "children"
+            ],
+            "properties": {
+              "cover_type": {
+                "const": "child_trauma"
+              },
+              "children": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 10,
+                "items": {
+                  "$ref": "#/components/schemas/InsuredChild"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CoverRequest": {
+        "title": "CoverRequest",
+        "description": "One cover to be priced. Which fields are permitted is determined entirely by `cover_type`; each variant is closed, so an option that belongs to another cover is a validation failure rather than something an implementer has to remember to ignore.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/LifeCover"
+          },
+          {
+            "$ref": "#/components/schemas/TpdCover"
+          },
+          {
+            "$ref": "#/components/schemas/TraumaCover"
+          },
+          {
+            "$ref": "#/components/schemas/IncomeProtectionCover"
+          },
+          {
+            "$ref": "#/components/schemas/BusinessExpensesCover"
+          },
+          {
+            "$ref": "#/components/schemas/NeedleStickCover"
+          },
+          {
+            "$ref": "#/components/schemas/ChildTraumaCover"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "cover_type",
+          "mapping": {
+            "life": "#/components/schemas/LifeCover",
+            "tpd": "#/components/schemas/TpdCover",
+            "trauma": "#/components/schemas/TraumaCover",
+            "income_protection": "#/components/schemas/IncomeProtectionCover",
+            "business_expenses": "#/components/schemas/BusinessExpensesCover",
+            "needle_stick": "#/components/schemas/NeedleStickCover",
+            "child_trauma": "#/components/schemas/ChildTraumaCover"
+          }
+        }
+      },
+      "QuoteRequest": {
+        "title": "QuoteRequest",
+        "description": "A request to price one or more covers for one insured. A response to this is a set of priced lines, not a single price: an insurer may return several lines for one request where it has more than one brand, product combination or campaign variant that satisfies the covers asked for.",
+        "type": "object",
+        "required": [
+          "insured",
+          "covers"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "client_reference": {
+            "$ref": "#/components/schemas/ClientReference"
+          },
+          "insured": {
+            "$ref": "#/components/schemas/Insured"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/PolicyDefaults"
+          },
+          "covers": {
+            "description": "The covers to price. Only covers the adviser has switched on appear here — an absent cover type is not requested, and there is no \"included: false\" form.\n`cover_id` MUST be unique across the array. Where a cover names a parent with `linked_to`, the parent MUST also be present; order within the array is NOT significant and a server MUST NOT require parents to appear first.",
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/CoverRequest"
+            }
+          },
+          "campaign_codes": {
+            "description": "Campaign or discount variants to price in ADDITION to the insurer's standard rates. Each requested campaign the insured qualifies for yields its own line, so the adviser can compare the standard offer against the discounted one rather than being silently given whichever is cheaper. An empty array or an absent field means standard rates only.\nCodes are the insurer's own, discoverable from its capability document. An unknown code is a 422 rather than being ignored, so a mistyped campaign cannot look like an ineligible one.",
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "default": []
+          }
+        },
+        "examples": [
+          {
+            "client_reference": "c:8f14e45fceea167a",
+            "insured": {
+              "age_next_birthday": 41,
+              "gender": "male",
+              "smoker": false,
+              "state": "NSW",
+              "employment_status": "employee",
+              "annual_income": {
+                "amount": "145000.00",
+                "currency": "AUD"
+              },
+              "occupation": {
+                "osca": "3323-11",
+                "description": "Painter",
+                "qualifiers": {
+                  "trade_qualified": true,
+                  "working_height_m": 10,
+                  "manual_duties_percent": 80
+                }
+              }
+            },
+            "policy": {
+              "structure": "stepped",
+              "ownership": "super",
+              "premium_waiver": "exclude"
+            },
+            "covers": [
+              {
+                "cover_id": "life-1",
+                "cover_type": "life",
+                "sum_insured": {
+                  "amount": "1000000.00",
+                  "currency": "AUD"
+                }
+              },
+              {
+                "cover_id": "tpd-ext-1",
+                "cover_type": "tpd",
+                "linked_to": "life-1",
+                "link_type": "extension",
+                "sum_insured": {
+                  "amount": "750000.00",
+                  "currency": "AUD"
+                },
+                "ownership": "ordinary",
+                "tpd_definition": "any_occupation",
+                "life_buyback": "after_1_year"
+              }
+            ]
+          }
+        ]
+      },
+      "QuoteId": {
+        "title": "QuoteId",
+        "description": "Opaque, server-assigned identifier for a whole quote response. Required so a quote can be retrieved, audited and reproduced later — an adviser must be able to justify a recommendation years after making it.",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "LineId": {
+        "title": "LineId",
+        "description": "Opaque, server-assigned identifier for one priced line within one quote. Unique within its `QuoteId`. Consumers MUST treat it as opaque and MUST NOT parse it. It is the key for per-line follow-up calls such as the unmet-needs diagnostic.",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "InsurerId": {
+        "title": "InsurerId",
+        "description": "Stable identifier for the issuing insurer, assigned by this standard's registry so it is the same value at every implementer. Lowercase, hyphenated.",
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])$",
+        "examples": [
+          "example-life"
+        ]
+      },
+      "BrandId": {
+        "title": "BrandId",
+        "description": "Stable identifier for the brand a line is sold under. Equal to the `InsurerId` where the insurer sells under a single brand. REQUIRED on every priced line even from a single-insurer endpoint, because one insurer commonly issues several brands and a consumer must not have to infer the brand from a product name.",
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])$",
+        "examples": [
+          "example-life",
+          "example-select"
+        ]
+      },
+      "ProductName": {
+        "title": "ProductName",
+        "description": "The insurer's own marketing name for a product, verbatim, for display only.",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200,
+        "examples": [
+          "Protection Plus Life Cover"
+        ]
+      },
+      "RateTableVersion": {
+        "title": "RateTableVersion",
+        "description": "The insurer's identifier for the pricing basis used for this line — a rate table version, effective date, or equivalent. REQUIRED for reproducibility: without it, \"why is this premium different from the one we quoted last month\" is unanswerable, which is the single most common audit question and the field insurers least often expose.",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "examples": [
+          "2026-07-01",
+          "RT-2026.2"
+        ]
+      },
+      "PremiumBreakdown": {
+        "title": "PremiumBreakdown",
+        "description": "One frequency's premium, split by whether it is funded inside or outside superannuation and with stamp duty shown separately on each side.\nARITHMETIC INVARIANT, NORMATIVE AND TESTED:\n\n  total == premium_super + stamp_duty_super + premium_non_super + stamp_duty_non_super\n\nexactly, to the cent, with no tolerance. `policy_fee` is INCLUDED within `total` and within whichever premium component bears it — it is not a further addition. Keeping the fee outside the total is a recurring source of comparison tables that understate the real cost.\nThe super/non-super split is a genuine split, not a bucketing: one cover can carry both sides at once where it is written under a linked ownership structure.",
+        "type": "object",
+        "required": [
+          "total",
+          "premium_super",
+          "premium_non_super",
+          "stamp_duty_super",
+          "stamp_duty_non_super"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "total": {
+            "description": "The all-in amount payable at this frequency.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "premium_super": {
+            "description": "Premium funded from superannuation, excluding stamp duty.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "premium_non_super": {
+            "description": "Premium funded outside superannuation, excluding stamp duty.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "stamp_duty_super": {
+            "description": "Stamp duty attributable to the superannuation-funded premium.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "stamp_duty_non_super": {
+            "description": "Stamp duty attributable to the non-superannuation premium.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "policy_fee": {
+            "description": "The policy or administration fee component at this frequency, already included in `total`. Reported separately because it is not attributable to any one cover, so it cannot be recovered by summing `cover_lines`.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          }
+        }
+      },
+      "PremiumSet": {
+        "title": "PremiumSet",
+        "description": "The same line priced at all six payment frequencies. ALL SIX ARE REQUIRED.\nAn insurer must not return only the frequency it was asked for, because there is no way to derive the others: sub-annual premiums carry a frequency loading, so `weekly x 52 >= fortnightly x 26 >= monthly x 12 >= quarterly x 4 >= half_yearly x 2 >= annual`. Returning all six also means a consumer can let an adviser switch frequency without re-pricing, which removes a whole class of billable round-trips.\nAn insurer that levies no frequency loading returns six internally consistent sets where the products happen to be equal; that is valid.",
+        "type": "object",
+        "required": [
+          "weekly",
+          "fortnightly",
+          "monthly",
+          "quarterly",
+          "half_yearly",
+          "annual"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "weekly": {
+            "$ref": "#/components/schemas/PremiumBreakdown"
+          },
+          "fortnightly": {
+            "$ref": "#/components/schemas/PremiumBreakdown"
+          },
+          "monthly": {
+            "$ref": "#/components/schemas/PremiumBreakdown"
+          },
+          "quarterly": {
+            "$ref": "#/components/schemas/PremiumBreakdown"
+          },
+          "half_yearly": {
+            "$ref": "#/components/schemas/PremiumBreakdown"
+          },
+          "annual": {
+            "$ref": "#/components/schemas/PremiumBreakdown"
+          }
+        }
+      },
+      "CoverLine": {
+        "title": "CoverLine",
+        "description": "One priced cover within a line. `cover_id` is echoed from the request so a consumer can match a priced cover to the one it asked for without guessing from type and amount.",
+        "type": "object",
+        "required": [
+          "cover_type",
+          "sum_insured",
+          "premiums"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "cover_id": {
+            "description": "Echoed from the request. Absent only where the insurer added this cover of its own accord because the product requires it.",
+            "$ref": "#/components/schemas/CoverId"
+          },
+          "cover_type": {
+            "$ref": "#/components/schemas/CoverType"
+          },
+          "description": {
+            "description": "The insurer's own name for this cover as written.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "sum_insured": {
+            "description": "The amount actually written, which may differ from the amount requested where the insurer applied a cap or a product minimum. Any such difference MUST also appear in `resolved_options`.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "ownership": {
+            "$ref": "#/components/schemas/Ownership"
+          },
+          "structure": {
+            "$ref": "#/components/schemas/Structure"
+          },
+          "linked_to": {
+            "description": "Echoed from the request where this cover was written as an extension.",
+            "$ref": "#/components/schemas/CoverId"
+          },
+          "premiums": {
+            "description": "This cover's contribution to the line's premium, at all six frequencies. The same arithmetic invariant applies per cover. Summing `cover_lines[].premiums[f].total` will NOT reach the line total wherever a policy fee applies — read the line total, do not derive it.",
+            "$ref": "#/components/schemas/PremiumSet"
+          }
+        }
+      },
+      "CoverRating": {
+        "title": "CoverRating",
+        "description": "One cell of an insurer's occupation rating matrix: the class it would rate this occupation at for one benefit, and whether that benefit is available to the occupation at all.",
+        "type": "object",
+        "required": [
+          "supported"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "supported": {
+            "description": "Whether this benefit can be offered to this occupation. `false` means the occupation is uninsurable for this benefit — distinct from a poor rating class.",
+            "type": "boolean"
+          },
+          "rating_class": {
+            "description": "The insurer's own class code. INSURER-SCOPED: class \"1\" at one insurer has no defined relationship to class \"1\" at another, and consumers MUST NOT compare, sort or average this value across insurers. Absent when `supported` is `false`.",
+            "type": "string",
+            "maxLength": 32
+          },
+          "rating_class_label": {
+            "description": "A human-readable rendering of the class, for display where the code is cryptic.",
+            "type": "string",
+            "maxLength": 100
+          }
+        }
+      },
+      "OccupationRatings": {
+        "title": "OccupationRatings",
+        "description": "An insurer's rating of one occupation across every benefit it offers. Keys are `CoverType` values, except that TPD is split by definition because a single occupation is routinely ratable under one TPD test and uninsurable under another.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "life": {
+            "$ref": "#/components/schemas/CoverRating"
+          },
+          "trauma": {
+            "$ref": "#/components/schemas/CoverRating"
+          },
+          "tpd_own_occupation": {
+            "$ref": "#/components/schemas/CoverRating"
+          },
+          "tpd_any_occupation": {
+            "$ref": "#/components/schemas/CoverRating"
+          },
+          "tpd_adl": {
+            "$ref": "#/components/schemas/CoverRating"
+          },
+          "income_protection": {
+            "$ref": "#/components/schemas/CoverRating"
+          },
+          "business_expenses": {
+            "$ref": "#/components/schemas/CoverRating"
+          }
+        }
+      },
+      "ResolvedOccupation": {
+        "title": "ResolvedOccupation",
+        "description": "What the insurer actually rated on. REQUIRED on every priced line, because a quote whose occupation cannot be reproduced cannot be audited, and because a wrong occupation produces a wrong premium that looks entirely normal.",
+        "type": "object",
+        "required": [
+          "insurer_occupation_id",
+          "description",
+          "ratings"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "insurer_occupation_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "description": {
+            "description": "The insurer's own wording for the occupation it rated.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "ratings": {
+            "$ref": "#/components/schemas/OccupationRatings"
+          },
+          "match_confidence": {
+            "description": "How confident the insurer is in the match, when it matched from a baseline code rather than being given `insurer_occupation_id`. `exact` means a maintained one-to-one mapping. Consumers SHOULD surface anything below `exact` to the adviser for confirmation rather than pricing silently.",
+            "type": "string",
+            "enum": [
+              "exact",
+              "high",
+              "moderate",
+              "low"
+            ]
+          }
+        }
+      },
+      "ResolvedOption": {
+        "title": "ResolvedOption",
+        "description": "What became of one requested option. An entry is REQUIRED for every option the insurer did not apply exactly as asked, and for every deferred choice (`prefer`, `prefer_include`, `prefer_exclude`, `any`) whether or not the outcome matched the leaning.\nNORMATIVE: any option present in the request but NOT reflected in this array with an `applied` value equal to the requested value MUST be reported here — and an option the product cannot honour at all MUST be reported as `unsupported_ignored`. An insurer that silently ignores an option produces a line that looks like it included a benefit it did not, which is the most consequential defect this standard exists to prevent.",
+        "type": "object",
+        "required": [
+          "cover_id",
+          "option",
+          "resolution"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "cover_id": {
+            "description": "The cover the option was given on, echoed from the request. Use the literal `policy` for an option given at policy level.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "option": {
+            "description": "The field name of the option, as it appears in the request schema.",
+            "type": "string",
+            "maxLength": 120,
+            "examples": [
+              "double_benefit",
+              "waiting_period",
+              "structure"
+            ]
+          },
+          "requested": {
+            "description": "The value the consumer asked for. Absent where the consumer did not supply one."
+          },
+          "applied": {
+            "description": "The value the insurer actually priced. Absent where the option was ignored entirely."
+          },
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "as_requested",
+              "resolved_by_insurer",
+              "defaulted",
+              "unsupported_ignored"
+            ]
+          },
+          "detail": {
+            "description": "Why, in adviser-facing terms. RECOMMENDED whenever the resolution is `unsupported_ignored`.",
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
+      "InclusionGroup": {
+        "title": "InclusionGroup",
+        "description": "One grouping of as-priced settings — typically one per cover written.",
+        "type": "object",
+        "required": [
+          "title",
+          "items"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "field",
+                "value"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "description": "The name of the setting, as a standard field path where one applies (for example `waiting_period`), so a consumer can label it in its own vocabulary.",
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "value": {
+                  "description": "The as-priced value. A standard enum value where one applies."
+                },
+                "display_label": {
+                  "description": "The insurer's own wording, where it wants a specific rendering.",
+                  "type": "string",
+                  "maxLength": 200
+                }
+              }
+            }
+          }
+        }
+      },
+      "QuoteLine": {
+        "title": "QuoteLine",
+        "description": "One row of a comparison table: one product or product combination, from one brand, at one campaign variant.",
+        "type": "object",
+        "required": [
+          "line_id",
+          "insurer_id",
+          "brand_id",
+          "product_name",
+          "all_needs_met",
+          "resolved_occupation"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "line_id": {
+            "$ref": "#/components/schemas/LineId"
+          },
+          "insurer_id": {
+            "$ref": "#/components/schemas/InsurerId"
+          },
+          "brand_id": {
+            "$ref": "#/components/schemas/BrandId"
+          },
+          "product_name": {
+            "$ref": "#/components/schemas/ProductName"
+          },
+          "component_products": {
+            "description": "The insurer's own names for each product this line was assembled from, where a line combines more than one. Display only.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductName"
+            },
+            "default": []
+          },
+          "rate_table_version": {
+            "$ref": "#/components/schemas/RateTableVersion"
+          },
+          "all_needs_met": {
+            "description": "Whether the insurer assembled EVERY cover requested. `false` means it could not, and `errors` MUST then be non-empty and `premiums` MUST be absent.\nThis is not an error response. The insurer was able to answer; the answer is that this combination cannot be written. Consumers MUST NOT present such a line as a price, MUST NOT include it in a cheapest-first sort, and MUST NOT allow it to be selected.",
+            "type": "boolean"
+          },
+          "errors": {
+            "description": "Why the requested covers could not be assembled, in terms an adviser can act on (\"the linked TPD amount cannot exceed the life cover\"). Non-empty exactly when `all_needs_met` is `false`.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "premiums": {
+            "description": "The price of this line at every payment frequency. REQUIRED on a line where `all_needs_met` is `true`; MUST be absent otherwise.",
+            "$ref": "#/components/schemas/PremiumSet"
+          },
+          "cover_lines": {
+            "description": "The priced covers making up this line, one per cover the insurer wrote. Includes covers the insurer added of its own accord where a product requires them.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CoverLine"
+            },
+            "default": []
+          },
+          "resolved_occupation": {
+            "$ref": "#/components/schemas/ResolvedOccupation"
+          },
+          "resolved_options": {
+            "description": "What the insurer did with every option that it decided rather than simply obeyed. See `ResolvedOption` — this array is how a consumer learns that an option was dropped.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResolvedOption"
+            },
+            "default": []
+          },
+          "campaign": {
+            "description": "The campaign variant this line was priced under. Absent on a standard-rates line.",
+            "type": "object",
+            "required": [
+              "code",
+              "name"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "name": {
+                "description": "The insurer's own wording for the campaign, for display.",
+                "type": "string",
+                "maxLength": 200
+              }
+            }
+          },
+          "medical_requirements": {
+            "description": "Mandatory medical underwriting this insurer requires before it will issue THIS line, in the insurer's own wording. Requirements scale with the sum insured, so two lines from the same insurer can legitimately differ.\nAn EMPTY array means \"none required\" and is a positive statement. It is distinct from `underwriting_reported: false`, which means the insurer has not told us either way — a consumer MUST NOT render the latter as \"no medicals required\".",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "default": []
+          },
+          "underwriting_reported": {
+            "description": "Whether `medical_requirements` is a complete answer for this line.",
+            "type": "boolean",
+            "default": false
+          },
+          "inclusions": {
+            "description": "The line's as-priced configuration, as structured values rather than rendered text, so a consumer can display it in its own words. Read from what the insurer actually wrote, which differs from the request wherever a deferred choice was settled.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InclusionGroup"
+            },
+            "default": []
+          }
+        }
+      },
+      "QuoteResponse": {
+        "title": "QuoteResponse",
+        "description": "The result of a pricing request: every line the insurer can offer for the covers requested, plus the lines it had to decline. Lines are a FLAT array, never a map keyed by brand or product — one brand routinely produces several lines once campaigns are in play.",
+        "type": "object",
+        "required": [
+          "quote_id",
+          "quoted_at",
+          "lines"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "quote_id": {
+            "$ref": "#/components/schemas/QuoteId"
+          },
+          "quoted_at": {
+            "description": "When the quote was priced. RFC 3339 with an explicit offset.",
+            "type": "string",
+            "format": "date-time"
+          },
+          "valid_until": {
+            "description": "When these premiums cease to be reliable. Advisory but strongly RECOMMENDED: without it a consumer cannot tell a stale saved quote from a current one.",
+            "type": "string",
+            "format": "date-time"
+          },
+          "client_reference": {
+            "description": "Echoed verbatim from the request, so the response can be reconciled.",
+            "$ref": "#/components/schemas/ClientReference"
+          },
+          "lines": {
+            "description": "Every line the insurer produced, priced and unpriced alike. MAY be empty, which means the insurer offers nothing at all for this insured — a legitimate answer, not an error.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuoteLine"
+            }
+          },
+          "warnings": {
+            "description": "Adviser-facing notes that apply to the whole quote rather than one line. For information only: a warning MUST NOT be the sole indication that something was not priced as asked — that belongs in `resolved_options` or `errors` on the affected line.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          }
+        }
+      },
+      "Problem": {
+        "title": "Problem",
+        "description": "An RFC 9457 problem details document.",
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status"
+        ],
+        "properties": {
+          "type": {
+            "description": "A URI identifying the problem kind. Use a registered value from `ProblemType` where one applies. Consumers branch on this field; `title` and `detail` are for humans.",
+            "type": "string",
+            "format": "uri",
+            "default": "about:blank"
+          },
+          "title": {
+            "description": "A short, human-readable summary of the problem kind. Stable per `type`.",
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code, repeated here so a logged problem is self-contained.",
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          },
+          "detail": {
+            "description": "A human-readable explanation specific to this occurrence. MUST NOT contain personal information about the insured — problem documents are logged widely on both sides.",
+            "type": "string"
+          },
+          "instance": {
+            "description": "A URI reference identifying this specific occurrence.",
+            "type": "string",
+            "format": "uri-reference"
+          },
+          "request_id": {
+            "description": "The value of the `X-Request-Id` header for the failed request, echoed so a consumer can quote one token when asking the insurer to investigate.",
+            "type": "string"
+          },
+          "errors": {
+            "description": "Field-level detail, present on validation failures. Each entry MUST carry a JSON Pointer to the offending member of the request body, so a consumer can highlight the exact control that was wrong rather than showing a whole-form error.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "pointer",
+                "detail"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "pointer": {
+                  "description": "RFC 6901 JSON Pointer into the request body.",
+                  "type": "string",
+                  "examples": [
+                    "/covers/1/waiting_period"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "value_supplied": {
+                  "description": "The rejected value, echoed for diagnosis. Omit where it is sensitive."
+                },
+                "values_supported": {
+                  "description": "The values that would have been accepted. Populating this turns a failed integration attempt into a self-service fix.",
+                  "type": "array",
+                  "items": {}
+                }
+              }
+            }
+          }
+        },
+        "examples": [
+          {
+            "type": "https://openlife.org.au/problems/unsupported-value",
+            "title": "Unsupported value",
+            "status": 422,
+            "detail": "This product does not offer a 730 day waiting period.",
+            "request_id": "01JQ8Z9YB4T7M2XR",
+            "errors": [
+              {
+                "pointer": "/covers/1/waiting_period",
+                "detail": "Not offered for this product.",
+                "value_supplied": "730d",
+                "values_supported": [
+                  "30d",
+                  "60d",
+                  "90d"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "CoverCapability": {
+        "title": "CoverCapability",
+        "description": "What one cover type supports. `supported_options` carries VALUE SETS rather than a list of field names, so an insurer can narrow an enum — three waiting periods out of seven — without the standard needing a new version.",
+        "type": "object",
+        "required": [
+          "cover_type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "cover_type": {
+            "$ref": "#/components/schemas/CoverType"
+          },
+          "ownerships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Ownership"
+            }
+          },
+          "structures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Structure"
+            }
+          },
+          "can_be_standalone": {
+            "type": "boolean",
+            "default": true
+          },
+          "can_extend": {
+            "description": "The cover types this cover may be written as an extension of, named with `linked_to`. An empty array means it is only available standalone.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CoverType"
+            },
+            "default": []
+          },
+          "min_sum_insured": {
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "max_sum_insured": {
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "min_age_next_birthday": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "max_age_next_birthday": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "supported_options": {
+            "description": "Permitted values per option field, keyed by the field name as it appears in the cover schema. An option field ABSENT from this map is not supported at all for this cover and MUST be reported as `unsupported_ignored` if sent.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {}
+            },
+            "examples": [
+              {
+                "waiting_period": [
+                  "30d",
+                  "60d",
+                  "90d"
+                ],
+                "benefit_period": [
+                  "2y",
+                  "age_65"
+                ],
+                "tpd_definition": [
+                  "own_occupation",
+                  "any_occupation",
+                  "prefer"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "Frequency": {
+        "title": "Frequency",
+        "description": "How often the premium is paid. A premium at a sub-annual frequency is NOT the annual premium divided by the number of periods: insurers apply a frequency loading, so `monthly x 12 >= annual`. Every priced product therefore carries all six frequencies — see `PremiumSet` — and consumers MUST read the frequency they need rather than deriving it.",
+        "type": "string",
+        "enum": [
+          "weekly",
+          "fortnightly",
+          "monthly",
+          "quarterly",
+          "half_yearly",
+          "annual"
+        ]
+      },
+      "Capabilities": {
+        "title": "Capabilities",
+        "description": "What this implementation supports. Cacheable — servers SHOULD send an `ETag` and a `Cache-Control` max-age of at least an hour, and consumers SHOULD revalidate rather than fetching on every quote.",
+        "type": "object",
+        "required": [
+          "spec_version",
+          "insurer_id",
+          "brands",
+          "covers"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "spec_version": {
+            "description": "The version of this standard the implementation is built against, as a semver string. A consumer compares this against its own to decide which optional features to use.",
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$",
+            "examples": [
+              "0.1.0"
+            ]
+          },
+          "insurer_id": {
+            "$ref": "#/components/schemas/InsurerId"
+          },
+          "brands": {
+            "description": "The brands this endpoint can price. More than one is normal and is why `brand_id` is required on every line even from a single-insurer endpoint.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "brand_id",
+                "name"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "brand_id": {
+                  "$ref": "#/components/schemas/BrandId"
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 120
+                }
+              }
+            }
+          },
+          "covers": {
+            "description": "One entry per cover type offered. A cover type absent from this array is not offered at all, and a request for it MUST be answered with 422 `unsupported-cover`.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/CoverCapability"
+            }
+          },
+          "frequencies": {
+            "description": "Which payment frequencies the insurer's own billing supports. Note this does NOT narrow the response: `PremiumSet` requires all six regardless, because a consumer compares and annualises across insurers. This field says which ones a policy can actually be BILLED at.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Frequency"
+            }
+          },
+          "split_frequency_supported": {
+            "description": "Whether the superannuation and non-superannuation portions of one policy can be billed at different frequencies.",
+            "type": "boolean",
+            "default": false
+          },
+          "occupation_resolution": {
+            "description": "Which forms of `OccupationRef` this implementation accepts. `insurer_occupation_id` MUST always be supported; the others are optional, and an implementation that supports none of the baseline forms requires consumers to resolve an occupation via `/occupations` first.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "insurer_occupation_id",
+                "osca",
+                "anzsco"
+              ]
+            },
+            "default": [
+              "insurer_occupation_id"
+            ]
+          },
+          "occupation_qualifiers_used": {
+            "description": "Which `OccupationQualifiers` fields actually affect this insurer's rating. Lets a consumer avoid collecting facts that will not change the answer.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "features": {
+            "description": "Optional parts of the standard this implementation provides.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "loadings_percentage": {
+                "type": "boolean",
+                "default": false
+              },
+              "loadings_rate_per_thousand": {
+                "type": "boolean",
+                "default": false
+              },
+              "campaigns": {
+                "type": "boolean",
+                "default": false
+              },
+              "medical_requirements": {
+                "type": "boolean",
+                "default": false
+              },
+              "inclusions": {
+                "type": "boolean",
+                "default": false
+              },
+              "idempotency": {
+                "type": "boolean",
+                "default": false
+              },
+              "quote_retrieval": {
+                "description": "Whether `GET /quotes/{quote_id}` is implemented.",
+                "type": "boolean",
+                "default": false
+              },
+              "line_diagnostics": {
+                "description": "Whether the per-line unmet-needs diagnostic endpoint is implemented.",
+                "type": "boolean",
+                "default": false
+              }
+            }
+          },
+          "campaigns": {
+            "description": "Campaign variants that can be named in `campaign_codes`.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "code",
+                "name"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                "requires_authorisation": {
+                  "description": "Whether this campaign is only available to consumers specifically authorised for it. An unauthorised request for it is a 403, not a silently standard-rated line.",
+                  "type": "boolean",
+                  "default": false
+                }
+              }
+            }
+          },
+          "limits": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "max_covers_per_request": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "max_concurrent_requests": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "target_p95_latency_ms": {
+                "description": "The latency the insurer expects to meet at `max_concurrent_requests`. Consumers of several insurers at once fan out in parallel and are bounded by the slowest, so this figure determines whether a consumer must apply a shorter timeout than its own overall budget.",
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      },
+      "Cursor": {
+        "title": "Cursor",
+        "description": "Opaque continuation token. Consumers MUST treat it as opaque, MUST NOT construct one, and MUST NOT assume it remains valid indefinitely — a server MAY expire cursors and answer an expired one with 400 `invalid-request`.",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "InsurerOccupation": {
+        "title": "InsurerOccupation",
+        "description": "One row of the insurer's occupation list, carrying the rating matrix so a consumer can show what a change of occupation would do before re-pricing.",
+        "type": "object",
+        "required": [
+          "insurer_occupation_id",
+          "description",
+          "ratings"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "insurer_occupation_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "description": {
+            "description": "The insurer's own wording, shown to the adviser verbatim.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "ratings": {
+            "$ref": "#/components/schemas/OccupationRatings"
+          },
+          "osca": {
+            "description": "The baseline code this row corresponds to, where the insurer maintains the correspondence. Publishing it is what allows a consumer to pre-resolve occupations in bulk rather than calling `:match` per quote.",
+            "type": "string",
+            "pattern": "^\\d{4}-?\\d{2}$"
+          },
+          "requires_employment_status": {
+            "description": "An employment status this occupation implies, where one is mandatory. A non-working occupation paired with a working status is the commonest cause of a nil premium, so an insurer that constrains this SHOULD say so here.",
+            "$ref": "#/components/schemas/EmploymentStatus"
+          },
+          "effective_from": {
+            "type": "string",
+            "format": "date"
+          },
+          "effective_to": {
+            "description": "Absent while the row is current. A past date means the row is closed to new business.",
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "PageInfo": {
+        "title": "PageInfo",
+        "description": "Continuation state for a paged collection. Absence of `next_cursor` is the ONLY reliable signal that a walk is complete — consumers MUST NOT infer completion from a short page, because a server may return fewer items than requested for its own reasons.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "next_cursor": {
+            "$ref": "#/components/schemas/Cursor"
+          },
+          "total_count": {
+            "description": "Total matching items, where the implementation can supply it cheaply. OPTIONAL and advisory: it may be an estimate and may change between pages, so it is for display only and MUST NOT be used to drive a pagination loop.",
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "OccupationListResponse": {
+        "title": "OccupationListResponse",
+        "type": "object",
+        "required": [
+          "occupations"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "occupations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InsurerOccupation"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageInfo"
+          }
+        }
+      },
+      "OccupationMatchRequest": {
+        "title": "OccupationMatchRequest",
+        "description": "Ask the insurer which of its own occupations corresponds to a baseline reference.",
+        "type": "object",
+        "required": [
+          "occupation"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "occupation": {
+            "$ref": "#/components/schemas/OccupationRef"
+          },
+          "max_candidates": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10
+          }
+        }
+      },
+      "OccupationMatchResponse": {
+        "title": "OccupationMatchResponse",
+        "description": "Candidate matches, most confident first.\nAn EMPTY `candidates` array is a valid and important answer: it means the insurer has no occupation corresponding to the reference given. A consumer MUST treat that as unquotable for this insurer and MUST NOT fall back to a nearby occupation of its own choosing — a wrong occupation produces a wrong premium that looks entirely normal, which is worse than a visible gap.",
+        "type": "object",
+        "required": [
+          "candidates"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/InsurerOccupation"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "match_confidence"
+                  ],
+                  "properties": {
+                    "match_confidence": {
+                      "type": "string",
+                      "enum": [
+                        "exact",
+                        "high",
+                        "moderate",
+                        "low"
+                      ]
+                    },
+                    "match_detail": {
+                      "description": "Why this candidate was proposed, and which qualifiers drove it. Worth populating: it is what lets an adviser choose between two plausible rows.",
+                      "type": "string",
+                      "maxLength": 300
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "headers": {
+      "XRequestId": {
+        "description": "Correlation identifier, echoed from the request or generated by the server when the request did not carry one. REQUIRED on every response, including errors.\nThis is not ceremony. A consumer of several insurers investigating \"the premium was wrong last Tuesday\" has to be able to hand one token to one insurer's support desk; without it, the only shared identifier is a timestamp.",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "example": "01JQ8Z9YB4T7M2XR5K3P"
+      },
+      "SpecVersion": {
+        "description": "The version of this standard the response was produced against. Lets a consumer detect an implementation that has moved without announcement.",
+        "schema": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "example": "0.1.0"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "The request could not be parsed, or a value was structurally invalid. Problem type `invalid-request`.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "No access token was presented, or it was malformed or expired. Problem type `unauthenticated`.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "WWW-Authenticate": {
+            "description": "RFC 6750 challenge.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "The token is valid but lacks the scope required for this operation, or names a campaign the consumer is not authorised for. Problem type `forbidden`.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "Conflict": {
+        "description": "An `Idempotency-Key` was reused with a different request body. Problem type `idempotency-conflict`.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "UnprocessableEntity": {
+        "description": "The request was well formed but cannot be priced as asked — an unsupported cover, an unsupported option value, or a combination the product does not permit. Problem types `unsupported-cover`, `unsupported-value`, `invalid-combination`, `incomplete-request`.\nNOTE the boundary: this status is for a request the insurer will not accept. An insurer that accepts the request but cannot assemble the covers returns 200 with the line flagged `all_needs_met: false`.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "Rate limit exceeded. Problem type `rate-limited`. `Retry-After` is REQUIRED — without it a consumer fanning out across several insurers has no basis for a backoff and will retry into the limit.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "description": "Seconds to wait before retrying.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Unexpected failure. Problem type `internal-error`.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "A dependency of the pricing engine is unavailable. Problem type `upstream-unavailable`. Distinguished from `internal-error` so a consumer can retry this and not that.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      }
+    }
+  }
+}

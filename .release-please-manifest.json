@@ -1,0 +1,5 @@
+{
+  "core": "0.1.0",
+  "domains/quoting": "0.1.0",
+  "domains/policy": "0.0.0"
+}

@@ -1,0 +1,77 @@
+# Open Life Data Standards (AU) — Quoting — POST /quotes
+
+post:
+  operationId: createQuote
+  summary: Price a set of covers
+  description: >-
+    Price the requested covers for one insured and return every line the insurer can offer, plus
+    the lines it had to decline.
+
+    ### What a response means
+
+    One request yields MANY lines. An insurer with two brands and a campaign on one of them may
+    answer a single life-cover request with three lines. Consumers must treat the response as a
+    set of comparable offers, never as "the price".
+
+    ### Three things a consumer must not do
+
+    - **Do not derive a frequency.** Every line carries all six. `annual / 12` is not the monthly
+      premium, because sub-annual premiums carry a frequency loading.
+    - **Do not price a failed line.** A line with `all_needs_met: false` carries no `premiums` and
+      is not an offer. It exists so the adviser can see that this insurer was asked and could not
+      write the combination.
+    - **Do not assume an option was applied.** Check `resolved_options`. An option the product
+      cannot honour appears there as `unsupported_ignored`, and the premium does not include it.
+
+    ### Caching
+
+    Quote responses carry personal information about the insured and MUST NOT be cached by
+    intermediaries. Servers MUST send `Cache-Control: no-store`.
+  tags: [Quotes]
+  security:
+    - oauth2: [quotes.write]
+  parameters:
+    - $ref: '../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../components/parameters.yaml#/RequestId'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/quote-request.yaml#/QuoteRequest'
+  responses:
+    '200':
+      description: >-
+        The quote was produced. Note that a 200 does not mean every requested cover was priced —
+        inspect `all_needs_met` and `resolved_options` per line.
+      headers:
+        Cache-Control:
+          description: MUST be `no-store`.
+          required: true
+          schema:
+            type: string
+            const: no-store
+        X-Request-Id:
+          $ref: '../components/headers.yaml#/XRequestId'
+        X-OpenLife-Spec-Version:
+          $ref: '../components/headers.yaml#/SpecVersion'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/quote-response.yaml#/QuoteResponse'
+    '400':
+      $ref: '../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../components/responses.yaml#/Forbidden'
+    '409':
+      $ref: '../components/responses.yaml#/Conflict'
+    '422':
+      $ref: '../components/responses.yaml#/UnprocessableEntity'
+    '429':
+      $ref: '../components/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../components/responses.yaml#/InternalError'
+    '503':
+      $ref: '../components/responses.yaml#/ServiceUnavailable'

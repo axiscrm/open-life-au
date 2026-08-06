@@ -1,0 +1,59 @@
+# Open Life Data Standards (AU) — Quoting — GET /capabilities
+
+get:
+  operationId: getCapabilities
+  summary: What this implementation supports
+  description: >-
+    Describe the covers, option values, brands, campaigns and optional features this
+    implementation offers.
+
+    A consumer calls this once and caches it. It drives which controls an adviser is offered, so
+    an unsupported combination can be prevented rather than rejected after the fact.
+
+    This is the mechanism that makes a partial implementation conformant: an insurer that writes
+    four covers and three waiting periods declares exactly that, and the conformance suite tests
+    it against what it declared rather than against the whole standard.
+
+    Consumers MUST NOT treat this document as authoritative. Hand-maintained capability documents
+    drift from the pricing engine, so the runtime paths — 422 `unsupported-value` and
+    `resolved_options` — stay mandatory regardless of what is declared here.
+  tags: [Discovery]
+  security:
+    - oauth2: [capabilities.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/RequestId'
+  responses:
+    '200':
+      description: The capability document.
+      headers:
+        ETag:
+          description: >-
+            Entity tag for the document. Servers SHOULD supply it and honour
+            `If-None-Match`, so consumers can revalidate cheaply instead of re-fetching.
+          schema:
+            type: string
+        Cache-Control:
+          description: >-
+            Servers SHOULD permit caching for at least one hour — this document changes when a
+            product range changes, not per request.
+          schema:
+            type: string
+            example: 'public, max-age=3600'
+        X-Request-Id:
+          $ref: '../components/headers.yaml#/XRequestId'
+        X-OpenLife-Spec-Version:
+          $ref: '../components/headers.yaml#/SpecVersion'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/capabilities.yaml#/Capabilities'
+    '304':
+      description: Not modified — the consumer's cached copy is current.
+    '401':
+      $ref: '../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../components/responses.yaml#/Forbidden'
+    '429':
+      $ref: '../components/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../components/responses.yaml#/InternalError'

@@ -1,0 +1,81 @@
+# Open Life Data Standards (AU) — money primitives.
+#
+# Pure JSON Schema 2020-12, no OpenAPI-only keywords, so this file is consumable by the
+# OpenAPI contracts, the AsyncAPI event contracts, and standalone validators alike.
+#
+# Amounts are DECIMAL STRINGS, never JSON numbers. Premiums are summed, compared and stored
+# to the cent; a JSON number is an IEEE-754 double in JavaScript and in most generated
+# clients, and float drift in a premium comparison table is a compliance defect rather than
+# a rounding nit. Strings round-trip exactly through Python `Decimal` and Java `BigDecimal`.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+Decimal:
+  title: Decimal
+  description: >-
+    A fixed-point decimal amount serialised as a string, with at most two fractional digits.
+    Scientific notation, thousands separators, currency symbols and leading `+` are not
+    permitted. Implementations MUST NOT normalise `"0.00"` to `"0"` or vice versa when
+    echoing a value back — but consumers MUST treat the two as numerically equal.
+  type: string
+  pattern: '^-?\d{1,12}(\.\d{1,2})?$'
+  examples:
+    - '1234.56'
+    - '0'
+    - '-19.95'
+
+Money:
+  title: Money
+  description: >-
+    An amount of money. Currency is carried explicitly even though this standard is
+    Australia-only, so a future market does not become a breaking change.
+  type: object
+  required: [amount, currency]
+  additionalProperties: false
+  properties:
+    amount:
+      $ref: '#/Decimal'
+    currency:
+      title: CurrencyCode
+      description: ISO 4217 alphabetic code. Only AUD is defined by this version of the standard.
+      type: string
+      const: AUD
+  examples:
+    - amount: '1000000.00'
+      currency: AUD
+
+NonNegativeMoney:
+  title: NonNegativeMoney
+  description: >-
+    Money that cannot be negative — sums insured, premiums, stamp duty, policy fees. A
+    negative value here is always a defect, so it is rejected at the schema boundary rather
+    than surfacing as a nonsensical premium.
+  allOf:
+    - $ref: '#/Money'
+    - properties:
+        amount:
+          type: string
+          pattern: '^\d{1,12}(\.\d{1,2})?$'
+
+Percentage:
+  title: Percentage
+  description: >-
+    A percentage expressed as a number (not a string, and not a 0-1 ratio): `25` means 25%.
+    Rates and percentages are numeric because they are inputs to arithmetic rather than
+    amounts to be stored to the cent, and at most three decimal places they are exactly
+    representable. `0` is a MEANINGFUL value — see the loadings schema, where an explicit
+    zero cancels an inherited loading and is not the same as omitting the field.
+  type: number
+  minimum: 0
+  maximum: 1000
+  multipleOf: 0.001
+  examples: [0, 25, 62.5]
+
+RatePerThousand:
+  title: RatePerThousand
+  description: >-
+    A dollar rate applied per $1,000 of sum insured, the second axis on which underwriting
+    loadings are expressed. Serialised as a decimal string for the same reason as `Decimal`.
+  type: string
+  pattern: '^\d{1,6}(\.\d{1,2})?$'
+  examples: ['0', '1.50', '12.00']

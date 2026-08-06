@@ -1,0 +1,67 @@
+{
+  "client_reference": "c:74d1ae08bb9f2c31",
+  "insured": {
+    "age_next_birthday": 52,
+    "gender": "male",
+    "smoker": true,
+    "state": "QLD",
+    "employment_status": "self_employed_business_owner",
+    "annual_income": {
+      "amount": "260000.00",
+      "currency": "AUD"
+    },
+    "occupation": {
+      "osca": "1331-11",
+      "description": "Construction Project Manager",
+      "qualifiers": {
+        "trade_qualified": true,
+        "working_height_m": 0,
+        "manual_duties_percent": 20,
+        "hours_per_week": 50
+      }
+    }
+  },
+  "policy": {
+    "structure": "level_65",
+    "ownership": "ordinary",
+    "premium_waiver": "prefer",
+    "loadings": {
+      "percentage": {
+        "life": 50,
+        "trauma": 0
+      },
+      "rate_per_thousand": {
+        "life": "1.50"
+      }
+    }
+  },
+  "covers": [
+    {
+      "cover_id": "life-1",
+      "cover_type": "life",
+      "sum_insured": {
+        "amount": "2000000.00",
+        "currency": "AUD"
+      }
+    },
+    {
+      "cover_id": "trauma-1",
+      "cover_type": "trauma",
+      "sum_insured": {
+        "amount": "300000.00",
+        "currency": "AUD"
+      },
+      "reinstatement": "prefer_include",
+      "benefit_quality": "intermediate"
+    },
+    {
+      "cover_id": "tpd-1",
+      "cover_type": "tpd",
+      "sum_insured": {
+        "amount": "500000.00",
+        "currency": "AUD"
+      },
+      "tpd_definition": "own_occupation"
+    }
+  ]
+}

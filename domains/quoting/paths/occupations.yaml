@@ -1,0 +1,60 @@
+# Open Life Data Standards (AU) — Quoting — GET /occupations
+
+get:
+  operationId: listOccupations
+  summary: Search this insurer's own occupation list
+  description: >-
+    Return the occupations this insurer rates, in its own wording, each with its rating matrix.
+
+    This exists so an adviser can correct one insurer's occupation by hand. The usual flow
+    resolves an occupation once via `POST /occupations:match`, but where the match is imperfect —
+    or where the adviser knows this insurer's product better — they need to search the insurer's
+    own list and choose. That choice is then sent as `occupation.insurer_occupation_id` on the
+    next quote, and the insurer rates on it without re-matching.
+
+    Returning the rating matrix inline is deliberate: it lets a consumer show the consequence of
+    a change before spending a pricing call on it.
+
+    An empty `q` returns the whole list, paged, so a consumer can pre-load it.
+  tags: [Occupations]
+  security:
+    - oauth2: [occupations.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/OccupationQuery'
+    - $ref: '../components/parameters.yaml#/Cursor'
+    - $ref: '../components/parameters.yaml#/Limit'
+    - $ref: '../components/parameters.yaml#/RequestId'
+  responses:
+    '200':
+      description: >-
+        Matching occupations. An empty array is a valid answer and means this insurer rates
+        nothing matching the query — not that the query was malformed.
+      headers:
+        ETag:
+          schema:
+            type: string
+        Cache-Control:
+          description: >-
+            Occupation lists change rarely; servers SHOULD permit caching for at least an hour.
+            The response carries no personal information, so it is safe to cache.
+          schema:
+            type: string
+            example: 'public, max-age=3600'
+        X-Request-Id:
+          $ref: '../components/headers.yaml#/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/occupations.yaml#/OccupationListResponse'
+    '304':
+      description: Not modified.
+    '400':
+      $ref: '../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../components/responses.yaml#/Forbidden'
+    '429':
+      $ref: '../components/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../components/responses.yaml#/InternalError'

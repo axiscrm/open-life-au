@@ -1,0 +1,102 @@
+# Open Life Data Standards (AU) — identifiers.
+#
+# Four kinds of thing get confused in every insurance integration, so the standard names all
+# four and never reuses one for another:
+#
+#   insurer  the legal entity that issues the policy and prices the risk
+#   brand    the distribution name a product is sold under — several brands can sit behind
+#            one insurer, and they may have different product ranges and different rates
+#   product  a named product a quote line was assembled from
+#   line     one row in a comparison table: one product (or product combination) from one
+#            brand, at one campaign variant
+#
+# A single-insurer endpoint still returns multiple brands and multiple lines, so none of
+# these may be omitted on the grounds of being "obvious from context".
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+InsurerId:
+  title: InsurerId
+  description: >-
+    Stable identifier for the issuing insurer, assigned by this standard's registry so it is
+    the same value at every implementer. Lowercase, hyphenated.
+  type: string
+  pattern: '^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])$'
+  examples: ['example-life']
+
+BrandId:
+  title: BrandId
+  description: >-
+    Stable identifier for the brand a line is sold under. Equal to the `InsurerId` where the
+    insurer sells under a single brand. REQUIRED on every priced line even from a
+    single-insurer endpoint, because one insurer commonly issues several brands and a
+    consumer must not have to infer the brand from a product name.
+  type: string
+  pattern: '^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])$'
+  examples: ['example-life', 'example-select']
+
+ProductName:
+  title: ProductName
+  description: The insurer's own marketing name for a product, verbatim, for display only.
+  type: string
+  minLength: 1
+  maxLength: 200
+  examples: ['Protection Plus Life Cover']
+
+LineId:
+  title: LineId
+  description: >-
+    Opaque, server-assigned identifier for one priced line within one quote. Unique within
+    its `QuoteId`. Consumers MUST treat it as opaque and MUST NOT parse it. It is the key for
+    per-line follow-up calls such as the unmet-needs diagnostic.
+  type: string
+  minLength: 1
+  maxLength: 128
+
+QuoteId:
+  title: QuoteId
+  description: >-
+    Opaque, server-assigned identifier for a whole quote response. Required so a quote can be
+    retrieved, audited and reproduced later — an adviser must be able to justify a
+    recommendation years after making it.
+  type: string
+  minLength: 1
+  maxLength: 128
+
+CoverId:
+  title: CoverId
+  description: >-
+    CLIENT-assigned identifier for one requested cover, unique within the request. It does
+    two jobs: a rider names its parent with it (`linked_to`), and every priced line echoes it
+    so the consumer knows which requested cover produced which priced cover without inferring
+    from cover type and amount.
+  type: string
+  pattern: '^[A-Za-z0-9_-]{1,64}$'
+  examples: ['life-1', 'tpd-rider-1']
+
+ClientReference:
+  title: ClientReference
+  description: >-
+    The consumer's own reference for the person being quoted, echoed back on the response so
+    a quote can be reconciled against the requesting system.
+
+    This MUST be a pseudonymous token, not a name, email, customer number or anything else
+    that identifies the person outside the requesting system — the recommended construction
+    is an HMAC of the internal record id under a per-insurer salt. Deriving it per insurer
+    means two insurers cannot correlate their request streams to reconstruct a consumer's
+    client base, and it keeps the request within data-minimisation obligations.
+  type: string
+  pattern: '^[A-Za-z0-9_.:-]{1,128}$'
+  examples: ['c:8f14e45fceea167a']
+
+RateTableVersion:
+  title: RateTableVersion
+  description: >-
+    The insurer's identifier for the pricing basis used for this line — a rate table version,
+    effective date, or equivalent. REQUIRED for reproducibility: without it, "why is this
+    premium different from the one we quoted last month" is unanswerable, which is the single
+    most common audit question and the field insurers least often expose.
+  type: string
+  minLength: 1
+  maxLength: 64
+  examples: ['2026-07-01', 'RT-2026.2']

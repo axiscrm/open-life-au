@@ -1,0 +1,110 @@
+# Open Life Data Standards (AU) — the insured.
+#
+# PRIVACY IS A DESIGN CONSTRAINT HERE, NOT A DISCLAIMER.
+#
+# A consumer of this standard sends the same client's details to several insurers instead of one
+# aggregator, so every field multiplies into several separate collections by several separate
+# entities. The schema is therefore deliberately minimal and CLOSED
+# (`additionalProperties: false`): there is no name, no address, no contact detail, no policy
+# number, no health data, and no free-text field an implementer could smuggle them into.
+#
+# `age_next_birthday` is preferred over a date of birth because it is what rate tables are
+# indexed on, and it is materially less identifying. Where an insurer genuinely requires a full
+# date it may declare that in its capability document and consumers may send `date_of_birth`,
+# but implementations MUST NOT require it by default.
+#
+# Assembled this way, a quote request need not constitute personal information at all — which is
+# a better posture for the consumer and an easier approval for the insurer's own privacy team.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+Insured:
+  title: Insured
+  description: >-
+    The person whose risk is being priced. Exactly one of `age_next_birthday` or
+    `date_of_birth` MUST be present; `age_next_birthday` SHOULD be preferred.
+  type: object
+  required: [gender, smoker, state, occupation]
+  additionalProperties: false
+  oneOf:
+    - required: [age_next_birthday]
+    - required: [date_of_birth]
+  properties:
+    age_next_birthday:
+      description: >-
+        The insured's age at their next birthday, which is the basis life rate tables are
+        indexed on in this market. Bounds are the widest any product issues at; individual
+        products declare their own limits in the capability document.
+      type: integer
+      minimum: 0
+      maximum: 100
+    date_of_birth:
+      description: >-
+        Full date of birth, RFC 3339 full-date. Send only where the insurer has declared it
+        necessary — see the privacy note at the head of this file.
+      type: string
+      format: date
+      examples: ['1985-03-14']
+    gender:
+      $ref: 'cover-vocabulary.yaml#/Gender'
+    smoker:
+      description: >-
+        Whether the insured meets the insurer's definition of a smoker. Definitions differ
+        between insurers (typically on the lookback period and on whether occasional or
+        non-tobacco nicotine use counts), so this is the consumer's answer to the insurer's
+        own question rather than an objective fact. Insurers SHOULD publish their definition
+        in their documentation.
+      type: boolean
+    state:
+      $ref: 'cover-vocabulary.yaml#/AustralianState'
+    employment_status:
+      $ref: 'cover-vocabulary.yaml#/EmploymentStatus'
+    annual_income:
+      description: >-
+        Gross annual income before tax. Required to price income protection and business
+        expenses, which are capped as a proportion of it, and used by some insurers to band
+        occupation ratings for white-collar roles. Omit where no income-based cover is
+        requested.
+      $ref: 'money.yaml#/NonNegativeMoney'
+    occupation:
+      $ref: 'occupation.yaml#/OccupationRef'
+  examples:
+    - age_next_birthday: 41
+      gender: male
+      smoker: false
+      state: NSW
+      employment_status: employee
+      annual_income:
+        amount: '145000.00'
+        currency: AUD
+      occupation:
+        osca: '3323-11'
+        description: Painter
+        qualifiers:
+          trade_qualified: true
+          working_height_m: 10
+          manual_duties_percent: 80
+
+InsuredChild:
+  title: InsuredChild
+  description: >-
+    A child named on a child trauma cover. Deliberately narrower than `Insured`: children are
+    rated on age and gender alone, so nothing else is collected.
+  type: object
+  required: [age_next_birthday, gender, sum_insured]
+  additionalProperties: false
+  properties:
+    child_id:
+      description: >-
+        Consumer-assigned identifier, unique within the cover, so per-child results and
+        per-child validation errors can be attributed without relying on array position.
+      type: string
+      pattern: '^[A-Za-z0-9_-]{1,64}$'
+    age_next_birthday:
+      type: integer
+      minimum: 0
+      maximum: 25
+    gender:
+      $ref: 'cover-vocabulary.yaml#/Gender'
+    sum_insured:
+      $ref: 'money.yaml#/NonNegativeMoney'

@@ -1,0 +1,209 @@
+name: ✅ CI
+
+# The contract is the product, so CI's job is to prove four things about it:
+#
+#   it is a valid OpenAPI 3.1 document and obeys our own style rules;
+#   the committed dist/ bundle matches the source (insurers link to the bundle, so a stale one is
+#     a published lie);
+#   the worked examples still validate AND the invalid ones are still rejected — the second half
+#     matters more, because a schema that accepts everything also passes its own examples;
+#   nothing derived from a vendor specification has crept in.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: 📜 Contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: 🔎 Lint
+        run: npm run lint
+
+      - name: 📦 Bundle
+        run: npm run bundle
+
+      # Insurers are told to consume dist/. If the committed bundle can drift from the source,
+      # the published artefact and the reviewed source stop being the same contract.
+      - name: 🚧 dist/ is up to date
+        run: |
+          if ! git diff --exit-code -- dist/; then
+            echo "::error::dist/ is stale. Run 'npm run bundle' and commit the result."
+            exit 1
+          fi
+
+      - name: ✅ Examples validate
+        run: npm run examples
+
+      - name: 🛑 Invalid payloads are rejected
+        run: npm run rejections
+
+      - name: 🧬 Provenance
+        run: npm run provenance
+
+  # Validating examples in-process is not the same as posting them at a server. An earlier version of
+  # this repo had examples that passed the local validator and were rejected 422 by the mock, because
+  # the validator pre-processed them and a real server does not. Anyone copy-pasting an example — the
+  # first thing someone evaluating a contract does — would have hit it. So the examples are posted at
+  # a real mock here, and a non-200 fails the build.
+  mock-roundtrip:
+    name: 🔁 Examples post cleanly at the mock
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run bundle
+
+      - name: Start the mock
+        run: |
+          npx prism mock dist/quoting/openapi.yaml --port 4010 > /tmp/prism.log 2>&1 &
+          for _ in $(seq 1 30); do
+            curl -sf -o /dev/null "http://localhost:4010/capabilities" \
+              -H 'Authorization: Bearer test' && break
+            sleep 1
+          done
+
+      - name: POST every request example
+        run: |
+          failed=0
+          for f in domains/quoting/examples/requests/*.json; do
+            code=$(curl -s -o /tmp/out.json -w '%{http_code}' \
+              -X POST http://localhost:4010/quotes \
+              -H 'Content-Type: application/json' \
+              -H 'Authorization: Bearer test' \
+              --data @"$f")
+            if [ "$code" = "200" ]; then
+              echo "✓ $code  $(basename "$f")"
+            else
+              echo "::error file=$f::mock returned $code — this example is not a valid payload"
+              cat /tmp/out.json
+              failed=1
+            fi
+          done
+          exit $failed
+
+      - name: Mock log on failure
+        if: failure()
+        run: cat /tmp/prism.log
+
+  postman:
+    name: 📮 Postman collection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run bundle
+      - run: npm run postman
+      - name: 🚧 Collection is up to date
+        run: |
+          if ! git diff --exit-code -- postman/; then
+            echo "::error::postman/ is stale. Run 'npm run postman' and commit the result."
+            exit 1
+          fi
+
+  docs:
+    name: 📖 Docs build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run docs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docs
+          path: site/
+
+  breaking:
+    name: 💥 Breaking changes
+    runs-on: ubuntu-latest
+    # Only meaningful against a base branch.
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run bundle
+
+      # Pinned binary rather than a floating container tag: the version is visible in the diff, the
+      # download is checksum-verified, and there is no daemon to depend on. Bump deliberately.
+      - name: Install oasdiff
+        env:
+          OASDIFF_VERSION: 1.27.0
+        run: |
+          cd /tmp
+          asset="oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
+          base="https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}"
+          curl -sSLf -o "$asset" "$base/$asset"
+          curl -sSLf -o checksums.txt "$base/checksums.txt"
+          grep " $asset\$" checksums.txt | sha256sum -c -
+          tar xzf "$asset" oasdiff
+          sudo install -m 0755 oasdiff /usr/local/bin/oasdiff
+          oasdiff --version
+
+      - name: Extract the base contract
+        run: |
+          mkdir -p /tmp/oasdiff
+          # A brand-new contract has no base to compare against; an empty document makes every
+          # change additive, which is correct for the first PR that introduces one.
+          git show "origin/${{ github.base_ref }}:dist/quoting/openapi.yaml" \
+            > /tmp/oasdiff/base.yaml 2>/dev/null \
+            || printf 'openapi: 3.1.0\ninfo: {title: none, version: 0.0.0}\npaths: {}\n' \
+               > /tmp/oasdiff/base.yaml
+          cp dist/quoting/openapi.yaml /tmp/oasdiff/head.yaml
+
+      # A breaking change is not forbidden — it is a decision that has to be taken deliberately,
+      # with a migration note, rather than discovered by an insurer after they have shipped. Apply
+      # the `breaking-change-approved` label to proceed.
+      - name: Detect breaking changes
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'breaking-change-approved') }}
+        run: |
+          oasdiff breaking /tmp/oasdiff/base.yaml /tmp/oasdiff/head.yaml \
+            --fail-on ERR --format githubactions
+
+      # Always publish the human-readable changelog, breaking or not. "What changed in quoting
+      # v0.3.0" is a question every implementer asks, and answering it from a diff of a 2,000-line
+      # bundle is nobody's idea of a good time.
+      - name: Changelog for the PR
+        run: |
+          oasdiff changelog /tmp/oasdiff/base.yaml /tmp/oasdiff/head.yaml \
+            > /tmp/oasdiff/changelog.txt || true
+          if [ -s /tmp/oasdiff/changelog.txt ]; then
+            {
+              echo '## API changes'
+              echo '```'
+              cat /tmp/oasdiff/changelog.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo '## API changes' >> "$GITHUB_STEP_SUMMARY"
+            echo '_No contract changes in this PR._' >> "$GITHUB_STEP_SUMMARY"
+          fi

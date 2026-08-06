@@ -1,0 +1,37 @@
+# Open Life Data Standards (AU) — pagination.
+#
+# Cursor-based, not offset-based. Occupation lists run to several thousand rows and are
+# maintained continuously, so an offset walk over a changing list silently skips and repeats
+# rows. A cursor also lets an implementation choose its own storage without changing the
+# contract.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+Cursor:
+  title: Cursor
+  description: >-
+    Opaque continuation token. Consumers MUST treat it as opaque, MUST NOT construct one, and
+    MUST NOT assume it remains valid indefinitely — a server MAY expire cursors and answer an
+    expired one with 400 `invalid-request`.
+  type: string
+  minLength: 1
+  maxLength: 512
+
+PageInfo:
+  title: PageInfo
+  description: >-
+    Continuation state for a paged collection. Absence of `next_cursor` is the ONLY reliable
+    signal that a walk is complete — consumers MUST NOT infer completion from a short page,
+    because a server may return fewer items than requested for its own reasons.
+  type: object
+  additionalProperties: false
+  properties:
+    next_cursor:
+      $ref: '#/Cursor'
+    total_count:
+      description: >-
+        Total matching items, where the implementation can supply it cheaply. OPTIONAL and
+        advisory: it may be an estimate and may change between pages, so it is for display
+        only and MUST NOT be used to drive a pagination loop.
+      type: integer
+      minimum: 0

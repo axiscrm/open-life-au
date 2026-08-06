@@ -1,0 +1,100 @@
+# Open Life Data Standards (AU) — occupation risk qualifiers.
+#
+# The machine-readable companion to `OccupationQualifiers` in
+# `core/schemas/occupation.yaml`. The schema says what may be sent; this file says what each
+# qualifier MEANS, which occupations it bears on, and how insurers typically band it — the context an
+# implementer needs to map a qualifier onto their own manual, and a consumer needs to decide whether
+# collecting it is worth asking an adviser about.
+#
+# These dimensions exist because the ABS classification does not carry them. OSCA is built for
+# labour statistics, so it has no notion of working at height or trade qualification, while
+# underwriting manuals discriminate on exactly those facts. See taxonomy/PROVENANCE.md.
+#
+# DIMENSIONS, NOT DESCRIPTIONS. The standard defines "working height in metres"; each insurer bands
+# it however its own manual does. Publishing bands here would be asserting a rating rule we do not
+# own.
+
+
+version: '0.1.0'
+baseline:
+  classification: OSCA
+  edition: '2024'
+  version: '1.0'
+  publisher: Australian Bureau of Statistics
+
+qualifiers:
+  trade_qualified:
+    type: boolean
+    summary: Holds a recognised trade or professional qualification for the occupation.
+    why_it_matters: >-
+      Within the trades this is frequently the single largest discriminator, often a full rating
+      class. An unqualified worker doing nominally the same job carries a materially different risk
+      profile, and several insurers will not offer own-occupation TPD to one.
+    applies_to: Trades, technical and construction occupations; some health and finance roles.
+    unstated_behaviour: >-
+      Insurers SHOULD rate at their own default, which is usually the less favourable of the two.
+      An absent value MUST NOT be read as `true`.
+
+  working_height_m:
+    type: number
+    unit: metres
+    summary: The greatest height above ground at which the insured routinely works. `0` means not at height.
+    why_it_matters: >-
+      Height is an accident-frequency and severity driver, and it commonly determines whether
+      disability cover is offered at all rather than merely at what class. Insurers band it; a
+      threshold around ten metres is common, but the boundaries are each insurer's own.
+    applies_to: Construction, trades, telecommunications, forestry, maintenance.
+
+  works_underground:
+    type: boolean
+    summary: Routinely works below ground.
+    why_it_matters: >-
+      Frequently a decline or a heavily loaded rating for disability cover, largely independent of
+      the occupation code — a qualified electrician working underground in a mine is rated on the
+      environment more than the trade.
+    applies_to: Mining, tunnelling, utilities.
+
+  works_offshore:
+    type: boolean
+    summary: Routinely works offshore or on vessels, including oil and gas platforms.
+    why_it_matters: >-
+      Distance from medical care changes claim severity, and evacuation risk is priced separately
+      from the occupational task itself.
+    applies_to: Maritime, oil and gas, commercial fishing, offshore construction.
+
+  manual_duties_percent:
+    type: number
+    unit: percent
+    range: [0, 100]
+    summary: Proportion of working time spent on manual duties.
+    why_it_matters: >-
+      The usual axis separating a white-collar rating from a light- or heavy-manual one within the
+      same occupation code. A site-based project manager and an office-based one share an OSCA code
+      and rate differently.
+    applies_to: Nearly all occupations; most discriminating in supervisory and hybrid roles.
+
+  hours_per_week:
+    type: number
+    unit: hours
+    range: [0, 168]
+    summary: Ordinary hours worked per week.
+    why_it_matters: >-
+      Most income protection products require a minimum — commonly in the range of twenty to
+      twenty-five hours — before the full benefit basis is available, and a part-time insured may be
+      offered a restricted definition or declined. This is an eligibility gate as often as a rating
+      factor.
+    applies_to: Income protection and business expenses, primarily.
+
+  handles_explosives:
+    type: boolean
+    summary: Handles explosives as a requirement of the occupation.
+    why_it_matters: A severity driver that commonly triggers individual consideration rather than a standard rating.
+    applies_to: Mining, demolition, defence, quarrying.
+
+  licensed_to_carry_firearm:
+    type: boolean
+    summary: Carries a firearm as a requirement of the occupation.
+    why_it_matters: >-
+      Usually indicates an exposure to violence that the occupation code alone does not convey —
+      the same security role rates differently armed and unarmed.
+    applies_to: Security, law enforcement, defence, wildlife management.

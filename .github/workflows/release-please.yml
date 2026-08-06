@@ -1,0 +1,48 @@
+name: 📦 Release
+
+# One release train per contract — see release-please-config.json. Merging the release PR cuts
+# `quoting-v*`, `core-v*` or `policy-v*` independently, so an insurer implementing quoting is never
+# asked to care that another contract moved.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  release-please:
+    name: 📦 Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      quoting_release_created: ${{ steps.release.outputs['domains/quoting--release_created'] }}
+      quoting_tag_name: ${{ steps.release.outputs['domains/quoting--tag_name'] }}
+      core_release_created: ${{ steps.release.outputs['core--release_created'] }}
+      policy_release_created: ${{ steps.release.outputs['domains/policy--release_created'] }}
+    steps:
+      # Mint a GitHub App installation token so the release PR is opened by the app identity rather
+      # than the github-actions bot. PRs opened with the default GITHUB_TOKEN have their workflows
+      # held behind GitHub's manual "Approve workflows to run" gate — an anti-recursion guard — on
+      # EVERY release PR, which means CI never runs on the one PR whose contents are generated. We
+      # hit this in the CRM monorepo (AX-1340); it is cheap to set up now and irritating to
+      # retrofit.
+      #
+      # Needs repo variable RELEASE_BOT_APP_ID and secret RELEASE_BOT_PRIVATE_KEY.
+      - id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+
+      - id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+# Docs publishing deliberately does NOT live here. GitHub Pages has a single deployment target, so
+# two workflows deploying it race and whichever finishes last wins arbitrarily — which would mean the
+# published site silently alternating between the released contract and the tip of main. Pages has one
+# owner: docs-deploy.yml.

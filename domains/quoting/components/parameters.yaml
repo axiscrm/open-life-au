@@ -1,0 +1,82 @@
+# Open Life Data Standards (AU) — Quoting — parameters.
+
+IdempotencyKey:
+  name: Idempotency-Key
+  in: header
+  description: >-
+    A consumer-generated UUID identifying this logical request. Replaying the same key with an
+    identical body MUST return the stored response rather than re-pricing; replaying it with a
+    different body MUST fail with 409 `idempotency-conflict`. Servers SHOULD retain keys for at
+    least 24 hours.
+
+    Pricing is computationally idempotent but commercially metered — many insurers count quotes,
+    and some bill on them. This header is what stops a network timeout and retry from being
+    counted twice, which protects both sides.
+  required: false
+  schema:
+    type: string
+    format: uuid
+
+RequestId:
+  name: X-Request-Id
+  in: header
+  description: >-
+    Consumer-supplied correlation identifier. Echoed on the response; the server generates one if
+    absent.
+  required: false
+  schema:
+    type: string
+    maxLength: 128
+
+OccupationQuery:
+  name: q
+  in: query
+  description: >-
+    Free-text search over the insurer's own occupation descriptions. Matching is
+    implementation-defined; servers SHOULD match on substrings of any word rather than a prefix of
+    the whole string, since advisers search on the distinguishing word ("painter") rather than the
+    leading one.
+
+    An absent or empty `q` returns the full list, paged. That is deliberate — consumers pre-load
+    the whole list to build a picker.
+  required: false
+  schema:
+    type: string
+    maxLength: 100
+
+Cursor:
+  name: cursor
+  in: query
+  description: Continuation token from the previous page's `page.next_cursor`.
+  required: false
+  schema:
+    $ref: '../../../core/schemas/pagination.yaml#/Cursor'
+
+Limit:
+  name: limit
+  in: query
+  description: >-
+    Maximum items per page. A server MAY return fewer for its own reasons, so completion is
+    signalled only by the absence of `page.next_cursor`.
+  required: false
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 500
+    default: 100
+
+QuoteIdPath:
+  name: quote_id
+  in: path
+  required: true
+  schema:
+    $ref: '../../../core/schemas/identifiers.yaml#/QuoteId'
+
+OccupationIdPath:
+  name: insurer_occupation_id
+  in: path
+  required: true
+  schema:
+    type: string
+    minLength: 1
+    maxLength: 128

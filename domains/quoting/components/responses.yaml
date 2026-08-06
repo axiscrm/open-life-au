@@ -1,0 +1,129 @@
+# Open Life Data Standards (AU) — Quoting — shared responses.
+#
+# Every error in every operation is an RFC 9457 problem document. Declaring them once here means
+# an implementer cannot accidentally invent a different error shape per endpoint, which is the
+# single largest source of per-insurer adapter code in integrations that skip this.
+
+BadRequest:
+  description: >-
+    The request could not be parsed, or a value was structurally invalid.
+    Problem type `invalid-request`.
+  content:
+    application/problem+json:
+      schema:
+        $ref: '../../../core/schemas/problems.yaml#/Problem'
+  headers:
+    X-Request-Id:
+      $ref: 'headers.yaml#/XRequestId'
+
+Unauthorized:
+  description: >-
+    No access token was presented, or it was malformed or expired.
+    Problem type `unauthenticated`.
+  content:
+    application/problem+json:
+      schema:
+        $ref: '../../../core/schemas/problems.yaml#/Problem'
+  headers:
+    WWW-Authenticate:
+      description: RFC 6750 challenge.
+      schema:
+        type: string
+    X-Request-Id:
+      $ref: 'headers.yaml#/XRequestId'
+
+Forbidden:
+  description: >-
+    The token is valid but lacks the scope required for this operation, or names a campaign the
+    consumer is not authorised for. Problem type `forbidden`.
+  content:
+    application/problem+json:
+      schema:
+        $ref: '../../../core/schemas/problems.yaml#/Problem'
+  headers:
+    X-Request-Id:
+      $ref: 'headers.yaml#/XRequestId'
+
+NotFound:
+  description: 'Unknown identifier. Problem type `not-found`.'
+  content:
+    application/problem+json:
+      schema:
+        $ref: '../../../core/schemas/problems.yaml#/Problem'
+  headers:
+    X-Request-Id:
+      $ref: 'headers.yaml#/XRequestId'
+
+Conflict:
+  description: >-
+    An `Idempotency-Key` was reused with a different request body.
+    Problem type `idempotency-conflict`.
+  content:
+    application/problem+json:
+      schema:
+        $ref: '../../../core/schemas/problems.yaml#/Problem'
+  headers:
+    X-Request-Id:
+      $ref: 'headers.yaml#/XRequestId'
+
+UnprocessableEntity:
+  description: >-
+    The request was well formed but cannot be priced as asked — an unsupported cover, an
+    unsupported option value, or a combination the product does not permit. Problem types
+    `unsupported-cover`, `unsupported-value`, `invalid-combination`, `incomplete-request`.
+
+    NOTE the boundary: this status is for a request the insurer will not accept. An insurer that
+    accepts the request but cannot assemble the covers returns 200 with the line flagged
+    `all_needs_met: false`.
+  content:
+    application/problem+json:
+      schema:
+        $ref: '../../../core/schemas/problems.yaml#/Problem'
+  headers:
+    X-Request-Id:
+      $ref: 'headers.yaml#/XRequestId'
+
+TooManyRequests:
+  description: >-
+    Rate limit exceeded. Problem type `rate-limited`. `Retry-After` is REQUIRED — without it a
+    consumer fanning out across several insurers has no basis for a backoff and will retry into
+    the limit.
+  content:
+    application/problem+json:
+      schema:
+        $ref: '../../../core/schemas/problems.yaml#/Problem'
+  headers:
+    Retry-After:
+      description: Seconds to wait before retrying.
+      required: true
+      schema:
+        type: integer
+        minimum: 0
+    X-Request-Id:
+      $ref: 'headers.yaml#/XRequestId'
+
+InternalError:
+  description: 'Unexpected failure. Problem type `internal-error`.'
+  content:
+    application/problem+json:
+      schema:
+        $ref: '../../../core/schemas/problems.yaml#/Problem'
+  headers:
+    X-Request-Id:
+      $ref: 'headers.yaml#/XRequestId'
+
+ServiceUnavailable:
+  description: >-
+    A dependency of the pricing engine is unavailable. Problem type `upstream-unavailable`.
+    Distinguished from `internal-error` so a consumer can retry this and not that.
+  content:
+    application/problem+json:
+      schema:
+        $ref: '../../../core/schemas/problems.yaml#/Problem'
+  headers:
+    Retry-After:
+      schema:
+        type: integer
+        minimum: 0
+    X-Request-Id:
+      $ref: 'headers.yaml#/XRequestId'

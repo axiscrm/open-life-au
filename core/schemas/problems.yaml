@@ -1,0 +1,121 @@
+# Open Life Data Standards (AU) — error representation.
+#
+# Every non-2xx response in every contract is an RFC 9457 `application/problem+json` document.
+# This is the cheapest thing in the whole standard to agree on and the largest single
+# reduction in integration code: without it, every implementer invents its own error shape and
+# every consumer writes a bespoke parser per insurer.
+#
+# The `type` values below are the registry. An implementation MAY define additional types
+# under its own URI namespace, but MUST use a registered type where one fits, so a consumer
+# can branch on `type` rather than pattern-matching human-readable text.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+Problem:
+  title: Problem
+  description: An RFC 9457 problem details document.
+  type: object
+  required: [type, title, status]
+  properties:
+    type:
+      description: >-
+        A URI identifying the problem kind. Use a registered value from `ProblemType` where
+        one applies. Consumers branch on this field; `title` and `detail` are for humans.
+      type: string
+      format: uri
+      default: 'about:blank'
+    title:
+      description: A short, human-readable summary of the problem kind. Stable per `type`.
+      type: string
+    status:
+      description: The HTTP status code, repeated here so a logged problem is self-contained.
+      type: integer
+      minimum: 400
+      maximum: 599
+    detail:
+      description: >-
+        A human-readable explanation specific to this occurrence. MUST NOT contain personal
+        information about the insured — problem documents are logged widely on both sides.
+      type: string
+    instance:
+      description: A URI reference identifying this specific occurrence.
+      type: string
+      format: uri-reference
+    request_id:
+      description: >-
+        The value of the `X-Request-Id` header for the failed request, echoed so a consumer
+        can quote one token when asking the insurer to investigate.
+      type: string
+    errors:
+      description: >-
+        Field-level detail, present on validation failures. Each entry MUST carry a JSON
+        Pointer to the offending member of the request body, so a consumer can highlight the
+        exact control that was wrong rather than showing a whole-form error.
+      type: array
+      items:
+        type: object
+        required: [pointer, detail]
+        additionalProperties: false
+        properties:
+          pointer:
+            description: RFC 6901 JSON Pointer into the request body.
+            type: string
+            examples: ['/covers/1/waiting_period']
+          detail:
+            type: string
+          value_supplied:
+            description: The rejected value, echoed for diagnosis. Omit where it is sensitive.
+          values_supported:
+            description: >-
+              The values that would have been accepted. Populating this turns a failed
+              integration attempt into a self-service fix.
+            type: array
+            items: {}
+  examples:
+    - type: 'https://openlife.org.au/problems/unsupported-value'
+      title: Unsupported value
+      status: 422
+      detail: 'This product does not offer a 730 day waiting period.'
+      request_id: '01JQ8Z9YB4T7M2XR'
+      errors:
+        - pointer: '/covers/1/waiting_period'
+          detail: 'Not offered for this product.'
+          value_supplied: '730d'
+          values_supported: ['30d', '60d', '90d']
+
+ProblemType:
+  title: ProblemType
+  description: >-
+    The registered problem types. Relative to `https://openlife.org.au/problems/`.
+
+      invalid-request       400  malformed syntax, unparseable body
+      unauthenticated       401  missing, malformed or expired access token
+      forbidden             403  authenticated, but the token lacks the required scope
+      not-found             404  unknown quote, line or occupation identifier
+      unsupported-cover     422  a requested cover type is not offered at all
+      unsupported-value     422  a recognised field carried a value this product cannot honour
+      invalid-combination   422  each field is individually valid, but together they are not
+      incomplete-request    422  a conditionally required field was absent
+      idempotency-conflict  409  key reused with a different request body
+      rate-limited          429  quota exceeded; `Retry-After` MUST be present
+      internal-error        500  unexpected failure
+      upstream-unavailable  503  a dependency of the pricing engine is unavailable
+
+    Note what is NOT an error: an insurer that CAN be asked but cannot assemble the requested
+    cover returns 200 with the line flagged `all_needs_met: false` and populated `errors`.
+    That is a priced-and-failed line, not a failed request, and collapsing the two loses the
+    distinction an adviser needs.
+  type: string
+  enum:
+    - 'https://openlife.org.au/problems/invalid-request'
+    - 'https://openlife.org.au/problems/unauthenticated'
+    - 'https://openlife.org.au/problems/forbidden'
+    - 'https://openlife.org.au/problems/not-found'
+    - 'https://openlife.org.au/problems/unsupported-cover'
+    - 'https://openlife.org.au/problems/unsupported-value'
+    - 'https://openlife.org.au/problems/invalid-combination'
+    - 'https://openlife.org.au/problems/incomplete-request'
+    - 'https://openlife.org.au/problems/idempotency-conflict'
+    - 'https://openlife.org.au/problems/rate-limited'
+    - 'https://openlife.org.au/problems/internal-error'
+    - 'https://openlife.org.au/problems/upstream-unavailable'

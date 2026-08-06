@@ -1,0 +1,122 @@
+openapi: 3.1.0
+
+info:
+  title: Open Life Quoting API (AU)
+  # Kept in step with the quoting-v* git tag by release-please — do not edit by hand.
+  version: 0.1.0 # x-release-please-version
+  summary: A vendor-neutral contract for pricing Australian life risk cover.
+  description: |
+    A contract an insurer implements so that adviser software can obtain quotes directly, in one
+    shape, without a per-insurer integration.
+
+    ## What this is
+
+    Four operations. An insurer prices a set of covers for one insured (`POST /quotes`), describes
+    what it supports (`GET /capabilities`), and helps resolve an occupation to its own rating
+    manual (`GET /occupations`, `POST /occupations:match`).
+
+    The request is modelled on the questions an adviser actually answers, in the order they answer
+    them: who is being insured, the answers that apply to the whole policy, then one section per
+    benefit. It is deliberately not modelled on any existing engine's wire format.
+
+    ## The rules that matter most
+
+    These guard against failures that are **silent** — they produce a plausible number rather than
+    an error, so nobody notices until a client complains.
+
+    1. **All six payment frequencies on every priced line.** Sub-annual premiums carry a frequency
+       loading, so the monthly premium is not the annual over twelve. A consumer that divides will
+       understate the cost and nothing will look wrong.
+    2. **Never price what you could not assemble.** If some requested covers cannot be written,
+       return the line with `all_needs_met: false`, populated `errors` and no premium. A partial
+       policy priced as though complete reads as the best offer on the table.
+    3. **Report every option you did not apply.** An option the product cannot honour appears in
+       `resolved_options` as `unsupported_ignored`. Otherwise a quote that quietly dropped a
+       benefit is indistinguishable from one that included it, and the adviser recommends the
+       wrong product.
+    4. **Echo what you rated.** `resolved_occupation` and `rate_table_version` are what make a
+       quote reproducible months later, which is what an adviser needs to justify a
+       recommendation.
+
+    ## Money
+
+    Amounts are decimal strings with an explicit currency, never JSON numbers. Premiums are summed
+    and compared to the cent, and JSON numbers are IEEE-754 doubles in JavaScript and in most
+    generated clients.
+
+    ## Privacy
+
+    The request carries no name, no address, no contact details and no health data, and
+    `Insured` is a closed schema so there is nowhere to put them. Age is sent as age next birthday
+    rather than a date of birth wherever the insurer permits. This is a design constraint, not a
+    recommendation: a consumer sends the same client to several insurers, so every field
+    multiplies into several separate collections by several separate entities.
+
+    ## Conformance
+
+    An implementation need not offer every cover or every option value. Declare what you offer in
+    `GET /capabilities` and the conformance suite tests you against that declaration. What is not
+    optional is the four rules above.
+
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+  contact:
+    name: Open Life Data Standards (AU)
+    url: https://github.com/axiscrm/open-life-au
+
+servers:
+  - url: https://{host}/{basePath}
+    description: An insurer's implementation.
+    variables:
+      host:
+        default: api.insurer.example.com.au
+      basePath:
+        default: openlife/quoting/v1
+
+tags:
+  - name: Quotes
+    description: Pricing.
+  - name: Discovery
+    description: What an implementation supports.
+  - name: Occupations
+    description: Resolving an occupation to the insurer's own rating manual.
+
+security:
+  - oauth2: [quotes.write]
+
+paths:
+  /quotes:
+    $ref: './paths/quotes.yaml'
+  /capabilities:
+    $ref: './paths/capabilities.yaml'
+  /occupations:
+    $ref: './paths/occupations.yaml'
+  /occupations:match:
+    $ref: './paths/occupations-match.yaml'
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: |
+        OAuth 2.0 client credentials (RFC 6749, section 4.4). Machine-to-machine only.
+
+        The consumer is a system, not a person, so there is no interactive flow: an authorisation
+        code flow would oblige insurers to provision and maintain an account per adviser, and to
+        answer "is this adviser appointed with us?" on every token request.
+
+        Insurers who need adviser or licensee attribution — for distribution reporting or campaign
+        entitlement — should take it from the token's own claims or from the client registration,
+        not by pushing identity into the quote request.
+
+        Servers SHOULD publish an RFC 8414 metadata document so consumers can discover the token
+        endpoint rather than having it configured by hand. mTLS MAY additionally be required.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.insurer.example.com.au/oauth2/token
+          refreshUrl: https://auth.insurer.example.com.au/oauth2/token
+          scopes:
+            quotes.write: Create quotes.
+            capabilities.read: Read the capability document.
+            occupations.read: Search and match occupations.

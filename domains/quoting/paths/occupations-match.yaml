@@ -1,0 +1,64 @@
+# Open Life Data Standards (AU) — Quoting — POST /occupations:match
+
+post:
+  operationId: matchOccupation
+  summary: Resolve a baseline occupation to this insurer's own
+  description: >-
+    Given an ABS OSCA code and the qualifiers that sit beneath it, return the insurer's own
+    occupations that correspond, most confident first.
+
+    ### Why this endpoint exists
+
+    An adviser picks an occupation once, from one picker, and expects to compare every insurer on
+    the panel. Each insurer rates its own list, so something has to bridge the two. Putting the
+    bridge here — inside the insurer, which is the only party that knows its own manual — avoids
+    making anyone else the custodian of a mapping they cannot maintain.
+
+    ### An empty result is a real answer
+
+    `candidates: []` means this insurer has no occupation corresponding to the reference. The
+    consumer MUST show the insurer as unquotable for this client and MUST NOT substitute a nearby
+    occupation of its own choosing. A silently wrong occupation produces a wrong premium that
+    looks entirely normal, and an adviser has no way to detect it.
+
+    ### Confidence
+
+    Where the insurer maintains a one-to-one correspondence to the baseline it returns `exact`. A
+    match derived from qualifiers alone will usually be `moderate` or below, and a consumer SHOULD
+    ask the adviser to confirm anything below `exact` rather than pricing straight through.
+
+    Results depend only on the occupation reference, never on the insured, so they are safely
+    cacheable by the consumer per insurer.
+  tags: [Occupations]
+  security:
+    - oauth2: [occupations.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/RequestId'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/occupations.yaml#/OccupationMatchRequest'
+  responses:
+    '200':
+      description: Candidate matches, possibly empty.
+      headers:
+        X-Request-Id:
+          $ref: '../components/headers.yaml#/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/occupations.yaml#/OccupationMatchResponse'
+    '400':
+      $ref: '../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../components/responses.yaml#/Forbidden'
+    '422':
+      $ref: '../components/responses.yaml#/UnprocessableEntity'
+    '429':
+      $ref: '../components/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../components/responses.yaml#/InternalError'
