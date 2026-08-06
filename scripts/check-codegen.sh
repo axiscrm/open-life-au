@@ -1,27 +1,46 @@
 #!/usr/bin/env bash
 #
-# Run a real code generator against the bundled contract and assert it produced something usable.
+# Run real code generators against BOTH contracts and assert they produced something usable.
 #
-# A valid OpenAPI document is not the same as a usable one. This contract leans on
-# oneOf + discriminator + unevaluatedProperties, which is exactly where generators diverge — and
-# they diverge either silently or catastrophically, never politely. openapi-generator once died on
-# this schema with a NullPointerException and emitted nothing at all, which would have blocked
-# every Java implementer, and neither lint nor schema validation noticed. Only running it did.
+# A valid OpenAPI document is not the same as a usable one. These contracts lean on
+# oneOf + discriminator + unevaluatedProperties (quoting) and a 3.1 `webhooks` block (policy), which
+# is exactly where generators diverge — and they diverge either silently or catastrophically, never
+# politely. openapi-generator once died on the quoting schema with a NullPointerException and emitted
+# nothing at all; openapi-python-client once dropped three of the seven covers and still exited 0.
+# Neither was visible to linting or schema validation. Only running the generators found them.
 #
-# Hence the assertions: several generators exit 0 having written nothing, so counting output files
-# is the only honest check.
+# Hence the assertions. Counting files is not enough: one generator exits 0 having written nothing,
+# and another writes plenty while quietly dropping schemas.
 #
-# Usage: scripts/check-codegen.sh <typescript|python|java>
+# Usage: scripts/check-codegen.sh <typescript|python|java|ruby|go|csharp>
 
 set -euo pipefail
 
 LANG_TARGET="${1:-}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SPEC="$ROOT/dist/quoting/openapi.yaml"
+QUOTING="$ROOT/dist/quoting/openapi.yaml"
+POLICY="$ROOT/dist/policy/openapi.yaml"
 OUT="${CODEGEN_OUT:-$ROOT/.codegen}"
 
-[ -f "$SPEC" ] || { echo "✗ $SPEC missing — run 'npm run bundle' first"; exit 1; }
+for spec in "$QUOTING" "$POLICY"; do
+  [ -f "$spec" ] || { echo "✗ $spec missing — run 'npm run bundle' first"; exit 1; }
+done
 mkdir -p "$OUT"
+
+OG="@openapitools/openapi-generator-cli@2"
+
+# PascalCase a contract name, portably.
+#
+# NOT `${contract^}`: that is bash 4+, and macOS still ships bash 3.2. CI runs Ubuntu with bash 5,
+# so the parameter-expansion form passed there and failed for every macOS contributor with an
+# opaque "bad substitution" — green CI, broken locally, which is the worst way round.
+pascal_name() {
+  case "$1" in
+    quoting) echo "Quoting" ;;
+    policy)  echo "Policy" ;;
+    *)       echo "$1" ;;
+  esac
+}
 
 # Fail if a generated tree is empty or implausibly small.
 assert_files() {
@@ -35,68 +54,73 @@ assert_files() {
   echo "✓ $label: $n files"
 }
 
-# The seven covers, in the casing each generator uses.
-COVERS_PASCAL="LifeCover TpdCover TraumaCover IncomeProtectionCover BusinessExpensesCover NeedleStickCover ChildTraumaCover"
-
-# Assert every cover survived into the output.
+# Assert every named symbol survived into the output.
 #
 # This is the check that matters most, and it exists because of a real incident: a generator
-# rejected one schema construct, dropped TPD, trauma and business expenses entirely, and still
-# exited 0 having written 79 files. Counting files would have called that a pass. A client missing
-# three of seven covers is far worse than a generator that refuses to run, because nothing announces
-# it — the gap only surfaces when an insurer cannot quote a cover.
-assert_all_covers() {
-  local label="$1"; shift
+# rejected one schema construct, dropped three cover types, and still exited 0 having written 79
+# files. Counting files would have called that a pass.
+assert_symbols() {
+  local label="$1"; local dir="$2"; shift 2
   local missing=""
-  for cover in $COVERS_PASCAL; do
-    if ! grep -rqi -- "$cover" "$@" 2>/dev/null; then
-      missing="$missing $cover"
-    fi
+  for symbol in "$@"; do
+    grep -rqi -- "$symbol" "$dir" 2>/dev/null || missing="$missing $symbol"
   done
   if [ -n "$missing" ]; then
-    echo "✗ $label: covers silently dropped by the generator:$missing"
+    echo "✗ $label: schemas silently dropped by the generator:$missing"
     exit 1
   fi
-  echo "✓ $label: all 7 covers present"
+  echo "✓ $label: all expected schemas present"
 }
+
+QUOTING_SYMBOLS="LifeCover TpdCover TraumaCover IncomeProtectionCover BusinessExpensesCover NeedleStickCover ChildTraumaCover"
+# The policy contract's load-bearing schemas. Arrears in particular: it is the most time-sensitive
+# record in the contract, and it is nested two levels down, which is where generators lose things.
+POLICY_SYMBOLS="Policy PolicyPage PolicyHolder Arrears PolicyCover SnapshotCoverage"
 
 case "$LANG_TARGET" in
   typescript)
     # `--default-non-nullable=false` matters: without it openapi-typescript treats any property
-    # carrying a `default` as REQUIRED, so optional request fields like `campaign_codes` become
-    # mandatory in the generated type and a minimal valid request fails to compile.
-    # No path argument: openapi-typescript picks up redocly.yaml's `apis` block and the
-    # `x-openapi-ts.output` key declared there. Passing a path as well is an error, not an override.
+    # carrying a `default` as REQUIRED, so optional request fields become mandatory in the generated
+    # type and a minimal valid request fails to compile.
+    #
+    # No path argument: openapi-typescript reads redocly.yaml's `apis` block and the
+    # `x-openapi-ts.output` key declared per contract there, emitting both in one run.
     npx --yes openapi-typescript@7 --default-non-nullable=false
-    assert_files "$OUT/ts" "schema.d.ts" 1 "typescript types (openapi-typescript)"
-    grep -q "CoverRequest" "$OUT/ts/schema.d.ts" \
-      || { echo "✗ typescript: CoverRequest union missing"; exit 1; }
-    echo "✓ typescript: cover union present"
-    assert_all_covers "typescript (openapi-typescript)" "$OUT/ts/schema.d.ts"
+    assert_files "$OUT/ts" "*.d.ts" 2 "typescript types (openapi-typescript, both contracts)"
+    assert_symbols "typescript quoting" "$OUT/ts/schema.d.ts" $QUOTING_SYMBOLS
+    assert_symbols "typescript policy" "$OUT/ts/policy.d.ts" $POLICY_SYMBOLS
 
-    # @hey-api/openapi-ts — the multi-file option, types plus a generated SDK.
-    # It drives the TypeScript compiler API, so it needs a TypeScript 5.x peer; on 7.x it dies
-    # with "Cannot read properties of undefined (reading 'AnyKeyword')" because the native port
-    # does not expose the same surface. The pin in devDependencies is load-bearing.
-    rm -rf "$OUT/ts-heyapi"
-    npx --yes @hey-api/openapi-ts -i "$SPEC" -o "$OUT/ts-heyapi"
-    assert_files "$OUT/ts-heyapi" "*.ts" 10 "typescript client (@hey-api/openapi-ts)"
-    assert_all_covers "typescript (@hey-api/openapi-ts)" "$OUT/ts-heyapi"
-    for op in createQuote getCapabilities listOccupations matchOccupation; do
-      grep -rq "$op" "$OUT/ts-heyapi/sdk.gen.ts" \
-        || { echo "✗ hey-api: operation $op missing from the SDK"; exit 1; }
+    # @hey-api/openapi-ts — the multi-file option. Needs a TypeScript 5.x peer; on 7.x it dies with
+    # "Cannot read properties of undefined (reading 'AnyKeyword')".
+    for contract in quoting policy; do
+      rm -rf "$OUT/ts-heyapi-$contract"
+      npx --yes @hey-api/openapi-ts -i "$ROOT/dist/$contract/openapi.yaml" -o "$OUT/ts-heyapi-$contract"
+      assert_files "$OUT/ts-heyapi-$contract" "*.ts" 10 "typescript client (@hey-api, $contract)"
     done
-    echo "✓ typescript (@hey-api/openapi-ts): all 4 operations present"
+    assert_symbols "hey-api quoting" "$OUT/ts-heyapi-quoting" $QUOTING_SYMBOLS
+    assert_symbols "hey-api policy" "$OUT/ts-heyapi-policy" $POLICY_SYMBOLS
+    for op in createQuote getCapabilities listOccupations matchOccupation; do
+      grep -rq "$op" "$OUT/ts-heyapi-quoting/sdk.gen.ts" \
+        || { echo "✗ hey-api: quoting operation $op missing"; exit 1; }
+    done
+    for op in listPolicies getPolicy getPolicyCapabilities; do
+      grep -rq "$op" "$OUT/ts-heyapi-policy/sdk.gen.ts" \
+        || { echo "✗ hey-api: policy operation $op missing"; exit 1; }
+    done
+    echo "✓ typescript (@hey-api): all operations present in both contracts"
 
-    # openapi-generator's typescript-fetch — one model per file, with runtime converters rather
-    # than types alone. Needs a JDK: openapi-generator is a Java tool behind an npm wrapper.
+    # typescript-fetch needs a JDK: openapi-generator is a Java tool behind an npm wrapper.
     if command -v java >/dev/null 2>&1; then
-      rm -rf "$OUT/ts-fetch"
-      npx --yes @openapitools/openapi-generator-cli@2 generate \
-        -i "$SPEC" -g typescript-fetch -o "$OUT/ts-fetch" --skip-validate-spec \
-        -p supportsES6=true,modelPropertyNaming=original
-      assert_files "$OUT/ts-fetch" "*.ts" 40 "typescript client (typescript-fetch)"
-      assert_all_covers "typescript (typescript-fetch)" "$OUT/ts-fetch/models"
+      for contract in quoting policy; do
+        rm -rf "$OUT/ts-fetch-$contract"
+        npx --yes $OG generate \
+          -i "$ROOT/dist/$contract/openapi.yaml" -g typescript-fetch \
+          -o "$OUT/ts-fetch-$contract" --skip-validate-spec \
+          -p supportsES6=true,modelPropertyNaming=original
+        assert_files "$OUT/ts-fetch-$contract" "*.ts" 20 "typescript client (typescript-fetch, $contract)"
+      done
+      assert_symbols "typescript-fetch quoting" "$OUT/ts-fetch-quoting/models" $QUOTING_SYMBOLS
+      assert_symbols "typescript-fetch policy" "$OUT/ts-fetch-policy/models" $POLICY_SYMBOLS
     else
       echo "· typescript-fetch skipped — no JDK on PATH (openapi-generator is a Java tool)"
     fi
@@ -104,107 +128,121 @@ case "$LANG_TARGET" in
 
   python)
     # Two generators, because they fail in different ways and only one of them is loud.
-    # datamodel-code-generator gives Pydantic models in a single module; openapi-python-client
-    # gives a full multi-file package with a client. Both are documented in the README, so both
-    # are tested.
-    uvx --from datamodel-code-generator datamodel-codegen \
-      --input "$SPEC" --input-file-type openapi \
-      --output "$OUT/py/models.py" --output-model-type pydantic_v2.BaseModel \
-      --use-standard-collections --use-union-operator \
-      --field-constraints --use-annotated \
-      --use-schema-description --use-field-description \
-      --target-python-version 3.12 --formatters black
-    assert_files "$OUT/py" "models.py" 1 "python models (datamodel-code-generator)"
-    # The discriminated union is the thing most likely to degrade into a bare Union.
-    grep -q "discriminator='cover_type'" "$OUT/py/models.py" \
+    for contract in quoting policy; do
+      uvx --from datamodel-code-generator datamodel-codegen \
+        --input "$ROOT/dist/$contract/openapi.yaml" --input-file-type openapi \
+        --output "$OUT/py/${contract}_models.py" --output-model-type pydantic_v2.BaseModel \
+        --use-standard-collections --use-union-operator \
+        --field-constraints --use-annotated \
+        --use-schema-description --use-field-description \
+        --target-python-version 3.12 --formatters black
+    done
+    assert_files "$OUT/py" "*_models.py" 2 "python models (datamodel-code-generator, both contracts)"
+    grep -q "discriminator='cover_type'" "$OUT/py/quoting_models.py" \
       || { echo "✗ python: cover_type discriminator lost"; exit 1; }
     echo "✓ python: discriminated union preserved"
-    assert_all_covers "python (datamodel-code-generator)" "$OUT/py/models.py"
+    assert_symbols "python quoting" "$OUT/py/quoting_models.py" $QUOTING_SYMBOLS
+    assert_symbols "python policy" "$OUT/py/policy_models.py" $POLICY_SYMBOLS
 
-    rm -rf "$OUT/py-client"
-    mkdir -p "$OUT/py-client"
-    ( cd "$OUT/py-client" \
-      && uvx --from openapi-python-client openapi-python-client generate \
-           --path "$SPEC" --overwrite )
-    assert_files "$OUT/py-client" "*.py" 40 "python client (openapi-python-client)"
-    assert_all_covers "python (openapi-python-client)" "$OUT/py-client"
+    for contract in quoting policy; do
+      rm -rf "$OUT/py-client-$contract"
+      mkdir -p "$OUT/py-client-$contract"
+      ( cd "$OUT/py-client-$contract" \
+        && uvx --from openapi-python-client openapi-python-client generate \
+             --path "$ROOT/dist/$contract/openapi.yaml" --overwrite )
+      assert_files "$OUT/py-client-$contract" "*.py" 30 "python client (openapi-python-client, $contract)"
+    done
+    assert_symbols "python client quoting" "$OUT/py-client-quoting" $QUOTING_SYMBOLS
+    assert_symbols "python client policy" "$OUT/py-client-policy" $POLICY_SYMBOLS
     ;;
 
   java)
-    # interfaceOnly: the insurer implements a generated interface, so regenerating never
-    # overwrites their code.
-    npx --yes @openapitools/openapi-generator-cli@2 generate \
-      -i "$SPEC" -g spring -o "$OUT/java-server" --skip-validate-spec \
-      -p interfaceOnly=true,useSpringBoot3=true,useTags=true,useJakartaEe=true,openApiNullable=false \
-      --additional-properties=apiPackage=au.org.openlife.quoting.api,modelPackage=au.org.openlife.quoting.model
-    assert_files "$OUT/java-server" "*.java" 40 "java server stubs"
+    # interfaceOnly: the insurer implements a generated interface, so regeneration never overwrites
+    # their code.
+    for contract in quoting policy; do
+      rm -rf "$OUT/java-server-$contract" "$OUT/java-client-$contract"
+      npx --yes $OG generate \
+        -i "$ROOT/dist/$contract/openapi.yaml" -g spring \
+        -o "$OUT/java-server-$contract" --skip-validate-spec \
+        -p interfaceOnly=true,useSpringBoot3=true,useTags=true,useJakartaEe=true,openApiNullable=false \
+        --additional-properties=apiPackage=au.org.openlife.$contract.api,modelPackage=au.org.openlife.$contract.model
+      assert_files "$OUT/java-server-$contract" "*.java" 20 "java server stubs ($contract)"
 
-    # --library native: JDK HttpClient, so no transitive OkHttp/Gson pins to argue about with an
-    # insurer's platform team.
-    npx --yes @openapitools/openapi-generator-cli@2 generate \
-      -i "$SPEC" -g java -o "$OUT/java-client" --skip-validate-spec --library native \
-      -p openApiNullable=false,useJakartaEe=true \
-      --additional-properties=apiPackage=au.org.openlife.quoting.api,modelPackage=au.org.openlife.quoting.model
-    assert_files "$OUT/java-client" "*.java" 40 "java client"
+      # --library native: JDK HttpClient, so no transitive OkHttp/Gson pins to argue about with an
+      # insurer's platform team.
+      npx --yes $OG generate \
+        -i "$ROOT/dist/$contract/openapi.yaml" -g java \
+        -o "$OUT/java-client-$contract" --skip-validate-spec --library native \
+        -p openApiNullable=false,useJakartaEe=true \
+        --additional-properties=apiPackage=au.org.openlife.$contract.api,modelPackage=au.org.openlife.$contract.model
+      assert_files "$OUT/java-client-$contract" "*.java" 20 "java client ($contract)"
+    done
+    assert_symbols "java quoting" "$OUT/java-server-quoting/src/main/java" $QUOTING_SYMBOLS
+    assert_symbols "java policy" "$OUT/java-server-policy/src/main/java" $POLICY_SYMBOLS
 
-    # Money must stay a String all the way into Java. If it ever becomes double/BigDecimal-from-
-    # number, premiums drift by cents and the comparison table is quietly wrong.
-    money="$OUT/java-server/src/main/java/au/org/openlife/quoting/model/Money.java"
+    # Money must stay a String all the way into Java. If it ever becomes double, premiums drift.
+    money="$OUT/java-server-quoting/src/main/java/au/org/openlife/quoting/model/Money.java"
     grep -qE "private +String +amount" "$money" \
       || { echo "✗ java: Money.amount is not a String — decimal precision lost"; exit 1; }
     echo "✓ java: Money.amount is String"
 
-    cover="$OUT/java-server/src/main/java/au/org/openlife/quoting/model/CoverRequest.java"
+    cover="$OUT/java-server-quoting/src/main/java/au/org/openlife/quoting/model/CoverRequest.java"
     grep -q "JsonSubTypes" "$cover" \
       || { echo "✗ java: CoverRequest lost its polymorphism"; exit 1; }
     echo "✓ java: cover polymorphism preserved"
-    assert_all_covers "java server" "$OUT/java-server/src/main/java"
-    assert_all_covers "java client" "$OUT/java-client/src/main/java"
     ;;
 
   ruby)
-    # Client only. `ruby-sinatra` exists but emits a 13-file scaffold with no models at all, so it
-    # is not something to point an implementer at — see docs/generators/ruby.md.
-    rm -rf "$OUT/ruby"
-    npx --yes @openapitools/openapi-generator-cli@2 generate \
-      -i "$SPEC" -g ruby -o "$OUT/ruby" --skip-validate-spec \
-      --additional-properties=gemName=openlife_quoting,moduleName=OpenLifeQuoting
-    assert_files "$OUT/ruby" "*.rb" 40 "ruby client"
-    assert_all_covers "ruby" "$OUT/ruby"
-    grep -q "openapi_discriminator_name" "$OUT/ruby/lib/openlife_quoting/models/cover_request.rb" \
+    # Client only. `ruby-sinatra` emits a 13-file scaffold with no models at all — see
+    # docs/generators/ruby.md.
+    for contract in quoting policy; do
+      rm -rf "$OUT/ruby-$contract"
+      npx --yes $OG generate \
+        -i "$ROOT/dist/$contract/openapi.yaml" -g ruby -o "$OUT/ruby-$contract" --skip-validate-spec \
+        --additional-properties=gemName=openlife_$contract,moduleName=OpenLife$(pascal_name "$contract")
+      assert_files "$OUT/ruby-$contract" "*.rb" 20 "ruby client ($contract)"
+    done
+    assert_symbols "ruby quoting" "$OUT/ruby-quoting" $QUOTING_SYMBOLS
+    assert_symbols "ruby policy" "$OUT/ruby-policy" $POLICY_SYMBOLS
+    grep -q "openapi_discriminator_name" "$OUT/ruby-quoting/lib/openlife_quoting/models/cover_request.rb" \
       || { echo "✗ ruby: CoverRequest lost its discriminator"; exit 1; }
     echo "✓ ruby: discriminated union preserved"
     ;;
 
   go)
-    rm -rf "$OUT/go"
-    npx --yes @openapitools/openapi-generator-cli@2 generate \
-      -i "$SPEC" -g go -o "$OUT/go" --skip-validate-spec \
-      --additional-properties=packageName=openlifequoting,isGoSubmodule=true
-    assert_files "$OUT/go" "*.go" 40 "go client"
-    assert_all_covers "go" "$OUT/go"
-    # Go has no decimal type in the standard library, so a generator that turned this into float64
+    for contract in quoting policy; do
+      rm -rf "$OUT/go-$contract"
+      npx --yes $OG generate \
+        -i "$ROOT/dist/$contract/openapi.yaml" -g go -o "$OUT/go-$contract" --skip-validate-spec \
+        --additional-properties=packageName=openlife$contract,isGoSubmodule=true
+      assert_files "$OUT/go-$contract" "*.go" 20 "go client ($contract)"
+    done
+    assert_symbols "go quoting" "$OUT/go-quoting" $QUOTING_SYMBOLS
+    assert_symbols "go policy" "$OUT/go-policy" $POLICY_SYMBOLS
+    # Go has no decimal type in its standard library, so a generator that turned this into float64
     # would be silently lossy on every premium.
-    grep -qE "Amount string" "$OUT/go/model_money.go" \
+    grep -qE "Amount string" "$OUT/go-quoting/model_money.go" \
       || { echo "✗ go: Money.Amount is not a string — decimal precision lost"; exit 1; }
     echo "✓ go: Money.Amount is string"
     ;;
 
   csharp)
-    rm -rf "$OUT/csharp" "$OUT/aspnetcore"
-    npx --yes @openapitools/openapi-generator-cli@2 generate \
-      -i "$SPEC" -g csharp -o "$OUT/csharp" --skip-validate-spec \
-      --additional-properties=packageName=OpenLife.Quoting,targetFramework=net8.0
-    assert_files "$OUT/csharp" "*.cs" 40 "csharp client"
-    assert_all_covers "csharp" "$OUT/csharp"
+    for contract in quoting policy; do
+      rm -rf "$OUT/csharp-$contract" "$OUT/aspnetcore-$contract"
+      npx --yes $OG generate \
+        -i "$ROOT/dist/$contract/openapi.yaml" -g csharp -o "$OUT/csharp-$contract" --skip-validate-spec \
+        --additional-properties=packageName=OpenLife.$(pascal_name "$contract"),targetFramework=net8.0
+      assert_files "$OUT/csharp-$contract" "*.cs" 20 "csharp client ($contract)"
 
-    npx --yes @openapitools/openapi-generator-cli@2 generate \
-      -i "$SPEC" -g aspnetcore -o "$OUT/aspnetcore" --skip-validate-spec \
-      --additional-properties=packageName=OpenLife.Quoting,aspnetCoreVersion=8.0,operationIsAsync=true
-    assert_files "$OUT/aspnetcore" "*.cs" 40 "csharp server (ASP.NET Core)"
-    assert_all_covers "csharp server" "$OUT/aspnetcore"
+      npx --yes $OG generate \
+        -i "$ROOT/dist/$contract/openapi.yaml" -g aspnetcore -o "$OUT/aspnetcore-$contract" --skip-validate-spec \
+        --additional-properties=packageName=OpenLife.$(pascal_name "$contract"),aspnetCoreVersion=8.0,operationIsAsync=true
+      assert_files "$OUT/aspnetcore-$contract" "*.cs" 20 "csharp server ($contract)"
+    done
+    assert_symbols "csharp quoting" "$OUT/csharp-quoting" $QUOTING_SYMBOLS
+    assert_symbols "csharp policy" "$OUT/csharp-policy" $POLICY_SYMBOLS
 
-    money=$(find "$OUT/csharp" -name Money.cs | head -1)
+    money=$(find "$OUT/csharp-quoting" -name Money.cs | head -1)
     grep -qE "public string Amount" "$money" \
       || { echo "✗ csharp: Money.Amount is not a string — use decimal, never double"; exit 1; }
     echo "✓ csharp: Money.Amount is string"
@@ -216,4 +254,4 @@ case "$LANG_TARGET" in
     ;;
 esac
 
-echo "✓ ${LANG_TARGET} generation OK"
+echo "✓ ${LANG_TARGET} generation OK (quoting + policy)"

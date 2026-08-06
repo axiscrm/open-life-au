@@ -5,6 +5,10 @@ are the ones run against every change in CI, with the exact flags below — and 
 decoration. Each one is present because the default produced something wrong, and each page says
 what and why.
 
+Every page covers **both contracts** — quoting and policy. The mechanics are the same; you change
+one input path and one package name. [policy.md](policy.md) covers what differs, including the
+snapshot walk, which is the one piece of client logic that is dangerous to get wrong.
+
 | Language | Page | Server stubs | Client |
 |---|---|---|---|
 | TypeScript | [typescript.md](typescript.md) | validator recipe | three options — types only, generated SDK, or runtime converters |
@@ -13,6 +17,9 @@ what and why.
 | C# / .NET | [csharp.md](csharp.md) | ASP.NET Core controllers | RestSharp or `HttpClient` |
 | Go | [go.md](go.md) | `net/http` or Gin | ✓ |
 | Ruby | [ruby.md](ruby.md) | — client models only, see the page | Faraday gem |
+
+Plus [policy.md](policy.md) — cross-language notes on generating from and consuming the policy
+contract.
 
 ### Why these six, and what is missing
 
@@ -39,12 +46,16 @@ traps specific to that toolchain. Start at the one you need — there is nothing
 
 ## What you generate from
 
-`dist/quoting/openapi.yaml` — a single self-contained file with every `$ref` already resolved. You
-do not need to clone this repository:
+Two self-contained files, every `$ref` already resolved. You do not need to clone this repository:
 
 ```bash
 curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/quoting/openapi.yaml
+curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/policy/openapi.yaml
 ```
+
+Generate two packages, not one. The contracts share `core/` schemas by `$ref`, so `Money`, `Problem`
+and `CoverType` are identical in both today — but they version independently and will drift, so
+merging the generated output stores up a conflict.
 
 ## One file or many?
 
@@ -119,8 +130,17 @@ expenses with it while writing 79 healthy-looking files. A generator that fails 
 nuisance; one that quietly hands you a client missing three of the seven covers is a defect nobody
 notices until an insurer cannot quote.
 
-Because of the second, CI does not merely check that generation succeeded. It asserts **all seven
-covers survived** into every generator's output, since counting files would have passed that bug.
+**The policy contract's `webhooks` block aborted openapi-generator's Spring target.** OpenAPI 3.1
+declares webhooks natively and most tooling handles them, so this looked safe — it lints clean and
+TypeScript is happy. But `SpringCodegen.reformatProvideArgsParams` dereferences
+`Operation.getExtensions()` without a null check, and a webhook operation with no extensions returns
+null. NullPointerException, nothing emitted, Java implementers blocked again. The fix is a
+meaningless `x-openlife-webhook: true` on each webhook operation, which must not be removed.
+
+Because of these, CI does not merely check that generation succeeded. It asserts the load-bearing
+schemas **survived** into every generator's output for **both contracts** — all seven covers for
+quoting, and `Policy`/`PolicyPage`/`PolicyHolder`/`Arrears` for policy. Counting files would have
+passed two of the three bugs above.
 
 ## Adding a generator to this set
 

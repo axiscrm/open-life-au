@@ -127,6 +127,9 @@ The contract is plain OpenAPI 3.1, so any generator will work. These six are run
 in CI, each with the exact flags needed — and the flags matter: every one is there because a default
 produced something wrong.
 
+Every guide covers both contracts. [docs/generators/policy.md](docs/generators/policy.md) has the
+cross-language notes for policy, including how to walk a snapshot safely.
+
 | Language | Guide | You get |
 |---|---|---|
 | Java | [docs/generators/java.md](docs/generators/java.md) | Spring interfaces to implement + a client |
@@ -145,10 +148,11 @@ repository:
 
 ```bash
 curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/quoting/openapi.yaml
+curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/policy/openapi.yaml
 ```
 
 If a generator misbehaves, that is a defect in the contract rather than in your setup — please tell
-us. It has happened twice already, and both times the fix was ours; see
+us. It has happened three times already, and every time the fix was ours; see
 [docs/generators/](docs/generators/#if-a-generator-misbehaves).
 
 ## Contributing

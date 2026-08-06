@@ -104,10 +104,21 @@ paths:
 # making an insurer build outbound delivery, retries, dead-lettering and endpoint management before
 # they can be conformant. An implementation that only serves snapshots is fully conformant; declare
 # whether you push in `capabilities.webhooks`.
+# DO NOT REMOVE THE `x-openlife-webhook` EXTENSION ON THESE OPERATIONS.
+#
+# It carries no meaning. It exists because openapi-generator's Spring target crashes on webhook
+# operations that have no extensions at all: SpringCodegen.reformatProvideArgsParams dereferences
+# Operation.getExtensions() without a null check, and a webhook operation returns null there. The
+# result is a NullPointerException that aborts the whole run and emits NOTHING — no models, no
+# interfaces — so every Java implementer is blocked by a construct they never asked for.
+#
+# Any extension satisfies it. Verified against openapi-generator 7.24.0: without it, 0 files; with
+# it, a full generation. Tested on every change by the codegen matrix.
 webhooks:
   policyStatusChanged:
     post:
       operationId: onPolicyStatusChanged
+      x-openlife-webhook: true
       summary: A policy changed status
       description: >-
         Sent when a policy moves between statuses — commenced, lapsed, cancelled, terminated. The
@@ -152,6 +163,7 @@ webhooks:
   policyArrearsRaised:
     post:
       operationId: onPolicyArrearsRaised
+      x-openlife-webhook: true
       summary: A premium payment was dishonoured
       description: >-
         Sent when a scheduled premium fails. The highest-value event in the contract: it is the one
@@ -188,6 +200,7 @@ webhooks:
   policyArrearsCleared:
     post:
       operationId: onPolicyArrearsCleared
+      x-openlife-webhook: true
       summary: Outstanding premium was paid
       description: >-
         Sent when a policy previously in arrears is brought up to date. Worth pushing as well as the

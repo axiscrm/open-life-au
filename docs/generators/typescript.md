@@ -19,14 +19,20 @@ sync. Verified against **openapi-typescript 7.13**, **@hey-api/openapi-ts 0.99**
 
 Node 20 or later. The two alternatives each add one thing, noted in their sections.
 
-## Get the contract
+## Get the contracts
 
-`dist/quoting/openapi.yaml` is self-contained — every `$ref` already resolved — so this one file is
-all you need.
+Both are self-contained — every `$ref` already resolved — so these two files are all you need. You do
+not need to clone this repository.
 
 ```bash
 curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/quoting/openapi.yaml
+curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/policy/openapi.yaml
 ```
+
+Generate them as two separate packages. Every command below shows quoting; substitute
+`policy/openapi.yaml` and a different package name for the other. See
+[policy.md](policy.md) for what differs — in particular the snapshot walk, which is the one piece of
+client logic that is dangerous to get wrong.
 
 ## Option 1 — `openapi-typescript` (types only)
 

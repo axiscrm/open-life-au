@@ -282,6 +282,7 @@
     "policyStatusChanged": {
       "post": {
         "operationId": "onPolicyStatusChanged",
+        "x-openlife-webhook": true,
         "summary": "A policy changed status",
         "description": "Sent when a policy moves between statuses — commenced, lapsed, cancelled, terminated. The consumer's own snapshot remains authoritative; this is a prompt to look sooner, not a replacement for reconciliation.",
         "tags": [
@@ -342,6 +343,7 @@
     "policyArrearsRaised": {
       "post": {
         "operationId": "onPolicyArrearsRaised",
+        "x-openlife-webhook": true,
         "summary": "A premium payment was dishonoured",
         "description": "Sent when a scheduled premium fails. The highest-value event in the contract: it is the one with a deadline attached, and `expected_lapse_on` is what makes it actionable.",
         "tags": [
@@ -398,6 +400,7 @@
     "policyArrearsCleared": {
       "post": {
         "operationId": "onPolicyArrearsCleared",
+        "x-openlife-webhook": true,
         "summary": "Outstanding premium was paid",
         "description": "Sent when a policy previously in arrears is brought up to date. Worth pushing as well as the failure: without it a consumer keeps chasing a client who has already paid, which is a worse experience than not having known at all.",
         "tags": [
