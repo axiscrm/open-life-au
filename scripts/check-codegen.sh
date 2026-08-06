@@ -148,6 +148,11 @@ case "$LANG_TARGET" in
     ;;
 
   python)
+    # datamodel-codegen does not create the parent directory for its output file, so a fresh checkout
+    # fails with FileNotFoundError while a machine that has run this before succeeds. Local-passes,
+    # CI-fails again, and the same omission the typescript branch already handles.
+    mkdir -p "$OUT/py"
+
     # Two generators, because they fail in different ways and only one of them is loud.
     for contract in quoting policy; do
       uvx --from "datamodel-code-generator==$DMCG_VERSION" datamodel-codegen \
