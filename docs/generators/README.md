@@ -5,11 +5,11 @@ are the ones run against every change in CI, with the exact flags below — and 
 decoration. Each one is present because the default produced something wrong, and each page says
 what and why.
 
-| Language | Page | Server stubs | Client | Output shape |
-|---|---|---|---|---|
-| TypeScript | [typescript.md](typescript.md) | types + validator recipe | `openapi-fetch` | one `.d.ts` |
-| Python | [python.md](python.md) | FastAPI recipe | `httpx`, or generated | one module, or a package |
-| Java | [java.md](java.md) | Spring interfaces | JDK `HttpClient` | package, one class per model |
+| Language | Page | Generators covered |
+|---|---|---|
+| TypeScript | [typescript.md](typescript.md) | `openapi-typescript`, `@hey-api/openapi-ts`, `openapi-generator -g typescript-fetch` |
+| Python | [python.md](python.md) | `datamodel-code-generator`, `openapi-python-client` |
+| Java | [java.md](java.md) | `openapi-generator` — Spring interfaces and a JDK `HttpClient` client |
 
 Each page stands alone: prerequisites, fetching the contract, the command, what you get, and the
 traps specific to that toolchain. Start at the one you need — there is nothing to read first.
@@ -30,12 +30,18 @@ Whether you get a single module or a package is a property of the generator, not
 | Generator | Output |
 |---|---|
 | `openapi-typescript` | one `.d.ts` — no multi-file mode by design, since it emits types with no runtime |
+| `@hey-api/openapi-ts` | 16 files — types, an SDK function per operation, a configured client |
+| `openapi-generator -g typescript-fetch` | ~67 files, one model per file, with runtime converters |
 | `datamodel-code-generator` | one `.py` module — it mirrors its input, so one document gives one module even if you pass a directory to `--output` |
 | `openapi-python-client` | a package, one module per model |
-| `openapi-generator` | a package, one class per model |
+| `openapi-generator` (Java) | a package, one class per model |
 
-If you want a file-per-model tree in TypeScript, use [`@hey-api/openapi-ts`](https://heyapi.dev/) or
-`openapi-generator -g typescript-fetch`. In Python, use `openapi-python-client`.
+So single-file output is never something you are stuck with — in both TypeScript and Python there is
+a multi-file generator documented alongside the single-file one.
+
+Two of these need something beyond their own language runtime: `@hey-api/openapi-ts` requires a
+**TypeScript 5.x** peer (7.x breaks it), and anything using `openapi-generator` — including the
+TypeScript target — requires a **JDK**, since it is a Java tool behind an npm wrapper.
 
 ## Documentation comes through — make sure you keep it
 

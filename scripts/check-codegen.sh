@@ -68,11 +68,38 @@ case "$LANG_TARGET" in
     # No path argument: openapi-typescript picks up redocly.yaml's `apis` block and the
     # `x-openapi-ts.output` key declared there. Passing a path as well is an error, not an override.
     npx --yes openapi-typescript@7 --default-non-nullable=false
-    assert_files "$OUT/ts" "schema.d.ts" 1 "typescript types"
+    assert_files "$OUT/ts" "schema.d.ts" 1 "typescript types (openapi-typescript)"
     grep -q "CoverRequest" "$OUT/ts/schema.d.ts" \
       || { echo "✗ typescript: CoverRequest union missing"; exit 1; }
     echo "✓ typescript: cover union present"
-    assert_all_covers "typescript" "$OUT/ts/schema.d.ts"
+    assert_all_covers "typescript (openapi-typescript)" "$OUT/ts/schema.d.ts"
+
+    # @hey-api/openapi-ts — the multi-file option, types plus a generated SDK.
+    # It drives the TypeScript compiler API, so it needs a TypeScript 5.x peer; on 7.x it dies
+    # with "Cannot read properties of undefined (reading 'AnyKeyword')" because the native port
+    # does not expose the same surface. The pin in devDependencies is load-bearing.
+    rm -rf "$OUT/ts-heyapi"
+    npx --yes @hey-api/openapi-ts -i "$SPEC" -o "$OUT/ts-heyapi"
+    assert_files "$OUT/ts-heyapi" "*.ts" 10 "typescript client (@hey-api/openapi-ts)"
+    assert_all_covers "typescript (@hey-api/openapi-ts)" "$OUT/ts-heyapi"
+    for op in createQuote getCapabilities listOccupations matchOccupation; do
+      grep -rq "$op" "$OUT/ts-heyapi/sdk.gen.ts" \
+        || { echo "✗ hey-api: operation $op missing from the SDK"; exit 1; }
+    done
+    echo "✓ typescript (@hey-api/openapi-ts): all 4 operations present"
+
+    # openapi-generator's typescript-fetch — one model per file, with runtime converters rather
+    # than types alone. Needs a JDK: openapi-generator is a Java tool behind an npm wrapper.
+    if command -v java >/dev/null 2>&1; then
+      rm -rf "$OUT/ts-fetch"
+      npx --yes @openapitools/openapi-generator-cli@2 generate \
+        -i "$SPEC" -g typescript-fetch -o "$OUT/ts-fetch" --skip-validate-spec \
+        -p supportsES6=true,modelPropertyNaming=original
+      assert_files "$OUT/ts-fetch" "*.ts" 40 "typescript client (typescript-fetch)"
+      assert_all_covers "typescript (typescript-fetch)" "$OUT/ts-fetch/models"
+    else
+      echo "· typescript-fetch skipped — no JDK on PATH (openapi-generator is a Java tool)"
+    fi
     ;;
 
   python)

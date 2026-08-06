@@ -126,8 +126,10 @@ jobs:
       - run: npm ci
       - run: npm run bundle
 
+      # Java is needed by the TypeScript job too: one of the three TypeScript generators is
+      # openapi-generator's typescript-fetch, which is a Java tool behind an npm wrapper.
       - uses: actions/setup-java@v4
-        if: matrix.lang == 'java'
+        if: matrix.lang == 'java' || matrix.lang == 'typescript'
         with:
           distribution: temurin
           java-version: '21'

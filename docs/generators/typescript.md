@@ -1,14 +1,23 @@
 # TypeScript
 
-Types via [`openapi-typescript`](https://openapi-ts.dev/), a client via
-[`openapi-fetch`](https://openapi-ts.dev/openapi-fetch/). Types are generated; the runtime is about
-6 kB and hand-wired, which is why there is no generated client tree to keep in sync.
+Three routes, all run against every change in CI. They differ mainly in how much code you want
+generated versus written.
 
-Verified against **openapi-typescript 7.13**.
+| | [`openapi-typescript`](https://openapi-ts.dev/) | [`@hey-api/openapi-ts`](https://heyapi.dev/) | [`openapi-generator -g typescript-fetch`](https://openapi-generator.tech/docs/generators/typescript-fetch/) |
+|---|---|---|---|
+| Output | one `.d.ts` | 16 files | ~67 files, one model each |
+| What you get | types only | types + generated SDK | types + SDK + runtime converters |
+| Runtime | `openapi-fetch`, ~6 kB, you wire it | generated client | generated, with `FromJSON`/`ToJSON` per model |
+| Extra prerequisite | none | TypeScript 5.x peer | a JDK |
+| Best when | you want types and control | you want a working SDK quickly | you want runtime parsing, or match an existing house style |
+
+Start with `openapi-typescript` unless you have a reason not to — least generated code to keep in
+sync. Verified against **openapi-typescript 7.13**, **@hey-api/openapi-ts 0.99**, and
+**openapi-generator 7.24**.
 
 ## Prerequisites
 
-Node 20 or later. Nothing else.
+Node 20 or later. The two alternatives each add one thing, noted in their sections.
 
 ## Get the contract
 
@@ -19,7 +28,7 @@ all you need.
 curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/quoting/openapi.yaml
 ```
 
-## Generate
+## Option 1 — `openapi-typescript` (types only)
 
 ```bash
 npx openapi-typescript@7 openapi.yaml \
@@ -38,14 +47,13 @@ npx openapi-typescript@7 openapi.yaml \
 > response, so treating it as non-nullable when reading is right. It just applies the same rule to
 > request bodies, where it is wrong.
 
-You get one `.d.ts` file with no runtime and no dependencies. There is no multi-file mode — for a
-file-per-model tree with a generated client, use [`@hey-api/openapi-ts`](https://heyapi.dev/) or
-`openapi-generator -g typescript-fetch`.
+You get one `.d.ts` file with no runtime and no dependencies. There is no multi-file mode by design —
+it emits types, so there is nothing to split. For a file-per-model tree, see options 2 and 3.
 
 Documentation comes through as JSDoc on every schema and property, so descriptions surface on hover
 in an editor without anyone reading the YAML.
 
-## A typed client
+### A typed client
 
 ```bash
 npm install openapi-fetch
@@ -113,6 +121,105 @@ function waitingPeriod(cover: Cover): string | undefined {
 }
 ```
 
+## Option 2 — `@hey-api/openapi-ts` (types + a generated SDK)
+
+The maintained successor to `openapi-typescript-codegen`. Multi-file output with a generated
+function per operation, so you write no HTTP plumbing.
+
+**Extra prerequisite: a TypeScript 5.x peer dependency.** It drives the TypeScript compiler API, and
+on 7.x it fails immediately with `TypeError: Cannot read properties of undefined (reading
+'AnyKeyword')` — the native port does not expose the same surface. `npm i -D typescript@5` before
+you start, and pin it; a floating `typescript@latest` will break this the day 7 becomes the default.
+
+```bash
+npm i -D @hey-api/openapi-ts typescript@5
+npx @hey-api/openapi-ts -i openapi.yaml -o src/client
+```
+
+Sixteen files:
+
+```
+src/client/
+├── types.gen.ts     every schema
+├── sdk.gen.ts       one function per operation
+├── client.gen.ts    the configured fetch client
+├── index.ts
+└── core/            serialisers, auth, params
+```
+
+Operation names come from `operationId`, so they read the way the contract does:
+
+```ts
+import { createQuote, getCapabilities } from "./client";
+import { client } from "./client/client.gen";
+
+client.setConfig({
+  baseUrl: "https://api.example.com.au/openlife/quoting/v1",
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+
+const { data, error } = await createQuote({
+  body: quoteRequest,
+  headers: { "Idempotency-Key": crypto.randomUUID() },
+});
+```
+
+The cover union survives with the discriminant tagged explicitly, which narrows exactly as option 1
+does:
+
+```ts
+export type CoverRequest =
+  ({ cover_type: 'life' } & LifeCover) |
+  ({ cover_type: 'tpd' } & TpdCover) | ...
+```
+
+`Decimal` is emitted as `export type Decimal = string`, so money stays exact.
+
+**Set `moduleResolution` to `bundler`** (or `node16`/`nodenext` with `allowImportingTsExtensions`).
+The generated imports are extensionless, so a strict `nodenext` setup reports `Cannot find module
+'./sdk.gen'`. With `bundler` it compiles clean under `--strict`.
+
+## Option 3 — `openapi-generator -g typescript-fetch` (one model per file)
+
+Choose this if you want runtime parsing rather than compile-time types alone, or if your
+organisation already standardises on openapi-generator across languages and you want the TypeScript
+output to match the Java house style.
+
+**Extra prerequisite: a JDK 17+.** openapi-generator is a Java tool behind an npm wrapper.
+
+```bash
+npx @openapitools/openapi-generator-cli@2 generate \
+  -i openapi.yaml -g typescript-fetch -o ./src/client \
+  -p supportsES6=true,modelPropertyNaming=original
+```
+
+> **`modelPropertyNaming=original` is worth passing.** The default camel-cases property names, so
+> `sum_insured` becomes `sumInsured` in your code while the wire format keeps the snake case. That
+> works — the runtime converters translate both ways — but it means the field names in your code no
+> longer match the contract, the examples, or anything an insurer's support desk will quote back at
+> you. Keeping them identical costs nothing.
+
+About 67 files, one model per file, plus `runtime.ts` and an API class per tag. Unlike the other two
+options you get real runtime behaviour:
+
+```ts
+import { QuotesApi, Configuration, CoverRequestFromJSON } from "./client";
+
+const api = new QuotesApi(new Configuration({
+  basePath: "https://api.example.com.au/openlife/quoting/v1",
+  accessToken: async () => accessToken,
+}));
+
+const quote = await api.createQuote({ quoteRequest, idempotencyKey: crypto.randomUUID() });
+```
+
+Every model ships `FromJSON` / `ToJSON` converters, and `CoverRequestFromJSON` dispatches on
+`cover_type` to the right variant. That is genuinely useful for the response side: it gives you a
+place to catch a payload that does not match the contract, rather than discovering it three layers
+later when a field is `undefined`.
+
+`Money.amount` is typed `string`, as it must be.
+
 ## Nuances worth knowing
 
 **Money is a string, deliberately.** `{ amount: "1000000.00", currency: "AUD" }`. Do not
@@ -150,6 +257,23 @@ npm run codegen:typescript
 In your own project there is no `redocly.yaml`, so the plain CLI form works.
 
 **`Property 'campaign_codes' is missing`** — you omitted `--default-non-nullable=false`. See above.
+
+**`TypeError: Cannot read properties of undefined (reading 'AnyKeyword')`** (hey-api)
+
+You have TypeScript 7 installed. `@hey-api/openapi-ts` drives the TypeScript compiler API and the
+native port does not expose the same surface. Install `typescript@5` and pin it — a floating
+`typescript@latest` will reintroduce this the day 7 becomes the default.
+
+**`Cannot find module './sdk.gen'`** (hey-api)
+
+Set `moduleResolution` to `bundler`. The generated imports are extensionless, which a strict
+`nodenext` configuration rejects.
+
+**Property names are camelCase but the wire format is snake_case** (typescript-fetch)
+
+Expected, unless you passed `modelPropertyNaming=original`. The runtime converters translate both
+ways so it works either way, but keeping the names identical to the contract makes your code
+searchable against the documentation and the examples.
 
 **Types resolve to `unknown`** — check you generated from `dist/quoting/openapi.yaml` and not from
 `domains/quoting/openapi.yaml`. The latter is the split source and needs its `$ref`s bundled first.

@@ -30,11 +30,18 @@
     "codegen:java": "bash scripts/check-codegen.sh java"
   },
   "devDependencies": {
+    "@hey-api/openapi-ts": "^0.99.0",
     "@redocly/cli": "^2.6.0",
     "@stoplight/prism-cli": "^5.14.2",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "openapi-to-postmanv2": "^6.3.2",
+    "typescript": "^5.9.3",
     "yaml": "^2.8.1"
+  },
+  "overrides": {
+    "@hey-api/openapi-ts": {
+      "js-yaml": "^4.3.0"
+    }
   }
 }
