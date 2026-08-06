@@ -52,26 +52,26 @@ post:
             type: string
             const: no-store
         X-Request-Id:
-          $ref: '../components/headers.yaml#/XRequestId'
+          $ref: '../../../core/http/headers.yaml#/XRequestId'
         X-OpenLife-Spec-Version:
-          $ref: '../components/headers.yaml#/SpecVersion'
+          $ref: '../../../core/http/headers.yaml#/SpecVersion'
       content:
         application/json:
           schema:
             $ref: '../components/schemas/quote-response.yaml#/QuoteResponse'
     '400':
-      $ref: '../components/responses.yaml#/BadRequest'
+      $ref: '../../../core/http/responses.yaml#/BadRequest'
     '401':
-      $ref: '../components/responses.yaml#/Unauthorized'
+      $ref: '../../../core/http/responses.yaml#/Unauthorized'
     '403':
-      $ref: '../components/responses.yaml#/Forbidden'
+      $ref: '../../../core/http/responses.yaml#/Forbidden'
     '409':
-      $ref: '../components/responses.yaml#/Conflict'
+      $ref: '../../../core/http/responses.yaml#/Conflict'
     '422':
-      $ref: '../components/responses.yaml#/UnprocessableEntity'
+      $ref: '../../../core/http/responses.yaml#/UnprocessableEntity'
     '429':
-      $ref: '../components/responses.yaml#/TooManyRequests'
+      $ref: '../../../core/http/responses.yaml#/TooManyRequests'
     '500':
-      $ref: '../components/responses.yaml#/InternalError'
+      $ref: '../../../core/http/responses.yaml#/InternalError'
     '503':
-      $ref: '../components/responses.yaml#/ServiceUnavailable'
+      $ref: '../../../core/http/responses.yaml#/ServiceUnavailable'

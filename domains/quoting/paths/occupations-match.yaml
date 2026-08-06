@@ -45,20 +45,20 @@ post:
       description: Candidate matches, possibly empty.
       headers:
         X-Request-Id:
-          $ref: '../components/headers.yaml#/XRequestId'
+          $ref: '../../../core/http/headers.yaml#/XRequestId'
       content:
         application/json:
           schema:
             $ref: '../components/schemas/occupations.yaml#/OccupationMatchResponse'
     '400':
-      $ref: '../components/responses.yaml#/BadRequest'
+      $ref: '../../../core/http/responses.yaml#/BadRequest'
     '401':
-      $ref: '../components/responses.yaml#/Unauthorized'
+      $ref: '../../../core/http/responses.yaml#/Unauthorized'
     '403':
-      $ref: '../components/responses.yaml#/Forbidden'
+      $ref: '../../../core/http/responses.yaml#/Forbidden'
     '422':
-      $ref: '../components/responses.yaml#/UnprocessableEntity'
+      $ref: '../../../core/http/responses.yaml#/UnprocessableEntity'
     '429':
-      $ref: '../components/responses.yaml#/TooManyRequests'
+      $ref: '../../../core/http/responses.yaml#/TooManyRequests'
     '500':
-      $ref: '../components/responses.yaml#/InternalError'
+      $ref: '../../../core/http/responses.yaml#/InternalError'

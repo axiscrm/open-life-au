@@ -1,0 +1,104 @@
+# Open Life Data Standards (AU) — Policy — parameters.
+
+SnapshotId:
+  name: snapshot_id
+  in: query
+  description: >-
+    Continue an in-progress walk. Supply the `snapshot_id` from the first page alongside the cursor,
+    so the server can prove the cursor belongs to the snapshot the consumer thinks it is walking and
+    reject it with `409` if the snapshot has since expired or been rebuilt.
+  required: false
+  schema:
+    type: string
+    maxLength: 128
+
+AdviserCodes:
+  name: adviser_code
+  in: query
+  description: >-
+    Restrict the snapshot to these adviser codes. Repeat the parameter for several. Omitted, the
+    snapshot covers every code the credential can see — which is the normal case for a daily pull.
+
+    Whatever is applied comes back in `coverage.adviser_codes`, so a consumer can tell an excluded
+    code from an adviser with no policies.
+  required: false
+  explode: true
+  schema:
+    type: array
+    items:
+      type: string
+      maxLength: 32
+
+Statuses:
+  name: status
+  in: query
+  description: >-
+    Restrict to these statuses. Repeat for several. Omitted, an implementation returns its in-force
+    set — `in_force`, `in_arrears` and `pending` — which is what a servicing book needs.
+
+    Requesting a terminal status only works where `capabilities.snapshot.supports_terminated` is
+    true; elsewhere it is a `422`.
+  required: false
+  explode: true
+  schema:
+    type: array
+    items:
+      $ref: 'schemas/policy.yaml#/PolicyStatus'
+
+ChangedSince:
+  name: changed_since
+  in: query
+  description: >-
+    OPTIONAL, and only where `capabilities.incremental.supported` is true. Return policies changed
+    since this instant instead of the full book.
+
+    Read `capabilities.incremental.reports_terminations` before relying on it: an incremental
+    response that omits ended policies cannot be used on its own, because a lapse is invisible in a
+    feed that only reports what still exists. Used that way, a consumer's view drifts further from
+    reality every day and nothing signals it. Pull a periodic full snapshot regardless.
+
+    An implementation that does not support this MUST reject it with `422` rather than silently
+    ignoring it and returning everything — a consumer that believes it received a delta and actually
+    received the whole book will draw the wrong conclusions about what changed.
+  required: false
+  schema:
+    type: string
+    format: date-time
+
+PolicyIdPath:
+  name: policy_id
+  in: path
+  required: true
+  schema:
+    type: string
+    maxLength: 64
+
+RequestId:
+  name: X-Request-Id
+  in: header
+  description: Consumer-supplied correlation identifier. Echoed on the response.
+  required: false
+  schema:
+    type: string
+    maxLength: 128
+
+Cursor:
+  name: cursor
+  in: query
+  description: Continuation token from the previous page's `page.next_cursor`.
+  required: false
+  schema:
+    $ref: '../../../core/schemas/pagination.yaml#/Cursor'
+
+Limit:
+  name: limit
+  in: query
+  description: >-
+    Maximum policies per page. A server MAY return fewer; completion is signalled by `complete`
+    and the absence of `page.next_cursor`, never by a short page.
+  required: false
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 1000
+    default: 250

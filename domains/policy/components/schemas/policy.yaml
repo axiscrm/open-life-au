@@ -1,0 +1,301 @@
+# Open Life Data Standards (AU) — Policy — an in-force policy.
+#
+# The shape follows what an adviser needs to service a book: who is covered, what they hold, what it
+# costs, who wrote it, and whether it is in trouble. It is structured rather than flat — a policy has
+# many benefits, and flattening one row per benefit (as spreadsheet exports do) forces every consumer
+# to regroup by policy number and guess which columns are policy-level and which are benefit-level.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+Policy:
+  title: Policy
+  description: One policy as the insurer holds it, with all of its benefits.
+  type: object
+  required: [policy_id, insurer_id, status, policy_holder, covers]
+  additionalProperties: false
+  properties:
+    policy_id:
+      description: >-
+        The insurer's own policy or plan number, as it appears on correspondence and in the adviser
+        portal. Stable for the life of the policy — this is the key a consumer reconciles on, so an
+        insurer that renumbers a policy MUST surface the prior number in `previous_policy_id`.
+      type: string
+      minLength: 1
+      maxLength: 64
+    previous_policy_id:
+      description: Prior number, where a policy has been renumbered or replaced.
+      type: string
+      maxLength: 64
+    insurer_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/InsurerId'
+    brand_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/BrandId'
+    product_name:
+      $ref: '../../../../core/schemas/identifiers.yaml#/ProductName'
+
+    status:
+      $ref: '#/PolicyStatus'
+    status_detail:
+      description: The insurer's own wording for the status, where it carries more than the enum does.
+      type: string
+      maxLength: 200
+
+    policy_holder:
+      $ref: 'policy-holder.yaml#/PolicyHolder'
+    ownership:
+      $ref: '#/PolicyOwnership'
+    distribution:
+      $ref: '#/Distribution'
+    dates:
+      $ref: '#/PolicyDates'
+    premium:
+      $ref: '#/PolicyPremium'
+
+    covers:
+      description: >-
+        The benefits held under this policy. At least one — a policy with no benefits is not a
+        policy. Where a benefit maps onto the shared cover vocabulary the insurer SHOULD populate
+        `cover_type`; `benefit_name` always carries its own product wording.
+      type: array
+      minItems: 1
+      items:
+        $ref: '#/PolicyCover'
+
+    arrears:
+      description: >-
+        Present only when the policy is behind on premium. Absence means the policy is paid up to
+        `dates.paid_to`.
+      $ref: '#/Arrears'
+
+    loadings:
+      description: Underwriting loadings applied at issue, in the insurer's own wording.
+      type: string
+      maxLength: 2000
+    exclusions:
+      description: Policy exclusions, in the insurer's own wording.
+      type: string
+      maxLength: 2000
+
+PolicyStatus:
+  title: PolicyStatus
+  description: >-
+    The policy's state. A snapshot contains in-force business by default; the terminal states appear
+    only where an insurer chooses to report recent history, and a consumer MUST NOT treat their
+    presence as a promise that all historical policies are included.
+      - `in_force`   current and paid to date
+      - `in_arrears` current but behind on premium — still on risk, see `arrears`
+      - `pending`    accepted but not yet commenced
+      - `lapsed`     ended for non-payment
+      - `cancelled`  ended at the owner's request
+      - `terminated` ended for any other reason, including claim or expiry
+  type: string
+  enum: [in_force, in_arrears, pending, lapsed, cancelled, terminated]
+
+PolicyOwnership:
+  title: PolicyOwnership
+  type: object
+  additionalProperties: false
+  properties:
+    ownership_type:
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Ownership'
+    owner_name:
+      description: >-
+        The legal owner where it is not the life insured — a superannuation trustee, an SMSF, a
+        company, or another individual.
+      type: string
+      maxLength: 255
+
+Distribution:
+  title: Distribution
+  description: >-
+    Who wrote and services the policy. This is the insurer's view of the adviser relationship, which
+    is what makes the record attributable in the consumer's system.
+
+    Note the boundary: everything here is the INSURER's record. A consumer's own grouping — which
+    internal team or user group owns the client — is not the insurer's to know and has no field here.
+  type: object
+  additionalProperties: false
+  properties:
+    adviser_code:
+      description: >-
+        The adviser or agency code the policy is written under, as issued by this insurer. The
+        primary attribution key.
+      type: string
+      maxLength: 32
+    adviser_name:
+      type: string
+      maxLength: 255
+    practice_name:
+      description: The practice or firm, where the insurer distinguishes it from the adviser.
+      type: string
+      maxLength: 255
+    licensee_name:
+      description: The licensee the adviser operates under.
+      type: string
+      maxLength: 255
+    licensee_code:
+      type: string
+      maxLength: 32
+    new_business_split_percent:
+      description: >-
+        Share of upfront commission attributed to this adviser code, 0-100. Present only where the
+        insurer exposes commission splits.
+      $ref: '../../../../core/schemas/money.yaml#/Percentage'
+    trail_split_percent:
+      description: Share of ongoing commission attributed to this adviser code, 0-100.
+      $ref: '../../../../core/schemas/money.yaml#/Percentage'
+
+PolicyDates:
+  title: PolicyDates
+  description: All RFC 3339 full-dates. Every field optional — insurer records vary in what they keep.
+  type: object
+  additionalProperties: false
+  properties:
+    commenced_on:
+      description: Risk commencement date.
+      type: string
+      format: date
+    renewal_on:
+      description: Next policy anniversary.
+      type: string
+      format: date
+    paid_to:
+      description: >-
+        The date premiums are paid up to. Together with `arrears`, this is how a consumer tells a
+        healthy policy from one heading for lapse.
+      type: string
+      format: date
+    next_billing_on:
+      type: string
+      format: date
+    expires_on:
+      description: Scheduled expiry, for benefits with a fixed term or expiry age.
+      type: string
+      format: date
+    terminated_on:
+      description: Date the policy actually ended. Present on the terminal statuses.
+      type: string
+      format: date
+    duration_years:
+      description: Completed years in force. Convenience only — derivable from `commenced_on`.
+      type: integer
+      minimum: 0
+
+PolicyPremium:
+  title: PolicyPremium
+  description: >-
+    What the policy costs as currently billed. Unlike a quote, this is a single frequency — the one
+    the policy is actually paid at — because a policy has one billing arrangement, not six.
+    `annualised` is supplied rather than derived, for the same reason quoting returns all six
+    frequencies: frequency loadings mean the annual figure is not the billed amount times the number
+    of periods.
+  type: object
+  required: [amount, frequency]
+  additionalProperties: false
+  properties:
+    amount:
+      description: The amount billed each period.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    frequency:
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Frequency'
+    annualised:
+      description: The annual cost. Read, not derived.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    structure:
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Structure'
+    stamp_duty:
+      description: Stamp duty component, already included in `amount`.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    policy_fee:
+      description: Policy or administration fee, already included in `amount`.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+
+PolicyCover:
+  title: PolicyCover
+  description: One benefit held under the policy.
+  type: object
+  required: [benefit_name, sum_insured]
+  additionalProperties: false
+  properties:
+    benefit_name:
+      description: The insurer's own name for the benefit, verbatim.
+      type: string
+      minLength: 1
+      maxLength: 200
+    cover_type:
+      description: >-
+        The benefit mapped onto the shared cover vocabulary, where one applies. Populating this is
+        what lets a consumer compare an in-force book against new quotes without maintaining a
+        per-insurer benefit-name lookup. Omit rather than guess — an absent `cover_type` with a
+        populated `benefit_name` is an honest answer.
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/CoverType'
+    sum_insured:
+      description: >-
+        Current sum insured, after any indexation. For monthly-benefit covers this is the monthly
+        amount.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    premium:
+      description: This benefit's share of the policy premium, at the policy's billing frequency.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    status:
+      $ref: '#/PolicyStatus'
+    ownership:
+      description: Where a single policy holds benefits under different ownership.
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Ownership'
+    structure:
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Structure'
+    waiting_period:
+      description: >-
+        For income-style benefits, in the insurer's own notation. Free text rather than the quoting
+        contract's enum: this is a historical record of what was written, which may predate the
+        product range currently sold.
+      type: string
+      maxLength: 50
+    benefit_period:
+      type: string
+      maxLength: 50
+    commenced_on:
+      description: Where a benefit was added after the policy commenced.
+      type: string
+      format: date
+    expires_on:
+      type: string
+      format: date
+
+Arrears:
+  title: Arrears
+  description: >-
+    A policy behind on premium. This is the highest-value record in the whole contract: it is the one
+    an adviser must act on within days, and today it is obtained by scraping a portal overnight.
+
+    Identity is `(policy_id, dishonoured_on)`. The same pair reported across successive snapshots is
+    the SAME event, not a new one — so an insurer MUST keep `dishonoured_on` stable for a given
+    failure rather than restamping it each time it is re-reported.
+  type: object
+  required: [dishonoured_on, amount_outstanding]
+  additionalProperties: false
+  properties:
+    dishonoured_on:
+      description: Date the payment failed.
+      type: string
+      format: date
+    amount_outstanding:
+      description: Total currently outstanding, not just the failed instalment.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    reason:
+      description: >-
+        Why the payment failed, in the insurer's own wording — "insufficient funds", "account
+        closed", "card expired". Materially changes what the adviser does next, so worth carrying
+        verbatim rather than mapping to an enum nobody agrees on.
+      type: string
+      maxLength: 200
+    expected_lapse_on:
+      description: >-
+        When the policy will lapse if the arrears are not cleared. The single most actionable field
+        here — it is what turns a list of dishonours into a prioritised worklist.
+      type: string
+      format: date
+    attempts:
+      description: How many collection attempts have failed for this event.
+      type: integer
+      minimum: 1

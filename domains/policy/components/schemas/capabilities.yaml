@@ -1,0 +1,139 @@
+# Open Life Data Standards (AU) — Policy — capability declaration.
+#
+# Same role as its counterpart in the quoting contract: it is what lets a partial implementation be a
+# conformant one. Insurer exports differ enormously in what they carry — some publish commission
+# splits, some do not; some know an expected lapse date, most do not — and an implementation should
+# be able to say so rather than shipping nulls and hoping.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+Capabilities:
+  title: Capabilities
+  description: What this implementation of the policy contract supports.
+  type: object
+  required: [spec_version, insurer_id]
+  additionalProperties: false
+  properties:
+    spec_version:
+      type: string
+      pattern: '^\d+\.\d+\.\d+$'
+      examples: ['0.1.0']
+    insurer_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/InsurerId'
+    brands:
+      type: array
+      items:
+        type: object
+        required: [brand_id, name]
+        additionalProperties: false
+        properties:
+          brand_id:
+            $ref: '../../../../core/schemas/identifiers.yaml#/BrandId'
+          name:
+            type: string
+            maxLength: 120
+
+    snapshot:
+      type: object
+      additionalProperties: false
+      properties:
+        max_page_size:
+          type: integer
+          minimum: 1
+        snapshot_stable_for_seconds:
+          description: >-
+            How long a `snapshot_id` and its cursors stay valid. A consumer sizes its page requests
+            and its overall walk budget against this, so that a large book can be paged before the
+            snapshot expires underneath it.
+          type: integer
+          minimum: 60
+        typical_generation_seconds:
+          description: >-
+            Roughly how long the insurer takes to assemble a snapshot. Advisory, but it tells a
+            consumer whether a daily pull is a quick call or something to start well before it is
+            needed.
+          type: integer
+          minimum: 0
+        statuses_available:
+          description: The statuses this implementation can report at all.
+          type: array
+          items:
+            $ref: 'policy.yaml#/PolicyStatus'
+        supports_terminated:
+          description: Whether ended policies can be requested.
+          type: boolean
+          default: false
+
+    incremental:
+      description: >-
+        Optional, and deliberately so. The snapshot is the required path — it is the smallest thing
+        an insurer can build and the only one whose absence semantics let a consumer detect a lapse
+        without tombstones. An insurer with a large book may additionally offer `changed_since`,
+        which is far cheaper on both sides for a daily run, but it is an optimisation on top of the
+        snapshot rather than a replacement for it.
+      type: object
+      additionalProperties: false
+      properties:
+        supported:
+          type: boolean
+          default: false
+        reports_terminations:
+          description: >-
+            Whether an incremental response includes policies that ENDED since the timestamp. Without
+            this, a consumer cannot use incremental alone — a lapse is invisible in a feed that only
+            reports what still exists — and must keep pulling periodic snapshots to catch them.
+          type: boolean
+          default: false
+        max_lookback_days:
+          description: How far back `changed_since` may reach.
+          type: integer
+          minimum: 1
+
+    fields:
+      description: >-
+        Which optional parts of the record this insurer actually populates. A consumer uses this to
+        distinguish "this insurer never reports it" from "this policy does not have one" — which
+        otherwise look identical, and which lead to very different conclusions about a book.
+      type: object
+      additionalProperties: false
+      properties:
+        arrears:
+          type: boolean
+          default: false
+        expected_lapse_date:
+          type: boolean
+          default: false
+        commission_splits:
+          type: boolean
+          default: false
+        policy_holder_contact:
+          description: Whether email, phone and address are populated.
+          type: boolean
+          default: false
+        cover_type_mapping:
+          description: >-
+            Whether benefits carry `cover_type` mapped to the shared vocabulary, or only the
+            insurer's own `benefit_name`.
+          type: boolean
+          default: false
+        loadings_and_exclusions:
+          type: boolean
+          default: false
+
+    webhooks:
+      description: >-
+        Whether this implementation can push the events declared in the contract's `webhooks` block,
+        rather than waiting to be polled. Optional throughout: pushing means outbound egress,
+        retries, dead-lettering and endpoint management, which is a substantially larger build than
+        serving a paged read. Every event here is also observable by comparing snapshots — just later.
+      type: object
+      additionalProperties: false
+      properties:
+        supported:
+          type: boolean
+          default: false
+        events:
+          type: array
+          items:
+            type: string
+            enum: [policy.status_changed, policy.arrears_raised, policy.arrears_cleared]

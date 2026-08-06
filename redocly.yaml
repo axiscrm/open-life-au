@@ -15,6 +15,10 @@ apis:
     # redocly.yaml, so for them the plain CLI form works; see the README.
     x-openapi-ts:
       output: .codegen/ts/schema.d.ts
+  policy:
+    root: domains/policy/openapi.yaml
+    x-openapi-ts:
+      output: .codegen/ts/policy.d.ts
 
 extends:
   - recommended-strict

@@ -1,0 +1,96 @@
+# Open Life Data Standards (AU) — Policy — GET /policies
+
+get:
+  operationId: listPolicies
+  summary: Pull a snapshot of the book
+  description: >-
+    Return every policy the calling credential can see, as a consistent snapshot, paged.
+
+    This is the contract's primary operation and for most consumers the only one they will call:
+    once a day, walk every page, reconcile against what you hold.
+
+    ### Reconciling on absence — read this before you do it
+
+    A snapshot's value is that a policy which has *disappeared* since the last run is no longer in
+    force. No tombstones needed, and a bad run self-corrects because the next one restates the truth.
+
+    That rule is only safe once the **entire** walk has completed. A walk that stops halfway makes
+    every unfetched policy look absent, and reconciling off it will mark most of a book as lapsed —
+    from a response that is well-formed, valid, and completely wrong.
+
+    So before acting on absence, a consumer MUST have:
+
+    - reached a page with `complete: true`;
+    - seen the same `snapshot_id` on every page; and
+    - where `total_count` was supplied, assembled that many policies.
+
+    If any of those fails, treat the run as failed and keep the previous state. Some of the book is
+    better than a book that has been wrongly lapsed.
+
+    ### Scope
+
+    Absence means "not in force" only within `coverage`. A snapshot filtered to two adviser codes
+    says nothing about a third, and a default snapshot says nothing about policies in a status it
+    does not include.
+
+    ### Personal information
+
+    Responses carry the policy holder's name, date of birth and contact details, because the record
+    is useless without enough identity to match it to a client. Servers MUST send
+    `Cache-Control: no-store`.
+  tags: [Policies]
+  security:
+    - oauth2: [policies.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/AdviserCodes'
+    - $ref: '../components/parameters.yaml#/Statuses'
+    - $ref: '../components/parameters.yaml#/ChangedSince'
+    - $ref: '../components/parameters.yaml#/SnapshotId'
+    - $ref: '../components/parameters.yaml#/Cursor'
+    - $ref: '../components/parameters.yaml#/Limit'
+    - $ref: '../components/parameters.yaml#/RequestId'
+  responses:
+    '200':
+      description: >-
+        One page of the snapshot. An empty `policies` array on the first page is a valid answer
+        meaning this credential has no policies — not an error, and not a reason to lapse anything
+        unless `complete` is `true`.
+      headers:
+        Cache-Control:
+          description: MUST be `no-store`.
+          required: true
+          schema:
+            type: string
+            const: no-store
+        X-Request-Id:
+          $ref: '../../../core/http/headers.yaml#/XRequestId'
+        X-OpenLife-Spec-Version:
+          $ref: '../../../core/http/headers.yaml#/SpecVersion'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/snapshot.yaml#/PolicyPage'
+    '400':
+      $ref: '../../../core/http/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../../core/http/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../../core/http/responses.yaml#/Forbidden'
+    '409':
+      description: >-
+        The cursor belongs to a snapshot that has expired or been rebuilt. Problem type
+        `snapshot-expired`. Start the walk again from the beginning; do NOT stitch the pages already
+        fetched onto a new snapshot, because the two views may disagree and the seam is exactly
+        where policies go missing.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../../../core/schemas/problems.yaml#/Problem'
+    '422':
+      $ref: '../../../core/http/responses.yaml#/UnprocessableEntity'
+    '429':
+      $ref: '../../../core/http/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../../../core/http/responses.yaml#/InternalError'
+    '503':
+      $ref: '../../../core/http/responses.yaml#/ServiceUnavailable'

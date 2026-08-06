@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "//": "One release train per contract. Each `component` becomes the git tag prefix, so a release cuts `quoting-v0.2.0` or `policy-v0.1.0` independently and each contract carries its own CHANGELOG. An insurer implementing quoting is never asked to care that the policy contract moved.",
-  "//core": "`core` holds the schemas both contracts share (money, identifiers, problems, occupation). A breaking change there is breaking for every contract that references it, so a core release must be accompanied by a release of each dependent contract — enforced by the core-dependents check in CI rather than by memory.",
+  "//core": "`core` holds the schemas both contracts share (money, identifiers, problems, occupation). A breaking change there is breaking for every contract that references it, so a core release must be accompanied by a release of each dependent contract \u2014 enforced by the core-dependents check in CI rather than by memory.",
   "//pre-1.0": "bump-minor-pre-major + bump-patch-for-minor-pre-major mirror the convention already in use across our other repositories: while a contract is below 1.0 a breaking change is a minor and a feature is a patch, so 0.x stays honest about being unstable.",
   "separate-pull-requests": false,
   "packages": {
@@ -18,14 +18,19 @@
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
-      "extra-files": ["openapi.yaml"]
+      "extra-files": [
+        "openapi.yaml"
+      ]
     },
     "domains/policy": {
       "release-type": "simple",
       "component": "policy",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        "openapi.yaml"
+      ]
     }
   }
 }

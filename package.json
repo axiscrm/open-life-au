@@ -2,7 +2,7 @@
   "name": "@openlife-au/workspace",
   "private": true,
   "version": "0.0.0",
-  "description": "Open Life Data Standards (AU) — vendor-neutral contracts for Australian life insurance",
+  "description": "Open Life Data Standards (AU) \u2014 vendor-neutral contracts for Australian life insurance",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -13,10 +13,10 @@
   },
   "type": "module",
   "scripts": {
-    "lint": "redocly lint domains/quoting/openapi.yaml",
-    "bundle": "npm run bundle:quoting",
+    "lint": "redocly lint",
+    "bundle": "npm run bundle:quoting && npm run bundle:policy",
     "bundle:quoting": "redocly bundle domains/quoting/openapi.yaml -o dist/quoting/openapi.yaml && redocly bundle domains/quoting/openapi.yaml -o dist/quoting/openapi.json",
-    "docs": "redocly build-docs domains/quoting/openapi.yaml -o site/quoting/index.html",
+    "docs": "redocly build-docs domains/quoting/openapi.yaml -o site/quoting/index.html && redocly build-docs domains/policy/openapi.yaml -o site/policy/index.html",
     "postman": "node scripts/build-postman.mjs",
     "mock": "prism mock dist/quoting/openapi.yaml --port 4010",
     "proxy": "prism proxy dist/quoting/openapi.yaml",
@@ -31,7 +31,8 @@
     "codegen:ruby": "bash scripts/check-codegen.sh ruby",
     "codegen:go": "bash scripts/check-codegen.sh go",
     "codegen:csharp": "bash scripts/check-codegen.sh csharp",
-    "codegen": "for l in typescript python java ruby go csharp; do npm run codegen:$l || exit 1; done"
+    "codegen": "for l in typescript python java ruby go csharp; do npm run codegen:$l || exit 1; done",
+    "bundle:policy": "redocly bundle domains/policy/openapi.yaml -o dist/policy/openapi.yaml && redocly bundle domains/policy/openapi.yaml -o dist/policy/openapi.json"
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.99.0",

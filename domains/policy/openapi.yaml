@@ -1,0 +1,244 @@
+openapi: 3.1.0
+
+info:
+  title: Open Life Policy API (AU)
+  # Kept in step with the policy-v* git tag by release-please — do not edit by hand.
+  version: 0.1.0 # x-release-please-version
+  summary: A vendor-neutral contract for retrieving in-force Australian life policy data.
+  description: |
+    A contract an insurer implements so that adviser software can retrieve the policies written under
+    its adviser codes — instead of logging into a portal every night, exporting a spreadsheet, and
+    parsing whatever layout that insurer happens to use this quarter.
+
+    ## What this is
+
+    Three operations. Pull the book as a snapshot (`GET /policies`), fetch one policy
+    (`GET /policies/{policy_id}`), and find out what the implementation supports
+    (`GET /capabilities`). Most consumers will only ever call the first, once a day.
+
+    ## Snapshot, not stream
+
+    The required path is a **full snapshot**: everything currently in force, paged. That is
+    deliberate, and it is the smallest thing an insurer can build — for most, it is a report they
+    already produce.
+
+    It also carries a property a change feed does not. Because the snapshot is complete, a policy
+    that has *disappeared* since the last run is no longer in force. There are no tombstones to
+    publish, no missed-event problem, and a failed run is self-correcting: the next one restates the
+    truth. A change feed gets none of that for free — miss one event and a consumer's view is
+    permanently wrong with nothing to signal it.
+
+    The cost is that a snapshot moves the whole book every time. An insurer with a large one may also
+    offer `changed_since`; that is declared in `capabilities` as an optimisation, never a
+    replacement, because an incremental feed that omits terminations cannot detect a lapse.
+
+    **The one thing to get right:** absence only means "gone" once the whole walk has finished. A
+    partial walk makes unfetched policies look absent, and a consumer that reconciles off it will
+    lapse most of a book from a response that is entirely well-formed. Hence `snapshot_id`,
+    `total_count` and `complete` — see `GET /policies`.
+
+    ## Arrears
+
+    A policy behind on premium carries an `arrears` block: when the payment failed, what is
+    outstanding, why, and when it will lapse if nothing is done. This is the most time-sensitive
+    record in the contract — it is what an adviser must act on within days — and it is the part
+    currently obtained by scraping a portal overnight.
+
+    ## Personal information
+
+    Unlike the quoting contract, which carries none, this one carries the policy holder's name, date
+    of birth and contact details. That is not an inconsistency. A quote is broadcast to a panel of
+    insurers who have no relationship with the person, so it is anonymised. A policy record describes
+    an existing contract between this insurer and this person — the insurer already holds all of it —
+    and the data is unusable without enough identity to match it to a client record.
+
+    Responses are therefore `Cache-Control: no-store`, and `PolicyHolder` is a closed schema
+    deliberately scoped to matching rather than being a general contact record.
+
+    ## Conformance
+
+    Insurer records differ in what they carry. Declare what you populate in `GET /capabilities` and
+    the conformance suite tests you against that. What is not optional is the snapshot being
+    complete and consistent — everything else in this contract depends on it.
+
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+  contact:
+    name: Open Life Data Standards (AU)
+    url: https://github.com/axiscrm/open-life-au
+
+servers:
+  - url: https://{host}/{basePath}
+    description: An insurer's implementation.
+    variables:
+      host:
+        default: api.insurer.example.com.au
+      basePath:
+        default: openlife/policy/v1
+
+tags:
+  - name: Policies
+    description: Retrieving in-force policy data.
+  - name: Discovery
+    description: What an implementation supports.
+
+security:
+  - oauth2: [policies.read]
+
+paths:
+  /policies:
+    $ref: './paths/policies.yaml'
+  /policies/{policy_id}:
+    $ref: './paths/policies-id.yaml'
+  /capabilities:
+    $ref: './paths/capabilities.yaml'
+
+# OPTIONAL. Everything here is also observable by comparing consecutive snapshots — just later, by up
+# to a day. These exist for the events where that delay has a cost, arrears above all: a dishonour
+# found the same morning is a phone call, and the same dishonour found four days later is often a
+# lapsed policy.
+#
+# Declared as OpenAPI 3.1 `webhooks` rather than in a separate event specification. That keeps one
+# document, one set of schemas referenced by ordinary `$ref`, and one toolchain — and it avoids
+# making an insurer build outbound delivery, retries, dead-lettering and endpoint management before
+# they can be conformant. An implementation that only serves snapshots is fully conformant; declare
+# whether you push in `capabilities.webhooks`.
+webhooks:
+  policyStatusChanged:
+    post:
+      operationId: onPolicyStatusChanged
+      summary: A policy changed status
+      description: >-
+        Sent when a policy moves between statuses — commenced, lapsed, cancelled, terminated. The
+        consumer's own snapshot remains authoritative; this is a prompt to look sooner, not a
+        replacement for reconciliation.
+      tags: [Policies]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_id, occurred_at, policy_id, insurer_id, status]
+              additionalProperties: false
+              properties:
+                event_id:
+                  description: >-
+                    Unique per event. Delivery is at-least-once, so consumers MUST deduplicate on
+                    this rather than assuming exactly-once.
+                  type: string
+                  maxLength: 128
+                occurred_at:
+                  type: string
+                  format: date-time
+                policy_id:
+                  type: string
+                  maxLength: 64
+                insurer_id:
+                  $ref: '../../core/schemas/identifiers.yaml#/InsurerId'
+                status:
+                  $ref: './components/schemas/policy.yaml#/PolicyStatus'
+                previous_status:
+                  $ref: './components/schemas/policy.yaml#/PolicyStatus'
+      responses:
+        '204':
+          description: >-
+            Accepted. Consumers SHOULD acknowledge quickly and process asynchronously; an insurer's
+            delivery timeout is not the place to do reconciliation work.
+        '410':
+          $ref: '../../core/http/responses.yaml#/Gone'
+
+  policyArrearsRaised:
+    post:
+      operationId: onPolicyArrearsRaised
+      summary: A premium payment was dishonoured
+      description: >-
+        Sent when a scheduled premium fails. The highest-value event in the contract: it is the one
+        with a deadline attached, and `expected_lapse_on` is what makes it actionable.
+      tags: [Policies]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_id, occurred_at, policy_id, insurer_id, arrears]
+              additionalProperties: false
+              properties:
+                event_id:
+                  type: string
+                  maxLength: 128
+                occurred_at:
+                  type: string
+                  format: date-time
+                policy_id:
+                  type: string
+                  maxLength: 64
+                insurer_id:
+                  $ref: '../../core/schemas/identifiers.yaml#/InsurerId'
+                arrears:
+                  $ref: './components/schemas/policy.yaml#/Arrears'
+      responses:
+        '204':
+          description: Accepted.
+        '410':
+          $ref: '../../core/http/responses.yaml#/Gone'
+
+  policyArrearsCleared:
+    post:
+      operationId: onPolicyArrearsCleared
+      summary: Outstanding premium was paid
+      description: >-
+        Sent when a policy previously in arrears is brought up to date. Worth pushing as well as the
+        failure: without it a consumer keeps chasing a client who has already paid, which is a worse
+        experience than not having known at all.
+      tags: [Policies]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_id, occurred_at, policy_id, insurer_id]
+              additionalProperties: false
+              properties:
+                event_id:
+                  type: string
+                  maxLength: 128
+                occurred_at:
+                  type: string
+                  format: date-time
+                policy_id:
+                  type: string
+                  maxLength: 64
+                insurer_id:
+                  $ref: '../../core/schemas/identifiers.yaml#/InsurerId'
+                paid_to:
+                  type: string
+                  format: date
+      responses:
+        '204':
+          description: Accepted.
+        '410':
+          $ref: '../../core/http/responses.yaml#/Gone'
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: |
+        OAuth 2.0 client credentials (RFC 6749, section 4.4). Machine-to-machine only.
+
+        The credential determines which adviser codes the caller can see, which is what makes a
+        snapshot's absence semantics safe: a consumer can only ever be told about, and therefore only
+        ever lapse, policies within its own scope.
+
+        Servers SHOULD publish an RFC 8414 metadata document. mTLS MAY additionally be required —
+        this contract carries personal information, and some insurers will want it.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.insurer.example.com.au/oauth2/token
+          refreshUrl: https://auth.insurer.example.com.au/oauth2/token
+          scopes:
+            policies.read: Read in-force policy data for the credential's adviser codes.

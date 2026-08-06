@@ -1,0 +1,98 @@
+# Open Life Data Standards (AU) — Policy — the snapshot envelope.
+#
+# THE SNAPSHOT IS THE POINT OF THIS CONTRACT, AND THIS FILE IS WHERE IT IS MADE SAFE.
+#
+# A consumer pulls the whole book on a schedule and reconciles it against what it already holds:
+# rows that are new get added, rows that changed get updated, and rows that have DISAPPEARED are
+# taken to be no longer in force. That last rule is what makes a snapshot useful — no tombstones
+# required, no missed-event problem, and a bad run is self-correcting because the next one restates
+# the truth.
+#
+# It is also the dangerous rule. A snapshot is delivered over many pages, and if a walk stops
+# halfway — a timeout, a 500 on page nine, an expired cursor — everything on the pages never fetched
+# looks *absent*. Reconcile off that and a consumer will mark most of a book as lapsed. Nothing about
+# the partial response looks wrong; it is well-formed, valid, and catastrophic.
+#
+# So a snapshot has an identity and a declared size, every page carries both, and the contract states
+# plainly that absence only means anything once the whole walk has completed under one `snapshot_id`.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+PolicyPage:
+  title: PolicyPage
+  description: >-
+    One page of a snapshot. Every page of a given walk carries the same `snapshot_id` and
+    `generated_at`, so a consumer can prove the pages it assembled belong together.
+  type: object
+  required: [snapshot_id, generated_at, policies]
+  additionalProperties: false
+  properties:
+    snapshot_id:
+      description: >-
+        Identifies this consistent view of the book. Opaque and stable for the whole walk.
+
+        A server MUST hold the snapshot stable while it is being paged: policies must not shift
+        between pages because the underlying data changed mid-walk. Where an implementation cannot
+        do that, it MUST issue a new `snapshot_id` and reject the stale cursor with `409` rather
+        than quietly serving a mixture of two views — a consumer that reconciles across a shifted
+        boundary will lose rows in exactly the way this whole file exists to prevent.
+      type: string
+      minLength: 1
+      maxLength: 128
+    generated_at:
+      description: When the snapshot was taken. RFC 3339 with an explicit offset.
+      type: string
+      format: date-time
+    total_count:
+      description: >-
+        Total policies in the snapshot, across all pages. STRONGLY RECOMMENDED, and the reason is
+        specific: it lets a consumer check the number it assembled against the number promised
+        before it acts on absence. Without it, a walk that silently lost a page is undetectable.
+      type: integer
+      minimum: 0
+    policies:
+      type: array
+      items:
+        $ref: 'policy.yaml#/Policy'
+    page:
+      $ref: '../../../../core/schemas/pagination.yaml#/PageInfo'
+    complete:
+      description: >-
+        `true` on the final page of the walk, and only there. A convenience mirror of "no
+        `next_cursor`", stated explicitly because it is the flag a consumer's reconciliation should
+        gate on and an explicit signal is harder to get wrong than an inferred one.
+      type: boolean
+      default: false
+    coverage:
+      $ref: '#/SnapshotCoverage'
+
+SnapshotCoverage:
+  title: SnapshotCoverage
+  description: >-
+    What this snapshot claims to contain. Absence means "not in force", but only within the declared
+    scope — a consumer that asked for one adviser code must not lapse policies belonging to another.
+  type: object
+  additionalProperties: false
+  properties:
+    adviser_codes:
+      description: >-
+        The adviser codes this snapshot covers. When a request filtered on adviser codes, this echoes
+        the effective set; otherwise it is every code the credential can see. Echoing it matters:
+        it is how a consumer knows whether a code it expected was silently excluded, which would
+        otherwise look identical to that adviser having no policies.
+      type: array
+      items:
+        type: string
+        maxLength: 32
+    statuses:
+      description: >-
+        The policy statuses included. Defaults to the in-force states — `in_force`, `in_arrears` and
+        `pending` — so a consumer MUST NOT infer from a default snapshot that a policy absent from it
+        was cancelled rather than simply never reported.
+      type: array
+      items:
+        $ref: 'policy.yaml#/PolicyStatus'
+    includes_terminated:
+      description: Whether terminal states appear at all in this snapshot.
+      type: boolean
+      default: false

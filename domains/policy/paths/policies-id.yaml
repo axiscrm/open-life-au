@@ -1,0 +1,45 @@
+# Open Life Data Standards (AU) — Policy — GET /policies/{policy_id}
+
+get:
+  operationId: getPolicy
+  summary: Fetch one policy
+  description: >-
+    Return a single policy by the insurer's own policy number.
+
+    Not part of the daily pull — a consumer reconciling a book uses the snapshot. This exists for the
+    case an adviser is looking at one client and wants the insurer's current record rather than
+    whatever last night's run captured, and for investigating a discrepancy between the two.
+
+    Carries the policy holder's personal information, so servers MUST send `Cache-Control: no-store`.
+  tags: [Policies]
+  security:
+    - oauth2: [policies.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/PolicyIdPath'
+    - $ref: '../components/parameters.yaml#/RequestId'
+  responses:
+    '200':
+      description: The policy.
+      headers:
+        Cache-Control:
+          description: MUST be `no-store`.
+          required: true
+          schema:
+            type: string
+            const: no-store
+        X-Request-Id:
+          $ref: '../../../core/http/headers.yaml#/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/policy.yaml#/Policy'
+    '401':
+      $ref: '../../../core/http/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../../core/http/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../../core/http/responses.yaml#/NotFound'
+    '429':
+      $ref: '../../../core/http/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../../../core/http/responses.yaml#/InternalError'

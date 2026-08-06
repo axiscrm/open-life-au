@@ -1,0 +1,132 @@
+{
+  "snapshot_id": "snap_2026-08-06T02:30:00Z_a41f",
+  "generated_at": "2026-08-06T02:31:44+10:00",
+  "total_count": 2,
+  "complete": true,
+  "coverage": {
+    "adviser_codes": ["AC100", "AC104"],
+    "statuses": ["in_force", "in_arrears", "pending"],
+    "includes_terminated": false
+  },
+  "policies": [
+    {
+      "policy_id": "P-4471902",
+      "insurer_id": "example-life",
+      "brand_id": "example-life",
+      "product_name": "Protection Plus",
+      "status": "in_force",
+      "policy_holder": {
+        "first_name": "Jordan",
+        "last_name": "Alvarez",
+        "date_of_birth": "1985-03-14",
+        "gender": "male",
+        "smoker": false,
+        "occupation": "Painter - trade qualified",
+        "occupation_class": "2",
+        "email": "jordan.alvarez@example.com.au",
+        "phone": "0400 000 000",
+        "address": {
+          "line1": "12 Example Street",
+          "suburb": "Newtown",
+          "state": "NSW",
+          "postcode": "2042"
+        }
+      },
+      "ownership": { "ownership_type": "super", "owner_name": "Example Super Fund" },
+      "distribution": {
+        "adviser_code": "AC100",
+        "adviser_name": "Sam Rivera",
+        "practice_name": "Rivera Advice",
+        "licensee_name": "Example Licensee Pty Ltd",
+        "new_business_split_percent": 100,
+        "trail_split_percent": 100
+      },
+      "dates": {
+        "commenced_on": "2021-06-01",
+        "renewal_on": "2026-06-01",
+        "paid_to": "2026-09-01",
+        "next_billing_on": "2026-09-01",
+        "duration_years": 5
+      },
+      "premium": {
+        "amount": { "amount": "182.40", "currency": "AUD" },
+        "frequency": "monthly",
+        "annualised": { "amount": "2104.00", "currency": "AUD" },
+        "structure": "stepped",
+        "stamp_duty": { "amount": "9.12", "currency": "AUD" },
+        "policy_fee": { "amount": "7.80", "currency": "AUD" }
+      },
+      "covers": [
+        {
+          "benefit_name": "Life Cover",
+          "cover_type": "life",
+          "sum_insured": { "amount": "1000000.00", "currency": "AUD" },
+          "premium": { "amount": "121.60", "currency": "AUD" },
+          "status": "in_force",
+          "ownership": "super",
+          "structure": "stepped",
+          "commenced_on": "2021-06-01"
+        },
+        {
+          "benefit_name": "TPD Cover - Linked",
+          "cover_type": "tpd",
+          "sum_insured": { "amount": "750000.00", "currency": "AUD" },
+          "premium": { "amount": "60.80", "currency": "AUD" },
+          "status": "in_force",
+          "ownership": "ordinary",
+          "structure": "stepped",
+          "commenced_on": "2021-06-01"
+        }
+      ]
+    },
+    {
+      "policy_id": "P-4471903",
+      "insurer_id": "example-life",
+      "brand_id": "example-select",
+      "product_name": "Select Income Protection",
+      "status": "in_arrears",
+      "status_detail": "Premium unpaid - collection retry scheduled",
+      "policy_holder": {
+        "first_name": "Priya",
+        "last_name": "Nand",
+        "date_of_birth": "1990-11-02",
+        "gender": "female",
+        "smoker": false,
+        "occupation": "Accountant",
+        "occupation_class": "A"
+      },
+      "ownership": { "ownership_type": "ordinary" },
+      "distribution": { "adviser_code": "AC104", "adviser_name": "Dana Osei" },
+      "dates": {
+        "commenced_on": "2023-02-15",
+        "renewal_on": "2027-02-15",
+        "paid_to": "2026-06-15",
+        "duration_years": 3
+      },
+      "premium": {
+        "amount": { "amount": "96.20", "currency": "AUD" },
+        "frequency": "monthly",
+        "annualised": { "amount": "1110.00", "currency": "AUD" },
+        "structure": "stepped"
+      },
+      "covers": [
+        {
+          "benefit_name": "Income Support",
+          "cover_type": "income_protection",
+          "sum_insured": { "amount": "6500.00", "currency": "AUD" },
+          "premium": { "amount": "96.20", "currency": "AUD" },
+          "status": "in_arrears",
+          "waiting_period": "90 days",
+          "benefit_period": "To age 65"
+        }
+      ],
+      "arrears": {
+        "dishonoured_on": "2026-07-15",
+        "amount_outstanding": { "amount": "192.40", "currency": "AUD" },
+        "reason": "Insufficient funds",
+        "expected_lapse_on": "2026-08-15",
+        "attempts": 2
+      }
+    }
+  ]
+}

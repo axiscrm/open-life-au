@@ -8,7 +8,7 @@ Two contracts:
 | Contract | Status | What it covers |
 |---|---|---|
 | [**quoting**](domains/quoting/) | `v0.1.0` — draft, open for comment | Pricing life, TPD, trauma, income protection, business expenses, needle stick and child trauma cover |
-| [**policy**](domains/policy/) | not started | In-force policy data, status changes and premium dishonours |
+| [**policy**](domains/policy/) | `v0.1.0` — draft, open for comment | In-force policy data, arrears and status changes |
 
 Licensed Apache-2.0. Everything here is a draft published for insurers to argue with — see
 [Contributing](#contributing).
@@ -69,9 +69,10 @@ Each guards a **silent** failure — one that produces a plausible number rather
 
 ```
 core/schemas/       shared by every contract — money, identifiers, problems, occupation, party
+core/http/          shared responses and headers, referenced by both contracts
 taxonomy/           the occupation baseline and the risk qualifiers layered over it
 domains/quoting/    the quoting contract: openapi.yaml, paths/, components/, examples/
-domains/policy/     the policy contract (not started)
+domains/policy/     the policy contract: snapshot pull, arrears, optional webhooks
 dist/               committed bundles — this is what implementers consume
 docs/               concepts, versioning, provenance rules
 docs/generators/    one self-contained guide per language

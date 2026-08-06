@@ -1,0 +1,47 @@
+# Open Life Data Standards (AU) — Policy — GET /capabilities
+
+get:
+  operationId: getPolicyCapabilities
+  summary: What this implementation supports
+  description: >-
+    Describe which parts of the record this insurer populates, how long a snapshot stays walkable,
+    and whether incremental pulls or pushed events are available.
+
+    Worth calling before the first snapshot and caching thereafter. The `fields` block in particular
+    answers a question a consumer otherwise cannot: whether a missing `arrears` means this policy is
+    paid up, or means this insurer never reports arrears at all. Those look identical in the data and
+    lead to very different conclusions about a book.
+  tags: [Discovery]
+  security:
+    - oauth2: [policies.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/RequestId'
+  responses:
+    '200':
+      description: The capability document.
+      headers:
+        ETag:
+          description: Servers SHOULD supply one and honour `If-None-Match`.
+          schema:
+            type: string
+        Cache-Control:
+          description: Safe to cache — carries no personal information.
+          schema:
+            type: string
+            example: 'public, max-age=3600'
+        X-Request-Id:
+          $ref: '../../../core/http/headers.yaml#/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/capabilities.yaml#/Capabilities'
+    '304':
+      description: Not modified.
+    '401':
+      $ref: '../../../core/http/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../../core/http/responses.yaml#/Forbidden'
+    '429':
+      $ref: '../../../core/http/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../../../core/http/responses.yaml#/InternalError'

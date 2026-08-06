@@ -34,28 +34,38 @@ import addFormats from "ajv-formats";
 import YAML from "yaml";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const BUNDLE = path.join(ROOT, "dist/quoting/openapi.yaml");
-
 const SUITES = [
-    { dir: "domains/quoting/examples/requests", schema: "QuoteRequest" },
-    { dir: "domains/quoting/examples/responses", schema: "QuoteResponse" },
+    { bundle: "dist/quoting/openapi.yaml", dir: "domains/quoting/examples/requests", schema: "QuoteRequest" },
+    { bundle: "dist/quoting/openapi.yaml", dir: "domains/quoting/examples/responses", schema: "QuoteResponse" },
+    { bundle: "dist/policy/openapi.yaml", dir: "domains/policy/examples/responses", schema: "PolicyPage" },
 ];
 
-if (!fs.existsSync(BUNDLE)) {
-    console.error(`✗ ${path.relative(ROOT, BUNDLE)} is missing. Run \`npm run bundle\` first.`);
-    process.exit(1);
+/** Ajv instance per bundled contract, built on first use. */
+const validators = new Map();
+function schemaFor(bundle, name) {
+    if (!validators.has(bundle)) {
+        const abs = path.join(ROOT, bundle);
+        if (!fs.existsSync(abs)) {
+            console.error(`✗ ${bundle} is missing. Run \`npm run bundle\` first.`);
+            process.exit(1);
+        }
+        const ajvInstance = buildAjv(YAML.parse(fs.readFileSync(abs, "utf8")), bundle);
+        validators.set(bundle, ajvInstance);
+    }
+    return validators.get(bundle).getSchema(`${bundle}#/components/schemas/${name}`);
 }
-
-const doc = YAML.parse(fs.readFileSync(BUNDLE, "utf8"));
 
 // `strict: false` because we are handing Ajv a whole OpenAPI document, which carries keywords
 // (`openapi`, `discriminator`, `example`, …) that are not JSON Schema. The schemas themselves are
 // plain 2020-12. `discriminator` is intentionally NOT enabled: each cover variant pins
 // `cover_type` with a `const`, so a bare `oneOf` already selects exactly one branch, and Ajv's
 // discriminator support does not handle a tag declared inside `allOf`.
-const ajv = new Ajv2020({ strict: false, allErrors: true, allowUnionTypes: true });
-addFormats(ajv);
-ajv.addSchema({ ...doc, $id: "contract" }, "contract");
+function buildAjv(doc, id) {
+    const ajv = new Ajv2020({ strict: false, allErrors: true, allowUnionTypes: true });
+    addFormats(ajv);
+    ajv.addSchema({ ...doc, $id: id }, id);
+    return ajv;
+}
 
 const PERIODS_PER_YEAR = {
     weekly: 52,
@@ -147,11 +157,11 @@ function checkInvariants(response, where) {
 let checked = 0;
 let failed = 0;
 
-for (const { dir, schema } of SUITES) {
+for (const { bundle, dir, schema } of SUITES) {
     const abs = path.join(ROOT, dir);
     if (!fs.existsSync(abs)) continue;
 
-    const validate = ajv.getSchema(`contract#/components/schemas/${schema}`);
+    const validate = schemaFor(bundle, schema);
     if (!validate) {
         console.error(`✗ schema ${schema} not found in the bundle`);
         failed += 1;

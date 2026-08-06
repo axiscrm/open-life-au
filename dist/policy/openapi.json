@@ -1,0 +1,1657 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Open Life Policy API (AU)",
+    "version": "0.1.0",
+    "summary": "A vendor-neutral contract for retrieving in-force Australian life policy data.",
+    "description": "A contract an insurer implements so that adviser software can retrieve the policies written under\nits adviser codes — instead of logging into a portal every night, exporting a spreadsheet, and\nparsing whatever layout that insurer happens to use this quarter.\n\n## What this is\n\nThree operations. Pull the book as a snapshot (`GET /policies`), fetch one policy\n(`GET /policies/{policy_id}`), and find out what the implementation supports\n(`GET /capabilities`). Most consumers will only ever call the first, once a day.\n\n## Snapshot, not stream\n\nThe required path is a **full snapshot**: everything currently in force, paged. That is\ndeliberate, and it is the smallest thing an insurer can build — for most, it is a report they\nalready produce.\n\nIt also carries a property a change feed does not. Because the snapshot is complete, a policy\nthat has *disappeared* since the last run is no longer in force. There are no tombstones to\npublish, no missed-event problem, and a failed run is self-correcting: the next one restates the\ntruth. A change feed gets none of that for free — miss one event and a consumer's view is\npermanently wrong with nothing to signal it.\n\nThe cost is that a snapshot moves the whole book every time. An insurer with a large one may also\noffer `changed_since`; that is declared in `capabilities` as an optimisation, never a\nreplacement, because an incremental feed that omits terminations cannot detect a lapse.\n\n**The one thing to get right:** absence only means \"gone\" once the whole walk has finished. A\npartial walk makes unfetched policies look absent, and a consumer that reconciles off it will\nlapse most of a book from a response that is entirely well-formed. Hence `snapshot_id`,\n`total_count` and `complete` — see `GET /policies`.\n\n## Arrears\n\nA policy behind on premium carries an `arrears` block: when the payment failed, what is\noutstanding, why, and when it will lapse if nothing is done. This is the most time-sensitive\nrecord in the contract — it is what an adviser must act on within days — and it is the part\ncurrently obtained by scraping a portal overnight.\n\n## Personal information\n\nUnlike the quoting contract, which carries none, this one carries the policy holder's name, date\nof birth and contact details. That is not an inconsistency. A quote is broadcast to a panel of\ninsurers who have no relationship with the person, so it is anonymised. A policy record describes\nan existing contract between this insurer and this person — the insurer already holds all of it —\nand the data is unusable without enough identity to match it to a client record.\n\nResponses are therefore `Cache-Control: no-store`, and `PolicyHolder` is a closed schema\ndeliberately scoped to matching rather than being a general contact record.\n\n## Conformance\n\nInsurer records differ in what they carry. Declare what you populate in `GET /capabilities` and\nthe conformance suite tests you against that. What is not optional is the snapshot being\ncomplete and consistent — everything else in this contract depends on it.\n",
+    "license": {
+      "name": "Apache-2.0",
+      "identifier": "Apache-2.0"
+    },
+    "contact": {
+      "name": "Open Life Data Standards (AU)",
+      "url": "https://github.com/axiscrm/open-life-au"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://{host}/{basePath}",
+      "description": "An insurer's implementation.",
+      "variables": {
+        "host": {
+          "default": "api.insurer.example.com.au"
+        },
+        "basePath": {
+          "default": "openlife/policy/v1"
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "oauth2": [
+        "policies.read"
+      ]
+    }
+  ],
+  "tags": [
+    {
+      "name": "Policies",
+      "description": "Retrieving in-force policy data."
+    },
+    {
+      "name": "Discovery",
+      "description": "What an implementation supports."
+    }
+  ],
+  "paths": {
+    "/policies": {
+      "get": {
+        "operationId": "listPolicies",
+        "summary": "Pull a snapshot of the book",
+        "description": "Return every policy the calling credential can see, as a consistent snapshot, paged.\nThis is the contract's primary operation and for most consumers the only one they will call: once a day, walk every page, reconcile against what you hold.\n### Reconciling on absence — read this before you do it\nA snapshot's value is that a policy which has *disappeared* since the last run is no longer in force. No tombstones needed, and a bad run self-corrects because the next one restates the truth.\nThat rule is only safe once the **entire** walk has completed. A walk that stops halfway makes every unfetched policy look absent, and reconciling off it will mark most of a book as lapsed — from a response that is well-formed, valid, and completely wrong.\nSo before acting on absence, a consumer MUST have:\n- reached a page with `complete: true`; - seen the same `snapshot_id` on every page; and - where `total_count` was supplied, assembled that many policies.\nIf any of those fails, treat the run as failed and keep the previous state. Some of the book is better than a book that has been wrongly lapsed.\n### Scope\nAbsence means \"not in force\" only within `coverage`. A snapshot filtered to two adviser codes says nothing about a third, and a default snapshot says nothing about policies in a status it does not include.\n### Personal information\nResponses carry the policy holder's name, date of birth and contact details, because the record is useless without enough identity to match it to a client. Servers MUST send `Cache-Control: no-store`.",
+        "tags": [
+          "Policies"
+        ],
+        "security": [
+          {
+            "oauth2": [
+              "policies.read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AdviserCodes"
+          },
+          {
+            "$ref": "#/components/parameters/Statuses"
+          },
+          {
+            "$ref": "#/components/parameters/ChangedSince"
+          },
+          {
+            "$ref": "#/components/parameters/SnapshotId"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/RequestId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the snapshot. An empty `policies` array on the first page is a valid answer meaning this credential has no policies — not an error, and not a reason to lapse anything unless `complete` is `true`.",
+            "headers": {
+              "Cache-Control": {
+                "description": "MUST be `no-store`.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "X-OpenLife-Spec-Version": {
+                "$ref": "#/components/headers/SpecVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "description": "The cursor belongs to a snapshot that has expired or been rebuilt. Problem type `snapshot-expired`. Start the walk again from the beginning; do NOT stitch the pages already fetched onto a new snapshot, because the two views may disagree and the seam is exactly where policies go missing.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/policies/{policy_id}": {
+      "get": {
+        "operationId": "getPolicy",
+        "summary": "Fetch one policy",
+        "description": "Return a single policy by the insurer's own policy number.\nNot part of the daily pull — a consumer reconciling a book uses the snapshot. This exists for the case an adviser is looking at one client and wants the insurer's current record rather than whatever last night's run captured, and for investigating a discrepancy between the two.\nCarries the policy holder's personal information, so servers MUST send `Cache-Control: no-store`.",
+        "tags": [
+          "Policies"
+        ],
+        "security": [
+          {
+            "oauth2": [
+              "policies.read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PolicyIdPath"
+          },
+          {
+            "$ref": "#/components/parameters/RequestId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The policy.",
+            "headers": {
+              "Cache-Control": {
+                "description": "MUST be `no-store`.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Policy"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/capabilities": {
+      "get": {
+        "operationId": "getPolicyCapabilities",
+        "summary": "What this implementation supports",
+        "description": "Describe which parts of the record this insurer populates, how long a snapshot stays walkable, and whether incremental pulls or pushed events are available.\nWorth calling before the first snapshot and caching thereafter. The `fields` block in particular answers a question a consumer otherwise cannot: whether a missing `arrears` means this policy is paid up, or means this insurer never reports arrears at all. Those look identical in the data and lead to very different conclusions about a book.",
+        "tags": [
+          "Discovery"
+        ],
+        "security": [
+          {
+            "oauth2": [
+              "policies.read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The capability document.",
+            "headers": {
+              "ETag": {
+                "description": "Servers SHOULD supply one and honour `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "Safe to cache — carries no personal information.",
+                "schema": {
+                  "type": "string",
+                  "example": "public, max-age=3600"
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {
+    "policyStatusChanged": {
+      "post": {
+        "operationId": "onPolicyStatusChanged",
+        "summary": "A policy changed status",
+        "description": "Sent when a policy moves between statuses — commenced, lapsed, cancelled, terminated. The consumer's own snapshot remains authoritative; this is a prompt to look sooner, not a replacement for reconciliation.",
+        "tags": [
+          "Policies"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "event_id",
+                  "occurred_at",
+                  "policy_id",
+                  "insurer_id",
+                  "status"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "event_id": {
+                    "description": "Unique per event. Delivery is at-least-once, so consumers MUST deduplicate on this rather than assuming exactly-once.",
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "occurred_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "policy_id": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "insurer_id": {
+                    "$ref": "#/components/schemas/InsurerId"
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/PolicyStatus"
+                  },
+                  "previous_status": {
+                    "$ref": "#/components/schemas/PolicyStatus"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Accepted. Consumers SHOULD acknowledge quickly and process asynchronously; an insurer's delivery timeout is not the place to do reconciliation work."
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          }
+        }
+      }
+    },
+    "policyArrearsRaised": {
+      "post": {
+        "operationId": "onPolicyArrearsRaised",
+        "summary": "A premium payment was dishonoured",
+        "description": "Sent when a scheduled premium fails. The highest-value event in the contract: it is the one with a deadline attached, and `expected_lapse_on` is what makes it actionable.",
+        "tags": [
+          "Policies"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "event_id",
+                  "occurred_at",
+                  "policy_id",
+                  "insurer_id",
+                  "arrears"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "event_id": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "occurred_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "policy_id": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "insurer_id": {
+                    "$ref": "#/components/schemas/InsurerId"
+                  },
+                  "arrears": {
+                    "$ref": "#/components/schemas/Arrears"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Accepted."
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          }
+        }
+      }
+    },
+    "policyArrearsCleared": {
+      "post": {
+        "operationId": "onPolicyArrearsCleared",
+        "summary": "Outstanding premium was paid",
+        "description": "Sent when a policy previously in arrears is brought up to date. Worth pushing as well as the failure: without it a consumer keeps chasing a client who has already paid, which is a worse experience than not having known at all.",
+        "tags": [
+          "Policies"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "event_id",
+                  "occurred_at",
+                  "policy_id",
+                  "insurer_id"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "event_id": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "occurred_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "policy_id": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "insurer_id": {
+                    "$ref": "#/components/schemas/InsurerId"
+                  },
+                  "paid_to": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Accepted."
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "oauth2": {
+        "type": "oauth2",
+        "description": "OAuth 2.0 client credentials (RFC 6749, section 4.4). Machine-to-machine only.\n\nThe credential determines which adviser codes the caller can see, which is what makes a\nsnapshot's absence semantics safe: a consumer can only ever be told about, and therefore only\never lapse, policies within its own scope.\n\nServers SHOULD publish an RFC 8414 metadata document. mTLS MAY additionally be required —\nthis contract carries personal information, and some insurers will want it.\n",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://auth.insurer.example.com.au/oauth2/token",
+            "refreshUrl": "https://auth.insurer.example.com.au/oauth2/token",
+            "scopes": {
+              "policies.read": "Read in-force policy data for the credential's adviser codes."
+            }
+          }
+        }
+      }
+    },
+    "parameters": {
+      "AdviserCodes": {
+        "name": "adviser_code",
+        "in": "query",
+        "description": "Restrict the snapshot to these adviser codes. Repeat the parameter for several. Omitted, the snapshot covers every code the credential can see — which is the normal case for a daily pull.\nWhatever is applied comes back in `coverage.adviser_codes`, so a consumer can tell an excluded code from an adviser with no policies.",
+        "required": false,
+        "explode": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 32
+          }
+        }
+      },
+      "Statuses": {
+        "name": "status",
+        "in": "query",
+        "description": "Restrict to these statuses. Repeat for several. Omitted, an implementation returns its in-force set — `in_force`, `in_arrears` and `pending` — which is what a servicing book needs.\nRequesting a terminal status only works where `capabilities.snapshot.supports_terminated` is true; elsewhere it is a `422`.",
+        "required": false,
+        "explode": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PolicyStatus"
+          }
+        }
+      },
+      "ChangedSince": {
+        "name": "changed_since",
+        "in": "query",
+        "description": "OPTIONAL, and only where `capabilities.incremental.supported` is true. Return policies changed since this instant instead of the full book.\nRead `capabilities.incremental.reports_terminations` before relying on it: an incremental response that omits ended policies cannot be used on its own, because a lapse is invisible in a feed that only reports what still exists. Used that way, a consumer's view drifts further from reality every day and nothing signals it. Pull a periodic full snapshot regardless.\nAn implementation that does not support this MUST reject it with `422` rather than silently ignoring it and returning everything — a consumer that believes it received a delta and actually received the whole book will draw the wrong conclusions about what changed.",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "SnapshotId": {
+        "name": "snapshot_id",
+        "in": "query",
+        "description": "Continue an in-progress walk. Supply the `snapshot_id` from the first page alongside the cursor, so the server can prove the cursor belongs to the snapshot the consumer thinks it is walking and reject it with `409` if the snapshot has since expired or been rebuilt.",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "description": "Continuation token from the previous page's `page.next_cursor`.",
+        "required": false,
+        "schema": {
+          "$ref": "#/components/schemas/Cursor"
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Maximum policies per page. A server MAY return fewer; completion is signalled by `complete` and the absence of `page.next_cursor`, never by a short page.",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 250
+        }
+      },
+      "RequestId": {
+        "name": "X-Request-Id",
+        "in": "header",
+        "description": "Consumer-supplied correlation identifier. Echoed on the response.",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "PolicyIdPath": {
+        "name": "policy_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    },
+    "schemas": {
+      "PolicyStatus": {
+        "title": "PolicyStatus",
+        "description": "The policy's state. A snapshot contains in-force business by default; the terminal states appear only where an insurer chooses to report recent history, and a consumer MUST NOT treat their presence as a promise that all historical policies are included.\n  - `in_force`   current and paid to date\n  - `in_arrears` current but behind on premium — still on risk, see `arrears`\n  - `pending`    accepted but not yet commenced\n  - `lapsed`     ended for non-payment\n  - `cancelled`  ended at the owner's request\n  - `terminated` ended for any other reason, including claim or expiry",
+        "type": "string",
+        "enum": [
+          "in_force",
+          "in_arrears",
+          "pending",
+          "lapsed",
+          "cancelled",
+          "terminated"
+        ]
+      },
+      "Cursor": {
+        "title": "Cursor",
+        "description": "Opaque continuation token. Consumers MUST treat it as opaque, MUST NOT construct one, and MUST NOT assume it remains valid indefinitely — a server MAY expire cursors and answer an expired one with 400 `invalid-request`.",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "InsurerId": {
+        "title": "InsurerId",
+        "description": "Stable identifier for the issuing insurer, assigned by this standard's registry so it is the same value at every implementer. Lowercase, hyphenated.",
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])$",
+        "examples": [
+          "example-life"
+        ]
+      },
+      "BrandId": {
+        "title": "BrandId",
+        "description": "Stable identifier for the brand a line is sold under. Equal to the `InsurerId` where the insurer sells under a single brand. REQUIRED on every priced line even from a single-insurer endpoint, because one insurer commonly issues several brands and a consumer must not have to infer the brand from a product name.",
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])$",
+        "examples": [
+          "example-life",
+          "example-select"
+        ]
+      },
+      "ProductName": {
+        "title": "ProductName",
+        "description": "The insurer's own marketing name for a product, verbatim, for display only.",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200,
+        "examples": [
+          "Protection Plus Life Cover"
+        ]
+      },
+      "Gender": {
+        "title": "Gender",
+        "description": "The gender used for rating. Life insurance rate tables in this market are published for two values, so this enum carries only those two; it describes a pricing input, not the insured's identity, and it is deliberately separate from any demographic field a CRM might hold.",
+        "type": "string",
+        "enum": [
+          "male",
+          "female"
+        ]
+      },
+      "Decimal": {
+        "title": "Decimal",
+        "description": "A fixed-point decimal amount serialised as a string, with at most two fractional digits. Scientific notation, thousands separators, currency symbols and leading `+` are not permitted. Implementations MUST NOT normalise `\"0.00\"` to `\"0\"` or vice versa when echoing a value back — but consumers MUST treat the two as numerically equal.",
+        "type": "string",
+        "pattern": "^-?\\d{1,12}(\\.\\d{1,2})?$",
+        "examples": [
+          "1234.56",
+          "0",
+          "-19.95"
+        ]
+      },
+      "Money": {
+        "title": "Money",
+        "description": "An amount of money. Currency is carried explicitly even though this standard is Australia-only, so a future market does not become a breaking change.",
+        "type": "object",
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Decimal"
+          },
+          "currency": {
+            "title": "CurrencyCode",
+            "description": "ISO 4217 alphabetic code. Only AUD is defined by this version of the standard.",
+            "type": "string",
+            "const": "AUD"
+          }
+        },
+        "examples": [
+          {
+            "amount": "1000000.00",
+            "currency": "AUD"
+          }
+        ]
+      },
+      "NonNegativeMoney": {
+        "title": "NonNegativeMoney",
+        "description": "Money that cannot be negative — sums insured, premiums, stamp duty, policy fees. A negative value here is always a defect, so it is rejected at the schema boundary rather than surfacing as a nonsensical premium.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Money"
+          },
+          {
+            "properties": {
+              "amount": {
+                "type": "string",
+                "pattern": "^\\d{1,12}(\\.\\d{1,2})?$"
+              }
+            }
+          }
+        ]
+      },
+      "AustralianState": {
+        "title": "AustralianState",
+        "description": "State or territory of residence. Required because stamp duty on life insurance is levied per jurisdiction, so the same cover carries a different total depending on this value.",
+        "type": "string",
+        "enum": [
+          "NSW",
+          "VIC",
+          "QLD",
+          "SA",
+          "WA",
+          "TAS",
+          "NT",
+          "ACT"
+        ]
+      },
+      "PostalAddress": {
+        "title": "PostalAddress",
+        "description": "An Australian postal address as held on the policy. Every field optional: insurer exports vary in how much they carry, and a partial address is still useful for matching.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "line1": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "line2": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "suburb": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "state": {
+            "$ref": "#/components/schemas/AustralianState"
+          },
+          "postcode": {
+            "type": "string",
+            "pattern": "^\\d{4}$"
+          }
+        }
+      },
+      "PolicyHolder": {
+        "title": "PolicyHolder",
+        "description": "The life insured, as the insurer holds them. Enough to reconcile against a client record in the consumer's system, and no more — this is not a general contact record and MUST NOT be extended into one.",
+        "type": "object",
+        "required": [
+          "last_name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "first_name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "middle_name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "last_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "date_of_birth": {
+            "description": "RFC 3339 full-date. Present here, unlike in the quoting contract, because name plus date of birth is what makes a reliable match against an existing client record — a name alone is not unique enough to attach a policy to the right person, and attaching it to the wrong one is worse than failing to match.",
+            "type": "string",
+            "format": "date"
+          },
+          "gender": {
+            "$ref": "#/components/schemas/Gender"
+          },
+          "smoker": {
+            "description": "Smoker status as recorded at underwriting, per this insurer's definition.",
+            "type": "boolean"
+          },
+          "occupation": {
+            "description": "The occupation as recorded on the policy, in the insurer's own wording. Free text: this is a historical record of what was underwritten, not a rating input, so it is deliberately not constrained to the occupation taxonomy the quoting contract uses.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "occupation_class": {
+            "description": "The occupation rating class the policy was written at, in the insurer's own notation.",
+            "type": "string",
+            "maxLength": 32
+          },
+          "annual_income": {
+            "description": "Income as recorded at underwriting, where the insurer holds it.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "address": {
+            "$ref": "#/components/schemas/PostalAddress"
+          }
+        }
+      },
+      "Ownership": {
+        "title": "Ownership",
+        "description": "Who owns the cover, which determines the tax treatment, whether the premium can be paid from superannuation, and which side of the super/non-super premium split each amount falls on.\n  - `super`           held inside a retail superannuation fund\n  - `ordinary`        held personally, outside super\n  - `smsf`            held inside a self-managed superannuation fund\n  - `superlink`       split structure: one benefit part-owned inside super, part outside,\n                      linked so the parts cannot be claimed twice\n  - `smsf_superlink`  the same split structure where the super side is an SMSF",
+        "type": "string",
+        "enum": [
+          "super",
+          "ordinary",
+          "smsf",
+          "superlink",
+          "smsf_superlink"
+        ]
+      },
+      "PolicyOwnership": {
+        "title": "PolicyOwnership",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ownership_type": {
+            "$ref": "#/components/schemas/Ownership"
+          },
+          "owner_name": {
+            "description": "The legal owner where it is not the life insured — a superannuation trustee, an SMSF, a company, or another individual.",
+            "type": "string",
+            "maxLength": 255
+          }
+        }
+      },
+      "Percentage": {
+        "title": "Percentage",
+        "description": "A percentage expressed as a number (not a string, and not a 0-1 ratio): `25` means 25%. Rates and percentages are numeric because they are inputs to arithmetic rather than amounts to be stored to the cent, and at most three decimal places they are exactly representable. `0` is a MEANINGFUL value — see the loadings schema, where an explicit zero cancels an inherited loading and is not the same as omitting the field.",
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1000,
+        "multipleOf": 0.001,
+        "examples": [
+          0,
+          25,
+          62.5
+        ]
+      },
+      "Distribution": {
+        "title": "Distribution",
+        "description": "Who wrote and services the policy. This is the insurer's view of the adviser relationship, which is what makes the record attributable in the consumer's system.\nNote the boundary: everything here is the INSURER's record. A consumer's own grouping — which internal team or user group owns the client — is not the insurer's to know and has no field here.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "adviser_code": {
+            "description": "The adviser or agency code the policy is written under, as issued by this insurer. The primary attribution key.",
+            "type": "string",
+            "maxLength": 32
+          },
+          "adviser_name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "practice_name": {
+            "description": "The practice or firm, where the insurer distinguishes it from the adviser.",
+            "type": "string",
+            "maxLength": 255
+          },
+          "licensee_name": {
+            "description": "The licensee the adviser operates under.",
+            "type": "string",
+            "maxLength": 255
+          },
+          "licensee_code": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "new_business_split_percent": {
+            "description": "Share of upfront commission attributed to this adviser code, 0-100. Present only where the insurer exposes commission splits.",
+            "$ref": "#/components/schemas/Percentage"
+          },
+          "trail_split_percent": {
+            "description": "Share of ongoing commission attributed to this adviser code, 0-100.",
+            "$ref": "#/components/schemas/Percentage"
+          }
+        }
+      },
+      "PolicyDates": {
+        "title": "PolicyDates",
+        "description": "All RFC 3339 full-dates. Every field optional — insurer records vary in what they keep.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "commenced_on": {
+            "description": "Risk commencement date.",
+            "type": "string",
+            "format": "date"
+          },
+          "renewal_on": {
+            "description": "Next policy anniversary.",
+            "type": "string",
+            "format": "date"
+          },
+          "paid_to": {
+            "description": "The date premiums are paid up to. Together with `arrears`, this is how a consumer tells a healthy policy from one heading for lapse.",
+            "type": "string",
+            "format": "date"
+          },
+          "next_billing_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "expires_on": {
+            "description": "Scheduled expiry, for benefits with a fixed term or expiry age.",
+            "type": "string",
+            "format": "date"
+          },
+          "terminated_on": {
+            "description": "Date the policy actually ended. Present on the terminal statuses.",
+            "type": "string",
+            "format": "date"
+          },
+          "duration_years": {
+            "description": "Completed years in force. Convenience only — derivable from `commenced_on`.",
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "Frequency": {
+        "title": "Frequency",
+        "description": "How often the premium is paid. A premium at a sub-annual frequency is NOT the annual premium divided by the number of periods: insurers apply a frequency loading, so `monthly x 12 >= annual`. Every priced product therefore carries all six frequencies — see `PremiumSet` — and consumers MUST read the frequency they need rather than deriving it.",
+        "type": "string",
+        "enum": [
+          "weekly",
+          "fortnightly",
+          "monthly",
+          "quarterly",
+          "half_yearly",
+          "annual"
+        ]
+      },
+      "Structure": {
+        "title": "Structure",
+        "description": "How the premium behaves over the life of the policy.\n  - `stepped`   re-rated each year as the insured ages\n  - `level_65`  held level (bar indexation and rate changes) to age 65, then stepped\n  - `level_70`  as above, to age 70\n  - `blended`   a stepped/level mix, where the insurer blends the two rate bases\n`blended` is incompatible with indexation on some products; where an insurer cannot honour it, that is reported as `unsupported_ignored` rather than silently substituted.",
+        "type": "string",
+        "enum": [
+          "stepped",
+          "level_65",
+          "level_70",
+          "blended"
+        ]
+      },
+      "PolicyPremium": {
+        "title": "PolicyPremium",
+        "description": "What the policy costs as currently billed. Unlike a quote, this is a single frequency — the one the policy is actually paid at — because a policy has one billing arrangement, not six. `annualised` is supplied rather than derived, for the same reason quoting returns all six frequencies: frequency loadings mean the annual figure is not the billed amount times the number of periods.",
+        "type": "object",
+        "required": [
+          "amount",
+          "frequency"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "description": "The amount billed each period.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "frequency": {
+            "$ref": "#/components/schemas/Frequency"
+          },
+          "annualised": {
+            "description": "The annual cost. Read, not derived.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "structure": {
+            "$ref": "#/components/schemas/Structure"
+          },
+          "stamp_duty": {
+            "description": "Stamp duty component, already included in `amount`.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "policy_fee": {
+            "description": "Policy or administration fee, already included in `amount`.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          }
+        }
+      },
+      "CoverType": {
+        "title": "CoverType",
+        "description": "The benefits an adviser can ask to be priced, in the order they are presented on a quote screen. A cover may be requested standalone or, for some combinations, as a rider linked to a parent cover — see `link_type` on the cover schemas.",
+        "type": "string",
+        "enum": [
+          "life",
+          "tpd",
+          "trauma",
+          "income_protection",
+          "business_expenses",
+          "needle_stick",
+          "child_trauma"
+        ]
+      },
+      "PolicyCover": {
+        "title": "PolicyCover",
+        "description": "One benefit held under the policy.",
+        "type": "object",
+        "required": [
+          "benefit_name",
+          "sum_insured"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "benefit_name": {
+            "description": "The insurer's own name for the benefit, verbatim.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "cover_type": {
+            "description": "The benefit mapped onto the shared cover vocabulary, where one applies. Populating this is what lets a consumer compare an in-force book against new quotes without maintaining a per-insurer benefit-name lookup. Omit rather than guess — an absent `cover_type` with a populated `benefit_name` is an honest answer.",
+            "$ref": "#/components/schemas/CoverType"
+          },
+          "sum_insured": {
+            "description": "Current sum insured, after any indexation. For monthly-benefit covers this is the monthly amount.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "premium": {
+            "description": "This benefit's share of the policy premium, at the policy's billing frequency.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PolicyStatus"
+          },
+          "ownership": {
+            "description": "Where a single policy holds benefits under different ownership.",
+            "$ref": "#/components/schemas/Ownership"
+          },
+          "structure": {
+            "$ref": "#/components/schemas/Structure"
+          },
+          "waiting_period": {
+            "description": "For income-style benefits, in the insurer's own notation. Free text rather than the quoting contract's enum: this is a historical record of what was written, which may predate the product range currently sold.",
+            "type": "string",
+            "maxLength": 50
+          },
+          "benefit_period": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "commenced_on": {
+            "description": "Where a benefit was added after the policy commenced.",
+            "type": "string",
+            "format": "date"
+          },
+          "expires_on": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "Arrears": {
+        "title": "Arrears",
+        "description": "A policy behind on premium. This is the highest-value record in the whole contract: it is the one an adviser must act on within days, and today it is obtained by scraping a portal overnight.\nIdentity is `(policy_id, dishonoured_on)`. The same pair reported across successive snapshots is the SAME event, not a new one — so an insurer MUST keep `dishonoured_on` stable for a given failure rather than restamping it each time it is re-reported.",
+        "type": "object",
+        "required": [
+          "dishonoured_on",
+          "amount_outstanding"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "dishonoured_on": {
+            "description": "Date the payment failed.",
+            "type": "string",
+            "format": "date"
+          },
+          "amount_outstanding": {
+            "description": "Total currently outstanding, not just the failed instalment.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "reason": {
+            "description": "Why the payment failed, in the insurer's own wording — \"insufficient funds\", \"account closed\", \"card expired\". Materially changes what the adviser does next, so worth carrying verbatim rather than mapping to an enum nobody agrees on.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "expected_lapse_on": {
+            "description": "When the policy will lapse if the arrears are not cleared. The single most actionable field here — it is what turns a list of dishonours into a prioritised worklist.",
+            "type": "string",
+            "format": "date"
+          },
+          "attempts": {
+            "description": "How many collection attempts have failed for this event.",
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "Policy": {
+        "title": "Policy",
+        "description": "One policy as the insurer holds it, with all of its benefits.",
+        "type": "object",
+        "required": [
+          "policy_id",
+          "insurer_id",
+          "status",
+          "policy_holder",
+          "covers"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "policy_id": {
+            "description": "The insurer's own policy or plan number, as it appears on correspondence and in the adviser portal. Stable for the life of the policy — this is the key a consumer reconciles on, so an insurer that renumbers a policy MUST surface the prior number in `previous_policy_id`.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "previous_policy_id": {
+            "description": "Prior number, where a policy has been renumbered or replaced.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "insurer_id": {
+            "$ref": "#/components/schemas/InsurerId"
+          },
+          "brand_id": {
+            "$ref": "#/components/schemas/BrandId"
+          },
+          "product_name": {
+            "$ref": "#/components/schemas/ProductName"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PolicyStatus"
+          },
+          "status_detail": {
+            "description": "The insurer's own wording for the status, where it carries more than the enum does.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "policy_holder": {
+            "$ref": "#/components/schemas/PolicyHolder"
+          },
+          "ownership": {
+            "$ref": "#/components/schemas/PolicyOwnership"
+          },
+          "distribution": {
+            "$ref": "#/components/schemas/Distribution"
+          },
+          "dates": {
+            "$ref": "#/components/schemas/PolicyDates"
+          },
+          "premium": {
+            "$ref": "#/components/schemas/PolicyPremium"
+          },
+          "covers": {
+            "description": "The benefits held under this policy. At least one — a policy with no benefits is not a policy. Where a benefit maps onto the shared cover vocabulary the insurer SHOULD populate `cover_type`; `benefit_name` always carries its own product wording.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/PolicyCover"
+            }
+          },
+          "arrears": {
+            "description": "Present only when the policy is behind on premium. Absence means the policy is paid up to `dates.paid_to`.",
+            "$ref": "#/components/schemas/Arrears"
+          },
+          "loadings": {
+            "description": "Underwriting loadings applied at issue, in the insurer's own wording.",
+            "type": "string",
+            "maxLength": 2000
+          },
+          "exclusions": {
+            "description": "Policy exclusions, in the insurer's own wording.",
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "PageInfo": {
+        "title": "PageInfo",
+        "description": "Continuation state for a paged collection. Absence of `next_cursor` is the ONLY reliable signal that a walk is complete — consumers MUST NOT infer completion from a short page, because a server may return fewer items than requested for its own reasons.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "next_cursor": {
+            "$ref": "#/components/schemas/Cursor"
+          },
+          "total_count": {
+            "description": "Total matching items, where the implementation can supply it cheaply. OPTIONAL and advisory: it may be an estimate and may change between pages, so it is for display only and MUST NOT be used to drive a pagination loop.",
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "SnapshotCoverage": {
+        "title": "SnapshotCoverage",
+        "description": "What this snapshot claims to contain. Absence means \"not in force\", but only within the declared scope — a consumer that asked for one adviser code must not lapse policies belonging to another.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "adviser_codes": {
+            "description": "The adviser codes this snapshot covers. When a request filtered on adviser codes, this echoes the effective set; otherwise it is every code the credential can see. Echoing it matters: it is how a consumer knows whether a code it expected was silently excluded, which would otherwise look identical to that adviser having no policies.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 32
+            }
+          },
+          "statuses": {
+            "description": "The policy statuses included. Defaults to the in-force states — `in_force`, `in_arrears` and `pending` — so a consumer MUST NOT infer from a default snapshot that a policy absent from it was cancelled rather than simply never reported.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PolicyStatus"
+            }
+          },
+          "includes_terminated": {
+            "description": "Whether terminal states appear at all in this snapshot.",
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "PolicyPage": {
+        "title": "PolicyPage",
+        "description": "One page of a snapshot. Every page of a given walk carries the same `snapshot_id` and `generated_at`, so a consumer can prove the pages it assembled belong together.",
+        "type": "object",
+        "required": [
+          "snapshot_id",
+          "generated_at",
+          "policies"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "snapshot_id": {
+            "description": "Identifies this consistent view of the book. Opaque and stable for the whole walk.\nA server MUST hold the snapshot stable while it is being paged: policies must not shift between pages because the underlying data changed mid-walk. Where an implementation cannot do that, it MUST issue a new `snapshot_id` and reject the stale cursor with `409` rather than quietly serving a mixture of two views — a consumer that reconciles across a shifted boundary will lose rows in exactly the way this whole file exists to prevent.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "generated_at": {
+            "description": "When the snapshot was taken. RFC 3339 with an explicit offset.",
+            "type": "string",
+            "format": "date-time"
+          },
+          "total_count": {
+            "description": "Total policies in the snapshot, across all pages. STRONGLY RECOMMENDED, and the reason is specific: it lets a consumer check the number it assembled against the number promised before it acts on absence. Without it, a walk that silently lost a page is undetectable.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "policies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Policy"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageInfo"
+          },
+          "complete": {
+            "description": "`true` on the final page of the walk, and only there. A convenience mirror of \"no `next_cursor`\", stated explicitly because it is the flag a consumer's reconciliation should gate on and an explicit signal is harder to get wrong than an inferred one.",
+            "type": "boolean",
+            "default": false
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/SnapshotCoverage"
+          }
+        }
+      },
+      "Problem": {
+        "title": "Problem",
+        "description": "An RFC 9457 problem details document.",
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status"
+        ],
+        "properties": {
+          "type": {
+            "description": "A URI identifying the problem kind. Use a registered value from `ProblemType` where one applies. Consumers branch on this field; `title` and `detail` are for humans.",
+            "type": "string",
+            "format": "uri",
+            "default": "about:blank"
+          },
+          "title": {
+            "description": "A short, human-readable summary of the problem kind. Stable per `type`.",
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code, repeated here so a logged problem is self-contained.",
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          },
+          "detail": {
+            "description": "A human-readable explanation specific to this occurrence. MUST NOT contain personal information about the insured — problem documents are logged widely on both sides.",
+            "type": "string"
+          },
+          "instance": {
+            "description": "A URI reference identifying this specific occurrence.",
+            "type": "string",
+            "format": "uri-reference"
+          },
+          "request_id": {
+            "description": "The value of the `X-Request-Id` header for the failed request, echoed so a consumer can quote one token when asking the insurer to investigate.",
+            "type": "string"
+          },
+          "errors": {
+            "description": "Field-level detail, present on validation failures. Each entry MUST carry a JSON Pointer to the offending member of the request body, so a consumer can highlight the exact control that was wrong rather than showing a whole-form error.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "pointer",
+                "detail"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "pointer": {
+                  "description": "RFC 6901 JSON Pointer into the request body.",
+                  "type": "string",
+                  "examples": [
+                    "/covers/1/waiting_period"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "value_supplied": {
+                  "description": "The rejected value, echoed for diagnosis. Omit where it is sensitive."
+                },
+                "values_supported": {
+                  "description": "The values that would have been accepted. Populating this turns a failed integration attempt into a self-service fix.",
+                  "type": "array",
+                  "items": {}
+                }
+              }
+            }
+          }
+        },
+        "examples": [
+          {
+            "type": "https://openlife.org.au/problems/unsupported-value",
+            "title": "Unsupported value",
+            "status": 422,
+            "detail": "This product does not offer a 730 day waiting period.",
+            "request_id": "01JQ8Z9YB4T7M2XR",
+            "errors": [
+              {
+                "pointer": "/covers/1/waiting_period",
+                "detail": "Not offered for this product.",
+                "value_supplied": "730d",
+                "values_supported": [
+                  "30d",
+                  "60d",
+                  "90d"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "Capabilities": {
+        "title": "Capabilities",
+        "description": "What this implementation of the policy contract supports.",
+        "type": "object",
+        "required": [
+          "spec_version",
+          "insurer_id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "spec_version": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$",
+            "examples": [
+              "0.1.0"
+            ]
+          },
+          "insurer_id": {
+            "$ref": "#/components/schemas/InsurerId"
+          },
+          "brands": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "brand_id",
+                "name"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "brand_id": {
+                  "$ref": "#/components/schemas/BrandId"
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 120
+                }
+              }
+            }
+          },
+          "snapshot": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "max_page_size": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "snapshot_stable_for_seconds": {
+                "description": "How long a `snapshot_id` and its cursors stay valid. A consumer sizes its page requests and its overall walk budget against this, so that a large book can be paged before the snapshot expires underneath it.",
+                "type": "integer",
+                "minimum": 60
+              },
+              "typical_generation_seconds": {
+                "description": "Roughly how long the insurer takes to assemble a snapshot. Advisory, but it tells a consumer whether a daily pull is a quick call or something to start well before it is needed.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "statuses_available": {
+                "description": "The statuses this implementation can report at all.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PolicyStatus"
+                }
+              },
+              "supports_terminated": {
+                "description": "Whether ended policies can be requested.",
+                "type": "boolean",
+                "default": false
+              }
+            }
+          },
+          "incremental": {
+            "description": "Optional, and deliberately so. The snapshot is the required path — it is the smallest thing an insurer can build and the only one whose absence semantics let a consumer detect a lapse without tombstones. An insurer with a large book may additionally offer `changed_since`, which is far cheaper on both sides for a daily run, but it is an optimisation on top of the snapshot rather than a replacement for it.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "supported": {
+                "type": "boolean",
+                "default": false
+              },
+              "reports_terminations": {
+                "description": "Whether an incremental response includes policies that ENDED since the timestamp. Without this, a consumer cannot use incremental alone — a lapse is invisible in a feed that only reports what still exists — and must keep pulling periodic snapshots to catch them.",
+                "type": "boolean",
+                "default": false
+              },
+              "max_lookback_days": {
+                "description": "How far back `changed_since` may reach.",
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "fields": {
+            "description": "Which optional parts of the record this insurer actually populates. A consumer uses this to distinguish \"this insurer never reports it\" from \"this policy does not have one\" — which otherwise look identical, and which lead to very different conclusions about a book.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "arrears": {
+                "type": "boolean",
+                "default": false
+              },
+              "expected_lapse_date": {
+                "type": "boolean",
+                "default": false
+              },
+              "commission_splits": {
+                "type": "boolean",
+                "default": false
+              },
+              "policy_holder_contact": {
+                "description": "Whether email, phone and address are populated.",
+                "type": "boolean",
+                "default": false
+              },
+              "cover_type_mapping": {
+                "description": "Whether benefits carry `cover_type` mapped to the shared vocabulary, or only the insurer's own `benefit_name`.",
+                "type": "boolean",
+                "default": false
+              },
+              "loadings_and_exclusions": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          },
+          "webhooks": {
+            "description": "Whether this implementation can push the events declared in the contract's `webhooks` block, rather than waiting to be polled. Optional throughout: pushing means outbound egress, retries, dead-lettering and endpoint management, which is a substantially larger build than serving a paged read. Every event here is also observable by comparing snapshots — just later.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "supported": {
+                "type": "boolean",
+                "default": false
+              },
+              "events": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "policy.status_changed",
+                    "policy.arrears_raised",
+                    "policy.arrears_cleared"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "headers": {
+      "XRequestId": {
+        "description": "Correlation identifier, echoed from the request or generated by the server when the request did not carry one. REQUIRED on every response, including errors.\nThis is not ceremony. A consumer of several insurers investigating \"the premium was wrong last Tuesday\" has to be able to hand one token to one insurer's support desk; without it, the only shared identifier is a timestamp.",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "example": "01JQ8Z9YB4T7M2XR5K3P"
+      },
+      "SpecVersion": {
+        "description": "The version of this standard the response was produced against. Lets a consumer detect an implementation that has moved without announcement.",
+        "schema": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "example": "0.1.0"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "The request could not be parsed, or a value was structurally invalid. Problem type `invalid-request`.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "No access token was presented, or it was malformed or expired. Problem type `unauthenticated`.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "WWW-Authenticate": {
+            "description": "RFC 6750 challenge.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "The token is valid but lacks the scope required for this operation, or names a campaign the consumer is not authorised for. Problem type `forbidden`.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "UnprocessableEntity": {
+        "description": "The request was well formed but cannot be priced as asked — an unsupported cover, an unsupported option value, or a combination the product does not permit. Problem types `unsupported-cover`, `unsupported-value`, `invalid-combination`, `incomplete-request`.\nNOTE the boundary: this status is for a request the insurer will not accept. An insurer that accepts the request but cannot assemble the covers returns 200 with the line flagged `all_needs_met: false`.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "Rate limit exceeded. Problem type `rate-limited`. `Retry-After` is REQUIRED — without it a consumer fanning out across several insurers has no basis for a backoff and will retry into the limit.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "description": "Seconds to wait before retrying.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Unexpected failure. Problem type `internal-error`.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "A dependency of the pricing engine is unavailable. Problem type `upstream-unavailable`. Distinguished from `internal-error` so a consumer can retry this and not that.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Unknown identifier. Problem type `not-found`.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      },
+      "Gone": {
+        "description": "The endpoint is permanently retired — stop delivering to it. Used on webhook receivers so a publisher has a defined way to close a dead subscription, rather than retrying into a black hole until someone notices the queue depth. Problem type `endpoint-retired`.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          }
+        }
+      }
+    }
+  }
+}

@@ -11,7 +11,7 @@ BadRequest:
   content:
     application/problem+json:
       schema:
-        $ref: '../../../core/schemas/problems.yaml#/Problem'
+        $ref: '../schemas/problems.yaml#/Problem'
   headers:
     X-Request-Id:
       $ref: 'headers.yaml#/XRequestId'
@@ -23,7 +23,7 @@ Unauthorized:
   content:
     application/problem+json:
       schema:
-        $ref: '../../../core/schemas/problems.yaml#/Problem'
+        $ref: '../schemas/problems.yaml#/Problem'
   headers:
     WWW-Authenticate:
       description: RFC 6750 challenge.
@@ -39,7 +39,7 @@ Forbidden:
   content:
     application/problem+json:
       schema:
-        $ref: '../../../core/schemas/problems.yaml#/Problem'
+        $ref: '../schemas/problems.yaml#/Problem'
   headers:
     X-Request-Id:
       $ref: 'headers.yaml#/XRequestId'
@@ -49,7 +49,7 @@ NotFound:
   content:
     application/problem+json:
       schema:
-        $ref: '../../../core/schemas/problems.yaml#/Problem'
+        $ref: '../schemas/problems.yaml#/Problem'
   headers:
     X-Request-Id:
       $ref: 'headers.yaml#/XRequestId'
@@ -61,7 +61,7 @@ Conflict:
   content:
     application/problem+json:
       schema:
-        $ref: '../../../core/schemas/problems.yaml#/Problem'
+        $ref: '../schemas/problems.yaml#/Problem'
   headers:
     X-Request-Id:
       $ref: 'headers.yaml#/XRequestId'
@@ -78,7 +78,7 @@ UnprocessableEntity:
   content:
     application/problem+json:
       schema:
-        $ref: '../../../core/schemas/problems.yaml#/Problem'
+        $ref: '../schemas/problems.yaml#/Problem'
   headers:
     X-Request-Id:
       $ref: 'headers.yaml#/XRequestId'
@@ -91,7 +91,7 @@ TooManyRequests:
   content:
     application/problem+json:
       schema:
-        $ref: '../../../core/schemas/problems.yaml#/Problem'
+        $ref: '../schemas/problems.yaml#/Problem'
   headers:
     Retry-After:
       description: Seconds to wait before retrying.
@@ -107,7 +107,7 @@ InternalError:
   content:
     application/problem+json:
       schema:
-        $ref: '../../../core/schemas/problems.yaml#/Problem'
+        $ref: '../schemas/problems.yaml#/Problem'
   headers:
     X-Request-Id:
       $ref: 'headers.yaml#/XRequestId'
@@ -119,11 +119,24 @@ ServiceUnavailable:
   content:
     application/problem+json:
       schema:
-        $ref: '../../../core/schemas/problems.yaml#/Problem'
+        $ref: '../schemas/problems.yaml#/Problem'
   headers:
     Retry-After:
       schema:
         type: integer
         minimum: 0
+    X-Request-Id:
+      $ref: 'headers.yaml#/XRequestId'
+
+Gone:
+  description: >-
+    The endpoint is permanently retired — stop delivering to it. Used on webhook receivers so a
+    publisher has a defined way to close a dead subscription, rather than retrying into a black hole
+    until someone notices the queue depth. Problem type `endpoint-retired`.
+  content:
+    application/problem+json:
+      schema:
+        $ref: '../schemas/problems.yaml#/Problem'
+  headers:
     X-Request-Id:
       $ref: 'headers.yaml#/XRequestId'

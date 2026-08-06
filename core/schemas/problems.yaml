@@ -98,6 +98,8 @@ ProblemType:
       incomplete-request    422  a conditionally required field was absent
       idempotency-conflict  409  key reused with a different request body
       rate-limited          429  quota exceeded; `Retry-After` MUST be present
+      endpoint-retired      410  a webhook receiver has permanently closed this subscription
+      snapshot-expired      409  the paged snapshot being walked has expired or been rebuilt
       internal-error        500  unexpected failure
       upstream-unavailable  503  a dependency of the pricing engine is unavailable
 
@@ -116,6 +118,8 @@ ProblemType:
     - 'https://openlife.org.au/problems/invalid-combination'
     - 'https://openlife.org.au/problems/incomplete-request'
     - 'https://openlife.org.au/problems/idempotency-conflict'
+    - 'https://openlife.org.au/problems/endpoint-retired'
+    - 'https://openlife.org.au/problems/snapshot-expired'
     - 'https://openlife.org.au/problems/rate-limited'
     - 'https://openlife.org.au/problems/internal-error'
     - 'https://openlife.org.au/problems/upstream-unavailable'
