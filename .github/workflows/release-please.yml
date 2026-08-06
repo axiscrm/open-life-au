@@ -4,9 +4,25 @@ name: 📦 Release
 # `quoting-v*`, `core-v*` or `policy-v*` independently, so an insurer implementing quoting is never
 # asked to care that another contract moved.
 
+# PARKED — manual trigger only, deliberately.
+#
+# While the contract is being shaped, every version should be one someone chose. Left on `push`,
+# release-please would open and continuously update a release PR from conventional commits, and a
+# `feat:` or `fix:` would move the version without anyone deciding to.
+#
+# Nothing is lost by parking it: release-please reconstructs the pending release from commit history
+# whenever it next runs, so the changelog for work done in the meantime is not forgotten.
+#
+# To re-enable, restore the `push` trigger below and make sure the release bot App is installed with
+# `RELEASE_BOT_APP_ID` / `RELEASE_BOT_PRIVATE_KEY` available to this repository:
+#
+#   on:
+#     push:
+#       branches: [main]
+#
+# Until then this can be run by hand from the Actions tab when a release is genuinely wanted.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write

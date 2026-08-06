@@ -17,7 +17,7 @@
     "bundle": "npm run bundle:quoting",
     "bundle:quoting": "redocly bundle domains/quoting/openapi.yaml -o dist/quoting/openapi.yaml && redocly bundle domains/quoting/openapi.yaml -o dist/quoting/openapi.json",
     "docs": "redocly build-docs domains/quoting/openapi.yaml -o site/quoting/index.html",
-    "postman": "openapi2postmanv2 -s dist/quoting/openapi.yaml -o postman/quoting.postman_collection.json -p -O folderStrategy=Tags,requestParametersResolution=Example",
+    "postman": "node scripts/build-postman.mjs",
     "mock": "prism mock dist/quoting/openapi.yaml --port 4010",
     "proxy": "prism proxy dist/quoting/openapi.yaml",
     "examples": "node scripts/validate-examples.mjs",
@@ -35,7 +35,6 @@
     "@stoplight/prism-cli": "^5.14.2",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
-    "openapi-to-postmanv2": "^6.3.2",
     "typescript": "^5.9.3",
     "yaml": "^2.8.1"
   },

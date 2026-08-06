@@ -24,13 +24,6 @@
       "expires": "2026-11-06"
     },
     {
-      "advisory": "GHSA-48c2-rrv3-qjmp",
-      "package": "yaml",
-      "severity": "moderate",
-      "reason": "Stack overflow on deeply nested YAML, affecting yaml 1.x. Reaches us only as yaml@1.10.3 under openapi3-ts inside @stoplight/prism-cli. Our own direct dependency is yaml@2.x, which is not in the affected range. The only YAML Prism reads is our committed contract, whose nesting depth is bounded and reviewed. No fix available upstream.",
-      "expires": "2026-11-06"
-    },
-    {
       "advisory": "GHSA-w5hq-g745-h8pq",
       "package": "uuid",
       "severity": "moderate",
