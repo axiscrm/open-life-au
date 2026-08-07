@@ -13,8 +13,7 @@ name: 📦 Release
 # Nothing is lost by parking it: release-please reconstructs the pending release from commit history
 # whenever it next runs, so the changelog for work done in the meantime is not forgotten.
 #
-# To re-enable, restore the `push` trigger below and make sure the release bot App is installed with
-# `RELEASE_BOT_APP_ID` / `RELEASE_BOT_PRIVATE_KEY` available to this repository:
+# To re-enable, restore the `push` trigger below:
 #
 #   on:
 #     push:
@@ -39,24 +38,24 @@ jobs:
       core_release_created: ${{ steps.release.outputs['core--release_created'] }}
       policy_release_created: ${{ steps.release.outputs['domains/policy--release_created'] }}
     steps:
-      # Mint a GitHub App installation token so the release PR is opened by the app identity rather
-      # than the github-actions bot. PRs opened with the default GITHUB_TOKEN have their workflows
-      # held behind GitHub's manual "Approve workflows to run" gate — an anti-recursion guard — on
-      # EVERY release PR, which means CI never runs on the one PR whose contents are generated. We
-      # hit this in the CRM monorepo (AX-1340); it is cheap to set up now and irritating to
-      # retrofit.
+      # Plain GITHUB_TOKEN, deliberately — no GitHub App.
       #
-      # Needs repo variable RELEASE_BOT_APP_ID and secret RELEASE_BOT_PRIVATE_KEY.
-      - id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
-          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
-
+      # The App exists to dodge one annoyance: a PR opened with GITHUB_TOKEN has its workflows held
+      # behind GitHub's manual "Approve workflows to run" gate, an anti-recursion guard, so CI does not
+      # run on the release PR until someone clicks. In the CRM monorepo that mattered, because releases
+      # are frequent and deploys hang off them (AX-1340).
+      #
+      # Here it does not. Releases are deliberate and occasional, and this workflow is manual-trigger
+      # only — so the cost is one click by the person who just chose to cut a release, on a PR whose
+      # contents are generated and predictable. Against that: an App to register and install, a private
+      # key to store and rotate, and a dependency on credentials owned by another repo's operations.
+      #
+      # If release PRs ever become frequent enough for the click to grate, adding the App back is a
+      # ten-minute change: mint a token with actions/create-github-app-token and pass it as `token`.
       - id: release
         uses: googleapis/release-please-action@v4
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
 # Docs publishing deliberately does NOT live here. GitHub Pages has a single deployment target, so
 # two workflows deploying it race and whichever finishes last wins arbitrarily — which would mean the
