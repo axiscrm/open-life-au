@@ -94,13 +94,21 @@ npm run postman     # regenerate the collection
 npm run audit       # dependency advisories, via the reviewed-exceptions gate
 
 # Generators — slower, so not part of `verify`. CI runs all six in parallel on every change.
+#
+# FIVE OF THE SIX NEED A JDK, not just the Java one: openapi-generator is a Java tool behind an
+# npm wrapper and it also emits Ruby, Go, C# and one of the three TypeScript options. It does NOT
+# need those languages installed — only Java. `.java-version` pins 21 to match CI; honoured by
+# jenv, asdf and mise, and ignored harmlessly otherwise.
+#
+# On macOS, beware /usr/bin/java: it is a STUB that exists on PATH and reports "Unable to locate a
+# Java Runtime" when called. `java -version` tells you the truth; `command -v java` does not.
 npm run codegen               # all six, sequentially
 npm run codegen:typescript    # needs Node, and a JDK for the typescript-fetch option
 npm run codegen:python        # needs uv (or adapt to pipx/pip) — the only one with no JDK
-npm run codegen:java          # needs a JDK 17+
-npm run codegen:csharp        # needs a JDK 17+
-npm run codegen:go            # needs a JDK 17+
-npm run codegen:ruby          # needs a JDK 17+
+npm run codegen:java          # needs a JDK
+npm run codegen:csharp        # needs a JDK
+npm run codegen:go            # needs a JDK
+npm run codegen:ruby          # needs a JDK
 ```
 
 The codegen checks exist because a valid OpenAPI document is not the same as a usable one, and this
