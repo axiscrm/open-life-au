@@ -210,6 +210,7 @@ paths:
             - occupations.read
       parameters:
         - $ref: '#/components/parameters/OccupationQuery'
+        - $ref: '#/components/parameters/OccupationIncome'
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/RequestId'
@@ -345,6 +346,19 @@ components:
       schema:
         type: string
         maxLength: 100
+    OccupationIncome:
+      name: income
+      in: query
+      description: |-
+        The insured's gross annual income, so the insurer can return the occupation row that actually applies to them.
+        Real occupation lists band on earnings — one insurer publishes "Accountant - earning less than $120,000 and not degree qualified" beside "Accountant - relevant degree or earning more than $120,000", and the two rate differently. Without an income a consumer building an occupation picker either shows every band and asks the adviser to choose, or shows one and hopes.
+        OPTIONAL, and a server that does not band on income MUST ignore it rather than reject it. Sent as a whole number of dollars: a band boundary does not turn on cents, and rounding here keeps the field from being more identifying than it needs to be.
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 100000000
+      example: 145000
     Cursor:
       name: cursor
       in: query
@@ -363,6 +377,43 @@ components:
         maximum: 500
         default: 100
   schemas:
+    Decimal:
+      title: Decimal
+      description: A fixed-point decimal amount serialised as a string, with at most two fractional digits. Scientific notation, thousands separators, currency symbols and leading `+` are not permitted. Implementations MUST NOT normalise `"0.00"` to `"0"` or vice versa when echoing a value back — but consumers MUST treat the two as numerically equal.
+      type: string
+      pattern: ^-?\d{1,12}(\.\d{1,2})?$
+      examples:
+        - '1234.56'
+        - '0'
+        - '-19.95'
+    Money:
+      title: Money
+      description: An amount of money. Currency is carried explicitly even though this standard is Australia-only, so a future market does not become a breaking change.
+      type: object
+      required:
+        - amount
+        - currency
+      additionalProperties: false
+      properties:
+        amount:
+          $ref: '#/components/schemas/Decimal'
+        currency:
+          title: CurrencyCode
+          description: ISO 4217 alphabetic code. Only AUD is defined by this version of the standard.
+          type: string
+          const: AUD
+      examples:
+        - amount: '1000000.00'
+          currency: AUD
+    NonNegativeMoney:
+      title: NonNegativeMoney
+      description: Money that cannot be negative — sums insured, premiums, stamp duty, policy fees. A negative value here is always a defect, so it is rejected at the schema boundary rather than surfacing as a nonsensical premium.
+      allOf:
+        - $ref: '#/components/schemas/Money'
+        - properties:
+            amount:
+              type: string
+              pattern: ^\d{1,12}(\.\d{1,2})?$
     ClientReference:
       title: ClientReference
       description: |-
@@ -406,43 +457,6 @@ components:
         - pensioner
         - unemployed
         - student
-    Decimal:
-      title: Decimal
-      description: A fixed-point decimal amount serialised as a string, with at most two fractional digits. Scientific notation, thousands separators, currency symbols and leading `+` are not permitted. Implementations MUST NOT normalise `"0.00"` to `"0"` or vice versa when echoing a value back — but consumers MUST treat the two as numerically equal.
-      type: string
-      pattern: ^-?\d{1,12}(\.\d{1,2})?$
-      examples:
-        - '1234.56'
-        - '0'
-        - '-19.95'
-    Money:
-      title: Money
-      description: An amount of money. Currency is carried explicitly even though this standard is Australia-only, so a future market does not become a breaking change.
-      type: object
-      required:
-        - amount
-        - currency
-      additionalProperties: false
-      properties:
-        amount:
-          $ref: '#/components/schemas/Decimal'
-        currency:
-          title: CurrencyCode
-          description: ISO 4217 alphabetic code. Only AUD is defined by this version of the standard.
-          type: string
-          const: AUD
-      examples:
-        - amount: '1000000.00'
-          currency: AUD
-    NonNegativeMoney:
-      title: NonNegativeMoney
-      description: Money that cannot be negative — sums insured, premiums, stamp duty, policy fees. A negative value here is always a defect, so it is rejected at the schema boundary rather than surfacing as a nonsensical premium.
-      allOf:
-        - $ref: '#/components/schemas/Money'
-        - properties:
-            amount:
-              type: string
-              pattern: ^\d{1,12}(\.\d{1,2})?$
     OccupationQualifiers:
       title: OccupationQualifiers
       description: The risk discriminators that sit beneath an occupation code. Every field is optional, and an absent field means "not stated" rather than "no" — an insurer SHOULD rate an unstated qualifier at its own default and MUST NOT infer a favourable answer from silence.
@@ -803,7 +817,9 @@ components:
             Where present this replaces the policy-level entry for this cover entirely — it does not merge.
           $ref: '#/components/schemas/CoverLoadings'
         linked_to:
-          description: The `cover_id` of the parent cover, when this cover is held as an extension of it. MUST reference a cover present in the same request, MUST NOT be self-referential, and the graph of links MUST be acyclic. Absent means the cover is standalone.
+          description: |-
+            The `cover_id` of the parent cover, when this cover is held as an extension of it. MUST reference a cover present in the same request, MUST NOT be self-referential, and the graph of links MUST be acyclic. Absent means the cover is standalone.
+            AN EXTENSION MUST NOT EXCEED WHAT IT EXTENDS. Paying an extension benefit reduces its parent by the same amount, so a `sum_insured` larger than the parent's describes a reduction that cannot happen. This is impossible at every insurer, not merely declined by some, so a server MUST answer it with 422 `invalid-combination` rather than with a declined line. JSON Schema cannot compare two members of the same array, which is why it is stated here and tested by the conformance suite.
           $ref: '#/components/schemas/CoverId'
         link_type:
           $ref: '#/components/schemas/LinkType'
@@ -1187,12 +1203,57 @@ components:
             rate: '5'
     QuoteRequest:
       title: QuoteRequest
-      description: 'A request to price one or more covers for one insured. A response to this is a set of priced lines, not a single price: an insurer may return several lines for one request where it has more than one brand, product combination or campaign variant that satisfies the covers asked for.'
+      description: |-
+        A request to price one or more covers for one insured. A response to this is a set of priced lines, not a single price: an insurer may return several lines for one request where it has more than one brand, product combination or campaign variant that satisfies the covers asked for.
+        ## Combinations no insurer can write
+        Some requests are not merely unlikely to be accepted — they cannot be issued by anyone, and the standard says so here rather than leaving every implementation to discover it and every consumer to learn it one decline at a time.
+        THE DISTINCTION THAT DECIDES WHICH IS WHICH. A request that is impossible **at every insurer**, for reasons visible in the request itself, is a `422` with `invalid-combination`. A request that THIS insurer cannot write — its own limits, its own product range, its own underwriting — is a priced-lines response carrying a declined line with `all_needs_met: false` and a reason. The first is a bug in the consumer; the second is an answer.
+        Servers MUST reject the following with `422` rather than declining them, and consumers SHOULD not send them:
+        1. **A monthly benefit above the insured's income.** Income protection and business expenses
+           replace earnings; no product in this market insures more than 100% of them, and most cap
+           far lower. A benefit above `annual_income / 12` is therefore impossible everywhere. The
+           insurer's own ceiling — commonly 70% — is declared as
+           `max_income_replacement_percent` in its capability document, and a request between that
+           ceiling and 100% is a DECLINE, not a rejection, because another insurer may write it.
+        2. **An extension larger than the cover it extends.** An extension reduces its parent when
+           paid, so a `linked_to` cover whose `sum_insured` exceeds its parent's describes a benefit
+           that cannot exist.
+        3. **Income cover for someone with no income.** An income protection or business expenses
+           cover alongside an `employment_status` of `home_duties`, `retired`, `pensioner`,
+           `unemployed` or `student`. There is no earned income to replace. Engines commonly answer
+           this by pricing nothing at all, with no explanation, which is the worst of both.
+        4. **A missing income when one is needed.** `annual_income` is REQUIRED whenever income
+           protection or business expenses is requested — rule 1 cannot be applied without it, and an
+           insurer that prices anyway is guessing.
+
+        Rules 2 and 4 are enforced by this schema. Rules 1 and 3 are stated normatively and tested by the conformance suite: JSON Schema cannot compare a benefit against an income, nor a cover against a sibling's employment status.
       type: object
       required:
         - insured
         - covers
       additionalProperties: false
+      allOf:
+        - if:
+            properties:
+              covers:
+                contains:
+                  properties:
+                    cover_type:
+                      enum:
+                        - income_protection
+                        - business_expenses
+                  required:
+                    - cover_type
+            required:
+              - covers
+          then:
+            properties:
+              insured:
+                properties:
+                  annual_income:
+                    $ref: '#/components/schemas/NonNegativeMoney'
+                required:
+                  - annual_income
       properties:
         client_reference:
           $ref: '#/components/schemas/ClientReference'
@@ -2226,6 +2287,12 @@ components:
           type: array
           items:
             type: string
+        max_income_replacement_percent:
+          description: |-
+            The largest share of the insured's income this insurer will replace across all income-based covers combined, as a percentage. Commonly 70.
+            Declared so a consumer can keep an adviser inside what is actually issuable while they are still typing, rather than discovering it as a declined line after a pricing call. It is a CEILING, not a promise: the amount finally offered also depends on occupation, product and underwriting, so a request within this figure may still be declined.
+            Distinct from the absolute bound the standard places on everyone. A benefit above 100% of income is impossible at every insurer and is a 422; a benefit between this figure and 100% is a decline here and may be priced by another insurer.
+          $ref: '#/components/schemas/Percentage'
         features:
           description: Optional parts of the standard this implementation provides.
           type: object
@@ -2385,6 +2452,12 @@ components:
       properties:
         occupation:
           $ref: '#/components/schemas/OccupationRef'
+        annual_income:
+          description: |-
+            The insured's gross annual income, where the insurer bands occupations on earnings.
+            Matters more here than on the list operation: `:match` returns RANKED CANDIDATES, and without an income an insurer banding on earnings cannot rank them — "Accountant earning under $120,000" and "Accountant earning over $120,000" are equally good matches for "Accountant", and whichever the insurer picks it may be the wrong one at a plausible premium.
+            OPTIONAL. A server that does not band on income MUST ignore it rather than reject it.
+          $ref: '#/components/schemas/NonNegativeMoney'
         max_candidates:
           type: integer
           minimum: 1

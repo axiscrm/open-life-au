@@ -154,6 +154,13 @@ CoverBase:
         The `cover_id` of the parent cover, when this cover is held as an extension of it.
         MUST reference a cover present in the same request, MUST NOT be self-referential, and
         the graph of links MUST be acyclic. Absent means the cover is standalone.
+
+        AN EXTENSION MUST NOT EXCEED WHAT IT EXTENDS. Paying an extension benefit reduces its
+        parent by the same amount, so a `sum_insured` larger than the parent's describes a
+        reduction that cannot happen. This is impossible at every insurer, not merely declined by
+        some, so a server MUST answer it with 422 `invalid-combination` rather than with a declined
+        line. JSON Schema cannot compare two members of the same array, which is why it is stated
+        here and tested by the conformance suite.
       $ref: '../../../../core/schemas/identifiers.yaml#/CoverId'
     link_type:
       $ref: '#/LinkType'

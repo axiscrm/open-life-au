@@ -21,6 +21,7 @@ get:
     - oauth2: [occupations.read]
   parameters:
     - $ref: '../components/parameters.yaml#/OccupationQuery'
+    - $ref: '../components/parameters.yaml#/OccupationIncome'
     - $ref: '../components/parameters.yaml#/Cursor'
     - $ref: '../components/parameters.yaml#/Limit'
     - $ref: '../components/parameters.yaml#/RequestId'

@@ -28,6 +28,28 @@ RequestId:
     type: string
     maxLength: 128
 
+OccupationIncome:
+  name: income
+  in: query
+  description: >-
+    The insured's gross annual income, so the insurer can return the occupation row that actually
+    applies to them.
+
+    Real occupation lists band on earnings — one insurer publishes "Accountant - earning less than
+    $120,000 and not degree qualified" beside "Accountant - relevant degree or earning more than
+    $120,000", and the two rate differently. Without an income a consumer building an occupation
+    picker either shows every band and asks the adviser to choose, or shows one and hopes.
+
+    OPTIONAL, and a server that does not band on income MUST ignore it rather than reject it. Sent
+    as a whole number of dollars: a band boundary does not turn on cents, and rounding here keeps
+    the field from being more identifying than it needs to be.
+  required: false
+  schema:
+    type: integer
+    minimum: 0
+    maximum: 100000000
+  example: 145000
+
 OccupationQuery:
   name: q
   in: query

@@ -147,6 +147,34 @@ const CASES = [
         doc: { insured, covers: [life()], projection: { indexation: { rate: "5" } } },
     },
     {
+        name: "income protection with no annual_income on the insured",
+        why: "a benefit expressed as a share of earnings cannot be checked without them",
+        doc: {
+            insured,
+            covers: [
+                {
+                    cover_id: "ip-1",
+                    cover_type: "income_protection",
+                    monthly_benefit: AUD("8000.00"),
+                },
+            ],
+        },
+    },
+    {
+        name: "business expenses with no annual_income on the insured",
+        why: "same rule — the cap is a proportion of income, so the income is mandatory",
+        doc: {
+            insured,
+            covers: [
+                {
+                    cover_id: "be-1",
+                    cover_type: "business_expenses",
+                    monthly_benefit: AUD("10000.00"),
+                },
+            ],
+        },
+    },
+    {
         name: "a loading keyed on needle_stick",
         why: "only the five loadable benefits have a loading axis",
         doc: {

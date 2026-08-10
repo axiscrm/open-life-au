@@ -96,6 +96,21 @@ Capabilities:
       items:
         type: string
 
+    max_income_replacement_percent:
+      description: >-
+        The largest share of the insured's income this insurer will replace across all
+        income-based covers combined, as a percentage. Commonly 70.
+
+        Declared so a consumer can keep an adviser inside what is actually issuable while they are
+        still typing, rather than discovering it as a declined line after a pricing call. It is a
+        CEILING, not a promise: the amount finally offered also depends on occupation, product and
+        underwriting, so a request within this figure may still be declined.
+
+        Distinct from the absolute bound the standard places on everyone. A benefit above 100% of
+        income is impossible at every insurer and is a 422; a benefit between this figure and 100%
+        is a decline here and may be priced by another insurer.
+      $ref: '../../../../core/schemas/money.yaml#/Percentage'
+
     features:
       description: Optional parts of the standard this implementation provides.
       type: object

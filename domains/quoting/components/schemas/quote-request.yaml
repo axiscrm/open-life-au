@@ -14,9 +14,70 @@ QuoteRequest:
     lines, not a single price: an insurer may return several lines for one request where it has
     more than one brand, product combination or campaign variant that satisfies the covers asked
     for.
+
+    ## Combinations no insurer can write
+
+    Some requests are not merely unlikely to be accepted — they cannot be issued by anyone, and the
+    standard says so here rather than leaving every implementation to discover it and every
+    consumer to learn it one decline at a time.
+
+    THE DISTINCTION THAT DECIDES WHICH IS WHICH. A request that is impossible **at every insurer**,
+    for reasons visible in the request itself, is a `422` with `invalid-combination`. A request that
+    THIS insurer cannot write — its own limits, its own product range, its own underwriting — is a
+    priced-lines response carrying a declined line with `all_needs_met: false` and a reason. The
+    first is a bug in the consumer; the second is an answer.
+
+    Servers MUST reject the following with `422` rather than declining them, and consumers SHOULD
+    not send them:
+
+    1. **A monthly benefit above the insured's income.** Income protection and business expenses
+       replace earnings; no product in this market insures more than 100% of them, and most cap
+       far lower. A benefit above `annual_income / 12` is therefore impossible everywhere. The
+       insurer's own ceiling — commonly 70% — is declared as
+       `max_income_replacement_percent` in its capability document, and a request between that
+       ceiling and 100% is a DECLINE, not a rejection, because another insurer may write it.
+    2. **An extension larger than the cover it extends.** An extension reduces its parent when
+       paid, so a `linked_to` cover whose `sum_insured` exceeds its parent's describes a benefit
+       that cannot exist.
+    3. **Income cover for someone with no income.** An income protection or business expenses
+       cover alongside an `employment_status` of `home_duties`, `retired`, `pensioner`,
+       `unemployed` or `student`. There is no earned income to replace. Engines commonly answer
+       this by pricing nothing at all, with no explanation, which is the worst of both.
+    4. **A missing income when one is needed.** `annual_income` is REQUIRED whenever income
+       protection or business expenses is requested — rule 1 cannot be applied without it, and an
+       insurer that prices anyway is guessing.
+
+    Rules 2 and 4 are enforced by this schema. Rules 1 and 3 are stated normatively and tested by
+    the conformance suite: JSON Schema cannot compare a benefit against an income, nor a cover
+    against a sibling's employment status.
   type: object
   required: [insured, covers]
   additionalProperties: false
+  allOf:
+    # Rule 4, enforced. `annual_income` is optional in general — a life-only quote has no use for
+    # it, and the contract's privacy stance is that a field with no purpose should not be collected
+    # — but it is mandatory the moment a benefit is expressed as a share of earnings.
+    - if:
+        properties:
+          covers:
+            contains:
+              properties:
+                cover_type:
+                  enum: [income_protection, business_expenses]
+              required: [cover_type]
+        required: [covers]
+      then:
+        properties:
+          insured:
+            # `annual_income` is restated here as an unconstrained property as well as being
+            # required. The `no-required-schema-properties-undefined` lint rule inspects each
+            # branch in isolation and does not follow the `$ref` on `insured`, so a bare `required`
+            # reads to it as naming an undefined member. Same workaround as the `else` branch on
+            # QuoteLine, for the same reason.
+            properties:
+              annual_income:
+                $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+            required: [annual_income]
   properties:
     client_reference:
       $ref: '../../../../core/schemas/identifiers.yaml#/ClientReference'
