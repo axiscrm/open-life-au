@@ -138,6 +138,12 @@
                   "disabled": true
                 },
                 {
+                  "key": "income",
+                  "value": "",
+                  "description": "The insured's gross annual income, so the insurer can return the occupation row that actually applies to them.",
+                  "disabled": true
+                },
+                {
                   "key": "cursor",
                   "value": "",
                   "description": "Continuation token from the previous page's `page.next_cursor`.",

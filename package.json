@@ -23,7 +23,7 @@
     "examples": "node scripts/validate-examples.mjs",
     "audit": "node scripts/npm-audit-gate.mjs --level moderate",
     "provenance": "node scripts/check-provenance.mjs",
-    "verify": "npm run lint && npm run bundle && npm run examples && npm run rejections && npm run provenance",
+    "verify": "npm run lint && npm run bundle && npm run examples && npm run rejections && npm run postman:check && npm run provenance",
     "rejections": "node scripts/check-rejections.mjs",
     "codegen:typescript": "bash scripts/check-codegen.sh typescript",
     "codegen:python": "bash scripts/check-codegen.sh python",
@@ -32,7 +32,8 @@
     "codegen:go": "bash scripts/check-codegen.sh go",
     "codegen:csharp": "bash scripts/check-codegen.sh csharp",
     "codegen": "for l in typescript python java ruby go csharp; do npm run codegen:$l || exit 1; done",
-    "bundle:policy": "redocly bundle domains/policy/openapi.yaml -o dist/policy/openapi.yaml && redocly bundle domains/policy/openapi.yaml -o dist/policy/openapi.json"
+    "bundle:policy": "redocly bundle domains/policy/openapi.yaml -o dist/policy/openapi.yaml && redocly bundle domains/policy/openapi.yaml -o dist/policy/openapi.json",
+    "postman:check": "npm run postman && git diff --exit-code -- postman/ || (echo '' && echo '\u2717 postman/ was stale. It has just been regenerated above \u2014 review and commit it.' && exit 1)"
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.99.0",
