@@ -131,7 +131,12 @@ case "$LANG_TARGET" in
     echo "✓ typescript (@hey-api): all operations present in both contracts"
 
     # typescript-fetch needs a JDK: openapi-generator is a Java tool behind an npm wrapper.
-    if command -v java >/dev/null 2>&1; then
+    #
+    # `java -version` rather than `command -v java`. macOS ships a STUB at /usr/bin/java that exists
+    # on PATH, satisfies `command -v`, and then answers "Unable to locate a Java Runtime" the moment
+    # it is called. So the presence check passed on a machine with no JDK, the generator ran anyway,
+    # and the job died mid-run with a Node stack trace instead of taking the skip branch below.
+    if java -version >/dev/null 2>&1; then
       for contract in quoting policy; do
         rm -rf "$OUT/ts-fetch-$contract"
         npx --yes $OG generate \
