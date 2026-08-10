@@ -27,8 +27,8 @@
     "premium_waiver": "prefer",
     "loadings": {
       "percentage": {
-        "life": 50,
-        "trauma": 0
+        "life": "50",
+        "trauma": "0"
       },
       "rate_per_thousand": {
         "life": "1.50"

@@ -60,16 +60,27 @@ NonNegativeMoney:
 Percentage:
   title: Percentage
   description: >-
-    A percentage expressed as a number (not a string, and not a 0-1 ratio): `25` means 25%.
-    Rates and percentages are numeric because they are inputs to arithmetic rather than
-    amounts to be stored to the cent, and at most three decimal places they are exactly
-    representable. `0` is a MEANINGFUL value — see the loadings schema, where an explicit
-    zero cancels an inherited loading and is not the same as omitting the field.
-  type: number
-  minimum: 0
-  maximum: 1000
-  multipleOf: 0.001
-  examples: [0, 25, 62.5]
+    A percentage serialised as a decimal string (not a 0-1 ratio): `'25'` means 25%. At most
+    three fractional digits, and at most 1000.
+
+    A string for the same reason as `Decimal` and `RatePerThousand`. This was a JSON number
+    until 0.2.0, justified on the grounds that percentages are inputs to arithmetic rather
+    than amounts stored to the cent, and that three decimal places are exactly representable.
+    The second half of that is not true: `0.001` has no exact IEEE-754 representation, so a
+    loading of `25.001` arrives as `25.000999...` in every generated client. More to the
+    point, the reasoning proved too clever — a loading percentage IS an input to pricing, and
+    it was the one remaining path by which a contract value reached a rating engine through a
+    double while every amount beside it travelled as a string. The inconsistency was visible
+    in this very file: `RatePerThousand` is the OTHER axis of the same loadings map and was
+    always a string.
+
+    `'0'` is a MEANINGFUL value — see the loadings schema, where an explicit zero cancels an
+    inherited loading and is not the same as omitting the field. Implementations MUST NOT
+    normalise `'0'` to `'0.000'` or vice versa when echoing a value back, and consumers MUST
+    treat the two as numerically equal.
+  type: string
+  pattern: '^(1000(\.0{1,3})?|\d{1,3}(\.\d{1,3})?)$'
+  examples: ['0', '25', '62.5', '12.375']
 
 RatePerThousand:
   title: RatePerThousand

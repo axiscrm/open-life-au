@@ -90,6 +90,10 @@ QuoteLine:
         not: {}
       cover_lines:
         maxItems: 0
+      # A projection of a price that does not exist. Forbidden on the same grounds as `premiums`:
+      # a declined line carrying a ten-year total is a number a consumer will put in a comparison.
+      projection:
+        not: {}
       errors:
         minItems: 1
     required: [errors]
@@ -210,6 +214,26 @@ QuoteLine:
       type: array
       items:
         $ref: '#/InclusionGroup'
+      default: []
+
+    projection:
+      description: >-
+        This line's cost projected forward. Present only where the request asked for a projection
+        and the insurer can produce one; a line where `all_needs_met` is `false` MUST NOT carry
+        one, since there is no premium to project.
+      $ref: '#/Projection'
+    research_scores:
+      description: >-
+        Third-party research ratings for this line, where the insurer publishes them.
+      $ref: '#/ResearchScores'
+    documents:
+      description: >-
+        Documents and links relating to THIS line — the product disclosure statement, a branded
+        quote report, a deep link into the insurer's own system to continue the application.
+      type: array
+      maxItems: 20
+      items:
+        $ref: '#/LineDocument'
       default: []
 
 InclusionGroup:
@@ -520,3 +544,211 @@ CoverLine:
         NOT reach the line total wherever a policy fee applies — read the line total, do not
         derive it.
       $ref: '#/PremiumSet'
+
+Projection:
+  title: Projection
+  description: >-
+    One line's cost projected forward, year by year, with the running total.
+
+    The year-by-year series is returned rather than a single headline number because a consumer
+    presents this several ways — average annual cost, cumulative cost, first year, final year —
+    and every one of those is derivable from the series. Returning only a total would force a
+    re-quote per presentation, which is what advisers do today.
+
+    THE BASIS MUST BE ECHOED. A projection with indexation applied and one without are different
+    questions with different answers, and a consumer comparing an indexed projection from one
+    insurer against a flat one from another gets a difference that has nothing to do with price.
+  type: object
+  required: [basis, total, years]
+  additionalProperties: false
+  properties:
+    basis:
+      $ref: '#/ProjectionBasis'
+    total:
+      description: >-
+        The cumulative cost over the whole horizon — the final year's `cumulative_total`, repeated
+        here so a consumer showing only the headline need not walk the series.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    years:
+      description: >-
+        One entry per projected year, ordered from `year: 0` (the current year, whose
+        `annual_total` MUST equal the annual figure in `premiums`) and contiguous thereafter.
+      type: array
+      minItems: 1
+      maxItems: 60
+      items:
+        $ref: '#/ProjectionYear'
+
+ProjectionBasis:
+  title: ProjectionBasis
+  description: >-
+    What the insurer actually projected, which is not always what was asked. An insurer that
+    applied a different indexation rate, or could not index some covers, says so here rather than
+    in `resolved_options`, because the answer is only interpretable alongside the numbers.
+  type: object
+  required: [years, indexed]
+  additionalProperties: false
+  properties:
+    years:
+      description: How many years the projection covers, matching the length of `years`.
+      type: integer
+      minimum: 1
+      maximum: 60
+    indexed:
+      description: Whether sums insured were grown across the projection.
+      type: boolean
+    indexation_rate:
+      description: >-
+        The annual rate actually applied. REQUIRED when `indexed` is `true` — including where the
+        insurer applied its own default because the request named no rate, which is the case a
+        consumer most needs told.
+      $ref: '../../../../core/schemas/money.yaml#/Percentage'
+    excluded_covers:
+      description: >-
+        `cover_id`s that were NOT indexed because the product does not index them, while the rest
+        of the projection was. Empty or absent means every cover was treated alike.
+
+        Real products do this — a child trauma benefit is commonly flat inside an otherwise
+        indexed policy — and without this field those covers' premiums are simply lower than a
+        consumer's own recalculation would predict, with nothing to attribute the difference to.
+      type: array
+      maxItems: 20
+      items:
+        $ref: '../../../../core/schemas/identifiers.yaml#/CoverId'
+      default: []
+
+ProjectionYear:
+  title: ProjectionYear
+  description: One year of a projection.
+  type: object
+  required: [year, annual_total, cumulative_total]
+  additionalProperties: false
+  properties:
+    year:
+      description: Offset from the current year. `0` is the year being quoted.
+      type: integer
+      minimum: 0
+      maximum: 59
+    age_next_birthday:
+      description: >-
+        The insured's age next birthday in that year, so a consumer can label the series by age
+        rather than by offset. Omitted where the request carried no age the insurer can advance.
+      type: integer
+      minimum: 0
+      maximum: 120
+    annual_total:
+      description: >-
+        The all-in cost for that year — premium plus stamp duty plus policy fee, on the same basis
+        as `PremiumBreakdown.total` at annual frequency.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    cumulative_total:
+      description: >-
+        The running total up to and including this year. Stated rather than left to the consumer
+        because rounding each year and summing gives a different answer from summing and rounding
+        once, and two consumers doing it differently is a comparison table that disagrees with
+        itself.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    sum_insured_indexed:
+      description: >-
+        Whether this year's figure reflects an indexed sum insured. Distinguishes the first year of
+        an indexed projection, which is normally unindexed, from the rest.
+      type: boolean
+      default: false
+
+ResearchScores:
+  title: ResearchScores
+  description: >-
+    Third-party research ratings for a line, as published by a research house.
+
+    NOT THE INSURER'S OWN OPINION, and the standard is deliberate about that. An insurer that
+    scored its own products here would be marking its own homework, so `provider` is REQUIRED and
+    a consumer that cannot attribute a score should not display it. Scores are only comparable
+    between lines rated by the same provider on the same dataset.
+
+    Optional throughout. Most insurers will not carry these at all; an aggregator or a research
+    licensee may.
+  type: object
+  required: [provider]
+  additionalProperties: false
+  properties:
+    provider:
+      description: The research house whose ratings these are.
+      type: string
+      maxLength: 120
+    dataset_version:
+      description: >-
+        The provider's identifier for the dataset the scores came from. Scores move when a
+        provider republishes, so without this a stored score cannot be reproduced or defended —
+        the same reasoning as `rate_table_version`.
+      type: string
+      maxLength: 64
+    feature_score:
+      description: >-
+        The product's feature rating, 0 to 100, where higher is more comprehensive. A measure of
+        what the product covers, independent of price.
+      $ref: '#/Score'
+    combined_score:
+      description: >-
+        The provider's blended rating of features against price, 0 to 100. Deliberately separate
+        from `feature_score`: they answer different questions and a consumer sorting on the wrong
+        one recommends the wrong product.
+      $ref: '#/Score'
+
+Score:
+  title: Score
+  description: A research score from 0 to 100 inclusive, as a decimal string with at most two places.
+  type: string
+  pattern: '^(100(\.0{1,2})?|\d{1,2}(\.\d{1,2})?)$'
+  examples: ['0', '87.5', '100']
+
+LineDocument:
+  title: LineDocument
+  description: >-
+    A document or link relating to one quote line.
+
+    Modelled as a typed list rather than as named fields so a new document type is a new enum
+    value rather than a schema change, and so an insurer offering none simply returns an empty
+    array.
+
+    URLS MAY BE SHORT-LIVED AND MAY CARRY AUTHORITY. A `continue_application` link in particular
+    can resume a quote inside the insurer's own system, so it MUST be treated as a credential:
+    consumers MUST NOT log it, embed it in a shared document, or hand it to anyone who is not the
+    adviser who requested the quote. An insurer SHOULD set `expires_at` on any link that grants
+    access rather than issuing one that lives forever.
+  type: object
+  required: [document_type, url]
+  additionalProperties: false
+  properties:
+    document_type:
+      type: string
+      enum:
+        # The product disclosure statement for the product written on this line.
+        - pds
+        # The target market determination, which an adviser needs alongside the PDS.
+        - target_market_determination
+        # A branded, printable rendering of this quote, produced by the insurer.
+        - quote_report
+        # A deep link into the insurer's own system that resumes this quote for application.
+        - continue_application
+        # The application form for this product.
+        - application_form
+    url:
+      type: string
+      format: uri
+      maxLength: 2048
+    media_type:
+      description: >-
+        The document's media type, e.g. `application/pdf`. Omit for a link to a web page, where
+        the answer is `text/html` and saying so adds nothing.
+      type: string
+      maxLength: 100
+    title:
+      description: The insurer's own name for the document, for display.
+      type: string
+      maxLength: 200
+    expires_at:
+      description: >-
+        When the URL stops working. RFC 3339 with an explicit offset. Absent means the insurer
+        makes no commitment either way, which a consumer should read as "do not store this".
+      type: string
+      format: date-time

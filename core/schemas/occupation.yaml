@@ -31,6 +31,23 @@ OccupationRef:
     and removes all matching ambiguity, so it is what a consumer SHOULD send once the adviser
     has confirmed a per-insurer occupation. The others ask the insurer to match, and the
     insurer MUST report what it matched to.
+
+    THE BASELINE FORMS ARE ASPIRATIONAL, AND CONSUMERS MUST NOT ASSUME THEM. `osca` and `anzsco`
+    describe where this standard wants the market to get to: a taxonomy owned by the ABS rather
+    than by any party in the value chain, so one occupation picker serves every insurer. That is
+    the right destination and it is not where the market is. No rating engine we have examined
+    speaks OSCA — engines carry their own occupation lists and match against them internally —
+    so an implementation supporting `insurer_occupation_id` alone is fully conformant and is
+    expected to be the common case for some time.
+
+    The practical consequence for a consumer: read `occupation_resolution` in the capability
+    document before sending a baseline code, and be prepared to resolve via `GET /occupations` or
+    `POST /occupations:match` first. Sending `osca` to an insurer that does not accept it is a
+    422, not a quote.
+
+    What would change this is insurers publishing `osca` on the rows of their own occupation
+    lists — see `InsurerOccupation.osca`, which exists precisely so the correspondence can be
+    built up from the insurer side rather than imposed on it.
   type: object
   additionalProperties: false
   anyOf:

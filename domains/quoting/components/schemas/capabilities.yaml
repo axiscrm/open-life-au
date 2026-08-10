@@ -127,6 +127,34 @@ Capabilities:
           description: Whether the per-line unmet-needs diagnostic endpoint is implemented.
           type: boolean
           default: false
+        projections:
+          description: >-
+            Whether `projection` on the request is honoured. An implementation declaring `false`
+            that is asked anyway MUST still price the quote — see `ProjectionRequest`.
+          type: boolean
+          default: false
+        projection_indexation:
+          description: >-
+            Whether a projection can grow sums insured. Separate from `projections` because
+            projecting today's cover forward is materially easier than indexing it, and an insurer
+            that can do the first is not thereby claiming the second.
+          type: boolean
+          default: false
+        required_features:
+          description: >-
+            Whether `required_features` is honoured. An implementation declaring `false` MUST
+            reject a request carrying one with 422 rather than pricing it unfiltered — a filter
+            silently not applied returns products the adviser expressly excluded.
+          type: boolean
+          default: false
+        research_scores:
+          description: Whether lines carry third-party research ratings.
+          type: boolean
+          default: false
+        documents:
+          description: Whether lines carry documents or application links.
+          type: boolean
+          default: false
 
     campaigns:
       description: Campaign variants that can be named in `campaign_codes`.
@@ -227,3 +255,35 @@ CoverCapability:
         - waiting_period: ['30d', '60d', '90d']
           benefit_period: ['2y', 'age_65']
           tpd_definition: [own_occupation, any_occupation, prefer]
+    features:
+      description: >-
+        Named product features that may be required for this cover via `required_features`.
+
+        DISTINCT FROM `supported_options`, and the distinction is the whole point. An option is
+        something the consumer asks the insurer to APPLY, and the insurer answers it in
+        `resolved_options`. A feature is something the consumer FILTERS on, and the insurer answers
+        it by using only products that have it — or by declining the benefit. So the same underlying
+        product capability may legitimately appear in both, and they are not interchangeable.
+
+        Codes are the insurer's own and scoped to this cover: the same code under a different cover
+        is a different feature, and a code used under the wrong cover MUST be rejected.
+      type: array
+      maxItems: 200
+      items:
+        type: object
+        required: [code, name]
+        additionalProperties: false
+        properties:
+          code:
+            type: string
+            maxLength: 64
+          name:
+            description: The insurer's own wording, for display in a feature picker.
+            type: string
+            maxLength: 200
+          description:
+            type: string
+            maxLength: 1000
+      examples:
+        - - code: TRM_TERM_ILL
+            name: Terminal illness benefit

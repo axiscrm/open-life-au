@@ -583,7 +583,7 @@
       },
       "OccupationRef": {
         "title": "OccupationRef",
-        "description": "How a consumer names an occupation. At least one of `osca`, `anzsco` or `insurer_occupation_id` MUST be present.\n`insurer_occupation_id` is the authoritative form: it names a row in the insurer's own list and removes all matching ambiguity, so it is what a consumer SHOULD send once the adviser has confirmed a per-insurer occupation. The others ask the insurer to match, and the insurer MUST report what it matched to.",
+        "description": "How a consumer names an occupation. At least one of `osca`, `anzsco` or `insurer_occupation_id` MUST be present.\n`insurer_occupation_id` is the authoritative form: it names a row in the insurer's own list and removes all matching ambiguity, so it is what a consumer SHOULD send once the adviser has confirmed a per-insurer occupation. The others ask the insurer to match, and the insurer MUST report what it matched to.\nTHE BASELINE FORMS ARE ASPIRATIONAL, AND CONSUMERS MUST NOT ASSUME THEM. `osca` and `anzsco` describe where this standard wants the market to get to: a taxonomy owned by the ABS rather than by any party in the value chain, so one occupation picker serves every insurer. That is the right destination and it is not where the market is. No rating engine we have examined speaks OSCA — engines carry their own occupation lists and match against them internally — so an implementation supporting `insurer_occupation_id` alone is fully conformant and is expected to be the common case for some time.\nThe practical consequence for a consumer: read `occupation_resolution` in the capability document before sending a baseline code, and be prepared to resolve via `GET /occupations` or `POST /occupations:match` first. Sending `osca` to an insurer that does not accept it is a 422, not a quote.\nWhat would change this is insurers publishing `osca` on the rows of their own occupation lists — see `InsurerOccupation.osca`, which exists precisely so the correspondence can be built up from the insurer side rather than imposed on it.",
         "type": "object",
         "additionalProperties": false,
         "anyOf": [
@@ -770,15 +770,14 @@
       },
       "Percentage": {
         "title": "Percentage",
-        "description": "A percentage expressed as a number (not a string, and not a 0-1 ratio): `25` means 25%. Rates and percentages are numeric because they are inputs to arithmetic rather than amounts to be stored to the cent, and at most three decimal places they are exactly representable. `0` is a MEANINGFUL value — see the loadings schema, where an explicit zero cancels an inherited loading and is not the same as omitting the field.",
-        "type": "number",
-        "minimum": 0,
-        "maximum": 1000,
-        "multipleOf": 0.001,
+        "description": "A percentage serialised as a decimal string (not a 0-1 ratio): `'25'` means 25%. At most three fractional digits, and at most 1000.\nA string for the same reason as `Decimal` and `RatePerThousand`. This was a JSON number until 0.2.0, justified on the grounds that percentages are inputs to arithmetic rather than amounts stored to the cent, and that three decimal places are exactly representable. The second half of that is not true: `0.001` has no exact IEEE-754 representation, so a loading of `25.001` arrives as `25.000999...` in every generated client. More to the point, the reasoning proved too clever — a loading percentage IS an input to pricing, and it was the one remaining path by which a contract value reached a rating engine through a double while every amount beside it travelled as a string. The inconsistency was visible in this very file: `RatePerThousand` is the OTHER axis of the same loadings map and was always a string.\n`'0'` is a MEANINGFUL value — see the loadings schema, where an explicit zero cancels an inherited loading and is not the same as omitting the field. Implementations MUST NOT normalise `'0'` to `'0.000'` or vice versa when echoing a value back, and consumers MUST treat the two as numerically equal.",
+        "type": "string",
+        "pattern": "^(1000(\\.0{1,3})?|\\d{1,3}(\\.\\d{1,3})?)$",
         "examples": [
-          0,
-          25,
-          62.5
+          "0",
+          "25",
+          "62.5",
+          "12.375"
         ]
       },
       "RatePerThousand": {
@@ -794,12 +793,12 @@
       },
       "Loadings": {
         "title": "Loadings",
-        "description": "Underwriting loadings the adviser expects the insurer to apply, expressed per benefit on two independent axes. Both axes may apply to the same benefit, in which case the insurer applies both.\nSPARSE-MAP SEMANTICS, NORMATIVE. These maps are sparse and every present key is meaningful:\n\n  - a benefit ABSENT from a map carries no loading on that axis;\n  - a benefit present with a value of `0` carries an EXPLICIT nil loading.\n\nThe two are NOT interchangeable. An implementation MUST NOT normalise a `0` into an omission or an omission into a `0`, and MUST NOT reject `0` as pointless — a consumer sends it to state positively that this benefit is not loaded, which is a different instruction from declining to say. JSON Schema cannot express this constraint, which is precisely why it is stated here and tested by the conformance suite.\nKeys are `CoverType` values, restricted to the five benefits a loading can attach to. Needle stick and child trauma have no loading axis and MUST be rejected as keys.\nA key names a cover TYPE, so it applies to EVERY cover of that type in the request. Where a request holds two covers of one type and they need different loadings, set `loadings` on the individual covers instead — a cover-level entry replaces the policy-level one for that cover.\nA key naming a cover type not present in `covers` MUST be rejected with 422 `invalid-combination` rather than silently ignored: it is far more likely to be a mistake than an intention.",
+        "description": "Underwriting loadings the adviser expects the insurer to apply, expressed per benefit on two independent axes. Both axes may apply to the same benefit, in which case the insurer applies both.\nSPARSE-MAP SEMANTICS, NORMATIVE. These maps are sparse and every present key is meaningful:\n\n  - a benefit ABSENT from a map carries no loading on that axis;\n  - a benefit present with a value of `'0'` carries an EXPLICIT nil loading.\n\nThe two are NOT interchangeable. An implementation MUST NOT normalise a `'0'` into an omission or an omission into a `'0'`, and MUST NOT reject `'0'` as pointless — a consumer sends it to state positively that this benefit is not loaded, which is a different instruction from declining to say. JSON Schema cannot express this constraint, which is precisely why it is stated here and tested by the conformance suite.\nKeys are `CoverType` values, restricted to the five benefits a loading can attach to. Needle stick and child trauma have no loading axis and MUST be rejected as keys.\nA key names a cover TYPE, so it applies to EVERY cover of that type in the request. Where a request holds two covers of one type and they need different loadings, set `loadings` on the individual covers instead — a cover-level entry replaces the policy-level one for that cover.\nA key naming a cover type not present in `covers` MUST be rejected with 422 `invalid-combination` rather than silently ignored: it is far more likely to be a mistake than an intention.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "percentage": {
-            "description": "A percentage uplift on the risk premium for that benefit. `25` means the premium is loaded by 25%.",
+            "description": "A percentage uplift on the risk premium for that benefit. `'25'` means the premium is loaded by 25%.",
             "type": "object",
             "additionalProperties": false,
             "propertyNames": {
@@ -840,8 +839,8 @@
         "examples": [
           {
             "percentage": {
-              "life": 50,
-              "trauma": 0
+              "life": "50",
+              "trauma": "0"
             },
             "rate_per_thousand": {
               "life": "1.50"
@@ -1406,6 +1405,106 @@
           }
         }
       },
+      "RequiredFeatures": {
+        "title": "RequiredFeatures",
+        "description": "Product features the insured requires, as a filter on which products may be used. A product that does not offer every feature named for a benefit MUST NOT be used to write that benefit.\nTHIS IS A FILTER, NOT AN OPTION. The difference matters: an option asks the insurer to add something and is answered in `resolved_options`; a filter narrows the product set BEFORE pricing, so the honest answer to \"no product has this\" is a line with `all_needs_met: false` and a populated `errors`, not a cheaper line quietly written without the feature. An insurer MUST NOT satisfy a required feature by ignoring it.\nKeys are `CoverType` values, and the codes under each are the insurer's own, discoverable from `features` on that cover in the capability document. A code that is unknown to the insurer, or that is not scoped to the benefit it appears under, MUST be rejected with 422 `unsupported-value` rather than ignored — an adviser filtering on \"must include terminal illness\" and silently getting products without it is the failure this exists to prevent.\nAbsent or empty means no filter, which is the overwhelmingly common case.",
+        "type": "object",
+        "additionalProperties": false,
+        "propertyNames": {
+          "enum": [
+            "life",
+            "tpd",
+            "trauma",
+            "income_protection",
+            "business_expenses",
+            "needle_stick",
+            "child_trauma"
+          ]
+        },
+        "patternProperties": {
+          "^(life|tpd|trauma|income_protection|business_expenses|needle_stick|child_trauma)$": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "maxLength": 64
+            }
+          }
+        },
+        "examples": [
+          {
+            "trauma": [
+              "TRM_TERM_ILL"
+            ],
+            "income_protection": [
+              "INC_DAY1_ACCIDENT"
+            ]
+          }
+        ]
+      },
+      "ProjectionIndexation": {
+        "title": "ProjectionIndexation",
+        "description": "How sums insured grow across a projection. A single rate applies to every cover that can be indexed.\nNot every benefit can be. Where a product does not index a cover the insurer MUST say so in `excluded_covers` on the projection it returns, rather than silently projecting a flat sum insured inside an indexed projection — the totals would otherwise be unattributable.",
+        "type": "object",
+        "required": [
+          "rate"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rate": {
+            "description": "Annual indexation rate as a percentage. `'5'` grows each indexed sum insured by 5% a year, compounding.",
+            "$ref": "#/components/schemas/Percentage"
+          }
+        }
+      },
+      "ProjectionRequest": {
+        "title": "ProjectionRequest",
+        "description": "Ask for the cost of each line projected forward, as well as its price today.\nNeeded because a stepped premium rises every year, so the first-year price is a poor basis for a recommendation and a level premium that looks dear today is often cheaper over the term an adviser is actually advising on. Comparing two structures on their first-year premiums alone is the mis-comparison this exists to remove.\nOptional to implement. An insurer that cannot project declares `projections: false` in its capability document; if it is asked anyway it MUST price the quote normally, omit `projection` from every line, and report it once in `resolved_options` with `option: projection` and `unsupported_ignored`, rather than failing the quote.",
+        "type": "object",
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": [
+              "years"
+            ]
+          },
+          {
+            "required": [
+              "to_age"
+            ]
+          }
+        ],
+        "properties": {
+          "years": {
+            "description": "Project this many years forward, inclusive of the current year.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "to_age": {
+            "description": "Project to the insured's stated age. Where this is at or below the insured's current age the request is a 422 `invalid-combination` — an empty projection is not a useful answer.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "indexation": {
+            "description": "Whether to grow each cover's sum insured over the projection, and by how much.\nAbsent means no indexation: the projection prices today's sums insured at each future age, which is what \"what will this policy cost me at 55\" asks. Present, it prices a policy whose cover keeps pace, which is a different and equally legitimate question — but the two are not comparable, so an insurer MUST report which it applied.",
+            "$ref": "#/components/schemas/ProjectionIndexation"
+          }
+        },
+        "examples": [
+          {
+            "years": 10
+          },
+          {
+            "to_age": 65,
+            "indexation": {
+              "rate": "5"
+            }
+          }
+        ]
+      },
       "QuoteRequest": {
         "title": "QuoteRequest",
         "description": "A request to price one or more covers for one insured. A response to this is a set of priced lines, not a single price: an insurer may return several lines for one request where it has more than one brand, product combination or campaign variant that satisfies the covers asked for.",
@@ -1443,6 +1542,12 @@
               "maxLength": 64
             },
             "default": []
+          },
+          "required_features": {
+            "$ref": "#/components/schemas/RequiredFeatures"
+          },
+          "projection": {
+            "$ref": "#/components/schemas/ProjectionRequest"
           }
         },
         "examples": [
@@ -2037,6 +2142,190 @@
           }
         }
       },
+      "ProjectionBasis": {
+        "title": "ProjectionBasis",
+        "description": "What the insurer actually projected, which is not always what was asked. An insurer that applied a different indexation rate, or could not index some covers, says so here rather than in `resolved_options`, because the answer is only interpretable alongside the numbers.",
+        "type": "object",
+        "required": [
+          "years",
+          "indexed"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "years": {
+            "description": "How many years the projection covers, matching the length of `years`.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "indexed": {
+            "description": "Whether sums insured were grown across the projection.",
+            "type": "boolean"
+          },
+          "indexation_rate": {
+            "description": "The annual rate actually applied. REQUIRED when `indexed` is `true` — including where the insurer applied its own default because the request named no rate, which is the case a consumer most needs told.",
+            "$ref": "#/components/schemas/Percentage"
+          },
+          "excluded_covers": {
+            "description": "`cover_id`s that were NOT indexed because the product does not index them, while the rest of the projection was. Empty or absent means every cover was treated alike.\nReal products do this — a child trauma benefit is commonly flat inside an otherwise indexed policy — and without this field those covers' premiums are simply lower than a consumer's own recalculation would predict, with nothing to attribute the difference to.",
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/CoverId"
+            },
+            "default": []
+          }
+        }
+      },
+      "ProjectionYear": {
+        "title": "ProjectionYear",
+        "description": "One year of a projection.",
+        "type": "object",
+        "required": [
+          "year",
+          "annual_total",
+          "cumulative_total"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "year": {
+            "description": "Offset from the current year. `0` is the year being quoted.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 59
+          },
+          "age_next_birthday": {
+            "description": "The insured's age next birthday in that year, so a consumer can label the series by age rather than by offset. Omitted where the request carried no age the insurer can advance.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120
+          },
+          "annual_total": {
+            "description": "The all-in cost for that year — premium plus stamp duty plus policy fee, on the same basis as `PremiumBreakdown.total` at annual frequency.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "cumulative_total": {
+            "description": "The running total up to and including this year. Stated rather than left to the consumer because rounding each year and summing gives a different answer from summing and rounding once, and two consumers doing it differently is a comparison table that disagrees with itself.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "sum_insured_indexed": {
+            "description": "Whether this year's figure reflects an indexed sum insured. Distinguishes the first year of an indexed projection, which is normally unindexed, from the rest.",
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "Projection": {
+        "title": "Projection",
+        "description": "One line's cost projected forward, year by year, with the running total.\nThe year-by-year series is returned rather than a single headline number because a consumer presents this several ways — average annual cost, cumulative cost, first year, final year — and every one of those is derivable from the series. Returning only a total would force a re-quote per presentation, which is what advisers do today.\nTHE BASIS MUST BE ECHOED. A projection with indexation applied and one without are different questions with different answers, and a consumer comparing an indexed projection from one insurer against a flat one from another gets a difference that has nothing to do with price.",
+        "type": "object",
+        "required": [
+          "basis",
+          "total",
+          "years"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "$ref": "#/components/schemas/ProjectionBasis"
+          },
+          "total": {
+            "description": "The cumulative cost over the whole horizon — the final year's `cumulative_total`, repeated here so a consumer showing only the headline need not walk the series.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "years": {
+            "description": "One entry per projected year, ordered from `year: 0` (the current year, whose `annual_total` MUST equal the annual figure in `premiums`) and contiguous thereafter.",
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 60,
+            "items": {
+              "$ref": "#/components/schemas/ProjectionYear"
+            }
+          }
+        }
+      },
+      "Score": {
+        "title": "Score",
+        "description": "A research score from 0 to 100 inclusive, as a decimal string with at most two places.",
+        "type": "string",
+        "pattern": "^(100(\\.0{1,2})?|\\d{1,2}(\\.\\d{1,2})?)$",
+        "examples": [
+          "0",
+          "87.5",
+          "100"
+        ]
+      },
+      "ResearchScores": {
+        "title": "ResearchScores",
+        "description": "Third-party research ratings for a line, as published by a research house.\nNOT THE INSURER'S OWN OPINION, and the standard is deliberate about that. An insurer that scored its own products here would be marking its own homework, so `provider` is REQUIRED and a consumer that cannot attribute a score should not display it. Scores are only comparable between lines rated by the same provider on the same dataset.\nOptional throughout. Most insurers will not carry these at all; an aggregator or a research licensee may.",
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "description": "The research house whose ratings these are.",
+            "type": "string",
+            "maxLength": 120
+          },
+          "dataset_version": {
+            "description": "The provider's identifier for the dataset the scores came from. Scores move when a provider republishes, so without this a stored score cannot be reproduced or defended — the same reasoning as `rate_table_version`.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "feature_score": {
+            "description": "The product's feature rating, 0 to 100, where higher is more comprehensive. A measure of what the product covers, independent of price.",
+            "$ref": "#/components/schemas/Score"
+          },
+          "combined_score": {
+            "description": "The provider's blended rating of features against price, 0 to 100. Deliberately separate from `feature_score`: they answer different questions and a consumer sorting on the wrong one recommends the wrong product.",
+            "$ref": "#/components/schemas/Score"
+          }
+        }
+      },
+      "LineDocument": {
+        "title": "LineDocument",
+        "description": "A document or link relating to one quote line.\nModelled as a typed list rather than as named fields so a new document type is a new enum value rather than a schema change, and so an insurer offering none simply returns an empty array.\nURLS MAY BE SHORT-LIVED AND MAY CARRY AUTHORITY. A `continue_application` link in particular can resume a quote inside the insurer's own system, so it MUST be treated as a credential: consumers MUST NOT log it, embed it in a shared document, or hand it to anyone who is not the adviser who requested the quote. An insurer SHOULD set `expires_at` on any link that grants access rather than issuing one that lives forever.",
+        "type": "object",
+        "required": [
+          "document_type",
+          "url"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "document_type": {
+            "type": "string",
+            "enum": [
+              "pds",
+              "target_market_determination",
+              "quote_report",
+              "continue_application",
+              "application_form"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "media_type": {
+            "description": "The document's media type, e.g. `application/pdf`. Omit for a link to a web page, where the answer is `text/html` and saying so adds nothing.",
+            "type": "string",
+            "maxLength": 100
+          },
+          "title": {
+            "description": "The insurer's own name for the document, for display.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "expires_at": {
+            "description": "When the URL stops working. RFC 3339 with an explicit offset. Absent means the insurer makes no commitment either way, which a consumer should read as \"do not store this\".",
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "QuoteLine": {
         "title": "QuoteLine",
         "description": "One row of a comparison table: one product or product combination, from one brand, at one campaign variant.",
@@ -2064,6 +2353,9 @@
             },
             "cover_lines": {
               "maxItems": 0
+            },
+            "projection": {
+              "not": {}
             },
             "errors": {
               "minItems": 1
@@ -2184,6 +2476,23 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/InclusionGroup"
+            },
+            "default": []
+          },
+          "projection": {
+            "description": "This line's cost projected forward. Present only where the request asked for a projection and the insurer can produce one; a line where `all_needs_met` is `false` MUST NOT carry one, since there is no premium to project.",
+            "$ref": "#/components/schemas/Projection"
+          },
+          "research_scores": {
+            "description": "Third-party research ratings for this line, where the insurer publishes them.",
+            "$ref": "#/components/schemas/ResearchScores"
+          },
+          "documents": {
+            "description": "Documents and links relating to THIS line — the product disclosure statement, a branded quote report, a deep link into the insurer's own system to continue the application.",
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/LineDocument"
             },
             "default": []
           }
@@ -2405,6 +2714,42 @@
                 ]
               }
             ]
+          },
+          "features": {
+            "description": "Named product features that may be required for this cover via `required_features`.\nDISTINCT FROM `supported_options`, and the distinction is the whole point. An option is something the consumer asks the insurer to APPLY, and the insurer answers it in `resolved_options`. A feature is something the consumer FILTERS on, and the insurer answers it by using only products that have it — or by declining the benefit. So the same underlying product capability may legitimately appear in both, and they are not interchangeable.\nCodes are the insurer's own and scoped to this cover: the same code under a different cover is a different feature, and a code used under the wrong cover MUST be rejected.",
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "required": [
+                "code",
+                "name"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "name": {
+                  "description": "The insurer's own wording, for display in a feature picker.",
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 1000
+                }
+              }
+            },
+            "examples": [
+              [
+                {
+                  "code": "TRM_TERM_ILL",
+                  "name": "Terminal illness benefit"
+                }
+              ]
+            ]
           }
         }
       },
@@ -2544,6 +2889,31 @@
               },
               "line_diagnostics": {
                 "description": "Whether the per-line unmet-needs diagnostic endpoint is implemented.",
+                "type": "boolean",
+                "default": false
+              },
+              "projections": {
+                "description": "Whether `projection` on the request is honoured. An implementation declaring `false` that is asked anyway MUST still price the quote — see `ProjectionRequest`.",
+                "type": "boolean",
+                "default": false
+              },
+              "projection_indexation": {
+                "description": "Whether a projection can grow sums insured. Separate from `projections` because projecting today's cover forward is materially easier than indexing it, and an insurer that can do the first is not thereby claiming the second.",
+                "type": "boolean",
+                "default": false
+              },
+              "required_features": {
+                "description": "Whether `required_features` is honoured. An implementation declaring `false` MUST reject a request carrying one with 422 rather than pricing it unfiltered — a filter silently not applied returns products the adviser expressly excluded.",
+                "type": "boolean",
+                "default": false
+              },
+              "research_scores": {
+                "description": "Whether lines carry third-party research ratings.",
+                "type": "boolean",
+                "default": false
+              },
+              "documents": {
+                "description": "Whether lines carry documents or application links.",
                 "type": "boolean",
                 "default": false
               }

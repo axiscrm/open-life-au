@@ -117,11 +117,41 @@ const CASES = [
         },
     },
     {
+        name: "a percentage loading sent as a JSON number",
+        why: "percentages are decimal strings for the same reason amounts are",
+        doc: { insured, policy: { loadings: { percentage: { life: 25 } } }, covers: [life()] },
+    },
+    {
+        name: "a percentage loading above 1000",
+        why: "a four-digit loading is a units mistake, not a 2000% premium",
+        doc: { insured, policy: { loadings: { percentage: { life: "1001" } } }, covers: [life()] },
+    },
+    {
+        name: "required_features keyed on something that is not a cover type",
+        why: "a feature code is scoped to a benefit; an unscoped one filters nothing",
+        doc: { insured, covers: [life()], required_features: { lifecover: ["X"] } },
+    },
+    {
+        name: "an empty required_features list for a benefit",
+        why: "an empty filter is indistinguishable from no filter and is more likely a bug",
+        doc: { insured, covers: [life()], required_features: { life: [] } },
+    },
+    {
+        name: "a projection asking for both years and to_age",
+        why: "two horizons is ambiguous, and the insurer guessing is the failure",
+        doc: { insured, covers: [life()], projection: { years: 10, to_age: 65 } },
+    },
+    {
+        name: "a projection with neither years nor to_age",
+        why: "a horizon with no end is not a request",
+        doc: { insured, covers: [life()], projection: { indexation: { rate: "5" } } },
+    },
+    {
         name: "a loading keyed on needle_stick",
         why: "only the five loadable benefits have a loading axis",
         doc: {
             insured,
-            policy: { loadings: { percentage: { needle_stick: 25 } } },
+            policy: { loadings: { percentage: { needle_stick: "25" } } },
             covers: [life()],
         },
     },
@@ -225,6 +255,64 @@ const LINE_CASES = [
         name: "a priced line with no premiums",
         why: "rule 2's other half — `all_needs_met: true` promises a price",
         doc: { ...lineBase, all_needs_met: true },
+    },
+    {
+        name: "a declined line carrying a projection",
+        why: "projecting a price that does not exist puts a total into a comparison",
+        doc: {
+            ...lineBase,
+            all_needs_met: false,
+            errors: ["cannot assemble"],
+            projection: {
+                basis: { years: 1, indexed: false },
+                total: AUD("100.00"),
+                years: [{ year: 0, annual_total: AUD("100.00"), cumulative_total: AUD("100.00") }],
+            },
+        },
+    },
+    {
+        name: "research scores with no provider",
+        why: "an unattributed score is an insurer marking its own homework",
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            premiums,
+            rate_table_version: "2026-01",
+            research_scores: { feature_score: "87.5" },
+        },
+    },
+    {
+        name: "a research score above 100",
+        why: "the scale is 0-100; anything else is a different provider's scale",
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            premiums,
+            rate_table_version: "2026-01",
+            research_scores: { provider: "Example Research", feature_score: "101" },
+        },
+    },
+    {
+        name: "a document with no url",
+        why: "a document nobody can fetch is not a document",
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            premiums,
+            rate_table_version: "2026-01",
+            documents: [{ document_type: "pds" }],
+        },
+    },
+    {
+        name: "a document of an unrecognised type",
+        why: "an untyped link cannot be rendered or trust-scoped by a consumer",
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            premiums,
+            rate_table_version: "2026-01",
+            documents: [{ document_type: "brochure", url: "https://example.com/x.pdf" }],
+        },
     },
     {
         name: "a priced line with no rate_table_version",
