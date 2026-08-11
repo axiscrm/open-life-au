@@ -1,0 +1,108 @@
+{
+  "mode": "full",
+  "snapshot_id": "arr_2026-08-06T09:15:00Z_7c2b",
+  "generated_at": "2026-08-06T09:15:22+10:00",
+  "total_count": 2,
+  "complete": true,
+  "coverage": {
+    "adviser_codes": [
+      "AC100",
+      "AC104"
+    ]
+  },
+  "items": [
+    {
+      "policy_id": "P-4471903",
+      "policy_version": 3,
+      "insurer_id": "example-life",
+      "brand_id": "example-select",
+      "product_name": "Select Income Protection",
+      "status": "in_arrears",
+      "policy_holder": {
+        "client_id": "CL-90477",
+        "first_name": "Priya",
+        "last_name": "Nand",
+        "date_of_birth": "1990-11-02",
+        "email": "priya.nand@example.com.au",
+        "phone": "0400 000 111"
+      },
+      "distribution": {
+        "adviser_code": "AC104",
+        "adviser_name": "Dana Osei"
+      },
+      "premium": {
+        "amount": {
+          "amount": "96.20",
+          "currency": "AUD"
+        },
+        "frequency": "monthly",
+        "payment_method": "direct_debit",
+        "payment_method_detail": "Bank account ending 4417"
+      },
+      "paid_to": "2026-06-15",
+      "arrears": [
+        {
+          "dishonoured_on": "2026-07-15",
+          "amount_outstanding": {
+            "amount": "96.20",
+            "currency": "AUD"
+          },
+          "reason": "Insufficient funds",
+          "expected_lapse_on": "2026-08-15",
+          "attempts": 2
+        },
+        {
+          "dishonoured_on": "2026-06-15",
+          "amount_outstanding": {
+            "amount": "96.20",
+            "currency": "AUD"
+          },
+          "amount_is_estimate": true,
+          "reason": "Insufficient funds",
+          "expected_lapse_on": "2026-08-15",
+          "attempts": 3
+        }
+      ]
+    },
+    {
+      "policy_id": "P-4472118",
+      "insurer_id": "example-life",
+      "brand_id": "example-life",
+      "product_name": "Protection Plus",
+      "status": "in_arrears",
+      "policy_holder": {
+        "first_name": "Tomas",
+        "last_name": "de Vries",
+        "date_of_birth": "1978-04-22",
+        "phone": "0400 000 222"
+      },
+      "distribution": {
+        "adviser_code": "AC100",
+        "adviser_name": "Sam Rivera",
+        "practice_name": "Rivera Advice"
+      },
+      "premium": {
+        "amount": {
+          "amount": "410.00",
+          "currency": "AUD"
+        },
+        "frequency": "quarterly",
+        "payment_method": "credit_card",
+        "payment_method_detail": "Card ending 8802"
+      },
+      "paid_to": "2026-05-01",
+      "arrears": [
+        {
+          "dishonoured_on": "2026-05-01",
+          "amount_outstanding": {
+            "amount": "410.00",
+            "currency": "AUD"
+          },
+          "reason": "Card expired",
+          "expected_lapse_on": "2026-08-01",
+          "attempts": 4
+        }
+      ]
+    }
+  ]
+}

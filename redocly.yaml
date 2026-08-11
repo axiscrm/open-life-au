@@ -10,6 +10,8 @@ apis:
     root: domains/quoting/openapi.yaml
   policy:
     root: domains/policy/openapi.yaml
+  requirements:
+    root: domains/requirements/openapi.yaml
 
 extends:
   - recommended-strict

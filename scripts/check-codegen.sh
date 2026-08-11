@@ -18,11 +18,15 @@ set -euo pipefail
 
 LANG_TARGET="${1:-}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-QUOTING="$ROOT/dist/quoting/openapi.yaml"
-POLICY="$ROOT/dist/policy/openapi.yaml"
 OUT="${CODEGEN_OUT:-$ROOT/.codegen}"
 
-for spec in "$QUOTING" "$POLICY"; do
+# Every contract the standard publishes. Adding one here is all that a new domain needs from this
+# script — the per-language branches all loop over it and assert against `symbols_for`.
+CONTRACTS="quoting policy requirements"
+CONTRACT_COUNT=$(set -- $CONTRACTS; echo $#)
+
+for contract in $CONTRACTS; do
+  spec="$ROOT/dist/$contract/openapi.yaml"
   [ -f "$spec" ] || { echo "✗ $spec missing — run 'npm run bundle' first"; exit 1; }
 done
 mkdir -p "$OUT"
@@ -46,8 +50,9 @@ OPENAPI_PY_CLIENT_VERSION="0.26.1"
 # opaque "bad substitution" — green CI, broken locally, which is the worst way round.
 pascal_name() {
   case "$1" in
-    quoting) echo "Quoting" ;;
-    policy)  echo "Policy" ;;
+    quoting)      echo "Quoting" ;;
+    policy)       echo "Policy" ;;
+    requirements) echo "Requirements" ;;
     *)       echo "$1" ;;
   esac
 }
@@ -85,7 +90,19 @@ assert_symbols() {
 QUOTING_SYMBOLS="LifeCover TpdCover TraumaCover IncomeProtectionCover BusinessExpensesCover NeedleStickCover ChildTraumaCover"
 # The policy contract's load-bearing schemas. Arrears in particular: it is the most time-sensitive
 # record in the contract, and it is nested two levels down, which is where generators lose things.
-POLICY_SYMBOLS="Policy PolicyPage PolicyHolder Arrears PolicyCover SnapshotCoverage"
+POLICY_SYMBOLS="Policy PolicyPage PolicyHolder Arrears PolicyCover SnapshotCoverage ArrearsPage ArrearsItem"
+# The requirements contract. `Requirement` is nested two levels down — page, case, requirement —
+# which is exactly the depth at which a generator quietly drops a model and still exits 0.
+REQUIREMENTS_SYMBOLS="RequirementsPage UnderwritingCase Requirement InsuredLife RequirementsCoverage"
+
+symbols_for() {
+  case "$1" in
+    quoting)      echo "$QUOTING_SYMBOLS" ;;
+    policy)       echo "$POLICY_SYMBOLS" ;;
+    requirements) echo "$REQUIREMENTS_SYMBOLS" ;;
+    *)            echo "" ;;
+  esac
+}
 
 case "$LANG_TARGET" in
   typescript)
@@ -99,36 +116,42 @@ case "$LANG_TARGET" in
     # prefers its `apis` roots over the path given here, and validates examples across the SPLIT
     # source — where it fails to resolve relative `$ref`s and aborts with no output. And `dist/` rather
     # than source because the bundle has no cross-file refs left to trip over.
+    rm -rf "$OUT/ts"
     mkdir -p "$OUT/ts"
-    for contract in quoting policy; do
-      out="schema"; [ "$contract" = "policy" ] && out="policy"
+    for contract in $CONTRACTS; do
       npx --yes "$OPENAPI_TS" "$ROOT/dist/$contract/openapi.yaml" \
         --redocly "$ROOT/redocly-codegen.yaml" \
         --default-non-nullable=false \
-        -o "$OUT/ts/$out.d.ts"
+        -o "$OUT/ts/$contract.d.ts"
     done
-    assert_files "$OUT/ts" "*.d.ts" 2 "typescript types (openapi-typescript, both contracts)"
-    assert_symbols "typescript quoting" "$OUT/ts/schema.d.ts" $QUOTING_SYMBOLS
-    assert_symbols "typescript policy" "$OUT/ts/policy.d.ts" $POLICY_SYMBOLS
+    assert_files "$OUT/ts" "*.d.ts" "$CONTRACT_COUNT" "typescript types (openapi-typescript, every contract)"
+    for contract in $CONTRACTS; do
+      assert_symbols "typescript $contract" "$OUT/ts/$contract.d.ts" $(symbols_for "$contract")
+    done
 
     # @hey-api/openapi-ts — the multi-file option. Needs a TypeScript 5.x peer; on 7.x it dies with
     # "Cannot read properties of undefined (reading 'AnyKeyword')".
-    for contract in quoting policy; do
+    for contract in $CONTRACTS; do
       rm -rf "$OUT/ts-heyapi-$contract"
       npx --yes "$HEY_API" -i "$ROOT/dist/$contract/openapi.yaml" -o "$OUT/ts-heyapi-$contract"
       assert_files "$OUT/ts-heyapi-$contract" "*.ts" 10 "typescript client (@hey-api, $contract)"
     done
-    assert_symbols "hey-api quoting" "$OUT/ts-heyapi-quoting" $QUOTING_SYMBOLS
-    assert_symbols "hey-api policy" "$OUT/ts-heyapi-policy" $POLICY_SYMBOLS
+    for contract in $CONTRACTS; do
+      assert_symbols "hey-api $contract" "$OUT/ts-heyapi-$contract" $(symbols_for "$contract")
+    done
     for op in createQuote getCapabilities listOccupations matchOccupation; do
       grep -rq "$op" "$OUT/ts-heyapi-quoting/sdk.gen.ts" \
         || { echo "✗ hey-api: quoting operation $op missing"; exit 1; }
     done
-    for op in listPolicies getPolicy getPolicyCapabilities; do
+    for op in listPolicies getPolicy listArrears getPolicyCapabilities; do
       grep -rq "$op" "$OUT/ts-heyapi-policy/sdk.gen.ts" \
         || { echo "✗ hey-api: policy operation $op missing"; exit 1; }
     done
-    echo "✓ typescript (@hey-api): all operations present in both contracts"
+    for op in listUnderwritingCases getUnderwritingCase getRequirementsCapabilities; do
+      grep -rq "$op" "$OUT/ts-heyapi-requirements/sdk.gen.ts" \
+        || { echo "✗ hey-api: requirements operation $op missing"; exit 1; }
+    done
+    echo "✓ typescript (@hey-api): all operations present in every contract"
 
     # typescript-fetch needs a JDK: openapi-generator is a Java tool behind an npm wrapper.
     #
@@ -137,7 +160,7 @@ case "$LANG_TARGET" in
     # it is called. So the presence check passed on a machine with no JDK, the generator ran anyway,
     # and the job died mid-run with a Node stack trace instead of taking the skip branch below.
     if java -version >/dev/null 2>&1; then
-      for contract in quoting policy; do
+      for contract in $CONTRACTS; do
         rm -rf "$OUT/ts-fetch-$contract"
         npx --yes $OG generate \
           -i "$ROOT/dist/$contract/openapi.yaml" -g typescript-fetch \
@@ -145,8 +168,9 @@ case "$LANG_TARGET" in
           -p supportsES6=true,modelPropertyNaming=original
         assert_files "$OUT/ts-fetch-$contract" "*.ts" 20 "typescript client (typescript-fetch, $contract)"
       done
-      assert_symbols "typescript-fetch quoting" "$OUT/ts-fetch-quoting/models" $QUOTING_SYMBOLS
-      assert_symbols "typescript-fetch policy" "$OUT/ts-fetch-policy/models" $POLICY_SYMBOLS
+      for contract in $CONTRACTS; do
+        assert_symbols "typescript-fetch $contract" "$OUT/ts-fetch-$contract/models" $(symbols_for "$contract")
+      done
     else
       echo "· typescript-fetch skipped — no JDK on PATH (openapi-generator is a Java tool)"
     fi
@@ -156,10 +180,11 @@ case "$LANG_TARGET" in
     # datamodel-codegen does not create the parent directory for its output file, so a fresh checkout
     # fails with FileNotFoundError while a machine that has run this before succeeds. Local-passes,
     # CI-fails again, and the same omission the typescript branch already handles.
+    rm -rf "$OUT/py"
     mkdir -p "$OUT/py"
 
     # Two generators, because they fail in different ways and only one of them is loud.
-    for contract in quoting policy; do
+    for contract in $CONTRACTS; do
       uvx --from "datamodel-code-generator==$DMCG_VERSION" datamodel-codegen \
         --input "$ROOT/dist/$contract/openapi.yaml" --input-file-type openapi \
         --output "$OUT/py/${contract}_models.py" --output-model-type pydantic_v2.BaseModel \
@@ -168,14 +193,15 @@ case "$LANG_TARGET" in
         --use-schema-description --use-field-description \
         --target-python-version 3.12 --formatters black
     done
-    assert_files "$OUT/py" "*_models.py" 2 "python models (datamodel-code-generator, both contracts)"
+    assert_files "$OUT/py" "*_models.py" "$CONTRACT_COUNT" "python models (datamodel-code-generator, every contract)"
     grep -q "discriminator='cover_type'" "$OUT/py/quoting_models.py" \
       || { echo "✗ python: cover_type discriminator lost"; exit 1; }
     echo "✓ python: discriminated union preserved"
-    assert_symbols "python quoting" "$OUT/py/quoting_models.py" $QUOTING_SYMBOLS
-    assert_symbols "python policy" "$OUT/py/policy_models.py" $POLICY_SYMBOLS
+    for contract in $CONTRACTS; do
+      assert_symbols "python $contract" "$OUT/py/${contract}_models.py" $(symbols_for "$contract")
+    done
 
-    for contract in quoting policy; do
+    for contract in $CONTRACTS; do
       rm -rf "$OUT/py-client-$contract"
       mkdir -p "$OUT/py-client-$contract"
       ( cd "$OUT/py-client-$contract" \
@@ -183,14 +209,15 @@ case "$LANG_TARGET" in
              --path "$ROOT/dist/$contract/openapi.yaml" --overwrite )
       assert_files "$OUT/py-client-$contract" "*.py" 30 "python client (openapi-python-client, $contract)"
     done
-    assert_symbols "python client quoting" "$OUT/py-client-quoting" $QUOTING_SYMBOLS
-    assert_symbols "python client policy" "$OUT/py-client-policy" $POLICY_SYMBOLS
+    for contract in $CONTRACTS; do
+      assert_symbols "python client $contract" "$OUT/py-client-$contract" $(symbols_for "$contract")
+    done
     ;;
 
   java)
     # interfaceOnly: the insurer implements a generated interface, so regeneration never overwrites
     # their code.
-    for contract in quoting policy; do
+    for contract in $CONTRACTS; do
       rm -rf "$OUT/java-server-$contract" "$OUT/java-client-$contract"
       npx --yes $OG generate \
         -i "$ROOT/dist/$contract/openapi.yaml" -g spring \
@@ -208,8 +235,9 @@ case "$LANG_TARGET" in
         --additional-properties=apiPackage=au.org.openlife.$contract.api,modelPackage=au.org.openlife.$contract.model
       assert_files "$OUT/java-client-$contract" "*.java" 20 "java client ($contract)"
     done
-    assert_symbols "java quoting" "$OUT/java-server-quoting/src/main/java" $QUOTING_SYMBOLS
-    assert_symbols "java policy" "$OUT/java-server-policy/src/main/java" $POLICY_SYMBOLS
+    for contract in $CONTRACTS; do
+      assert_symbols "java $contract" "$OUT/java-server-$contract/src/main/java" $(symbols_for "$contract")
+    done
 
     # Money must stay a String all the way into Java. If it ever becomes double, premiums drift.
     money="$OUT/java-server-quoting/src/main/java/au/org/openlife/quoting/model/Money.java"
@@ -226,30 +254,32 @@ case "$LANG_TARGET" in
   ruby)
     # Client only. `ruby-sinatra` emits a 13-file scaffold with no models at all — see
     # docs/generators/ruby.md.
-    for contract in quoting policy; do
+    for contract in $CONTRACTS; do
       rm -rf "$OUT/ruby-$contract"
       npx --yes $OG generate \
         -i "$ROOT/dist/$contract/openapi.yaml" -g ruby -o "$OUT/ruby-$contract" --skip-validate-spec \
         --additional-properties=gemName=openlife_$contract,moduleName=OpenLife$(pascal_name "$contract")
       assert_files "$OUT/ruby-$contract" "*.rb" 20 "ruby client ($contract)"
     done
-    assert_symbols "ruby quoting" "$OUT/ruby-quoting" $QUOTING_SYMBOLS
-    assert_symbols "ruby policy" "$OUT/ruby-policy" $POLICY_SYMBOLS
+    for contract in $CONTRACTS; do
+      assert_symbols "ruby $contract" "$OUT/ruby-$contract" $(symbols_for "$contract")
+    done
     grep -q "openapi_discriminator_name" "$OUT/ruby-quoting/lib/openlife_quoting/models/cover_request.rb" \
       || { echo "✗ ruby: CoverRequest lost its discriminator"; exit 1; }
     echo "✓ ruby: discriminated union preserved"
     ;;
 
   go)
-    for contract in quoting policy; do
+    for contract in $CONTRACTS; do
       rm -rf "$OUT/go-$contract"
       npx --yes $OG generate \
         -i "$ROOT/dist/$contract/openapi.yaml" -g go -o "$OUT/go-$contract" --skip-validate-spec \
         --additional-properties=packageName=openlife$contract,isGoSubmodule=true
       assert_files "$OUT/go-$contract" "*.go" 20 "go client ($contract)"
     done
-    assert_symbols "go quoting" "$OUT/go-quoting" $QUOTING_SYMBOLS
-    assert_symbols "go policy" "$OUT/go-policy" $POLICY_SYMBOLS
+    for contract in $CONTRACTS; do
+      assert_symbols "go $contract" "$OUT/go-$contract" $(symbols_for "$contract")
+    done
     # Go has no decimal type in its standard library, so a generator that turned this into float64
     # would be silently lossy on every premium.
     grep -qE "Amount string" "$OUT/go-quoting/model_money.go" \
@@ -258,7 +288,7 @@ case "$LANG_TARGET" in
     ;;
 
   csharp)
-    for contract in quoting policy; do
+    for contract in $CONTRACTS; do
       rm -rf "$OUT/csharp-$contract" "$OUT/aspnetcore-$contract"
       npx --yes $OG generate \
         -i "$ROOT/dist/$contract/openapi.yaml" -g csharp -o "$OUT/csharp-$contract" --skip-validate-spec \
@@ -270,8 +300,9 @@ case "$LANG_TARGET" in
         --additional-properties=packageName=OpenLife.$(pascal_name "$contract"),aspnetCoreVersion=8.0,operationIsAsync=true
       assert_files "$OUT/aspnetcore-$contract" "*.cs" 20 "csharp server ($contract)"
     done
-    assert_symbols "csharp quoting" "$OUT/csharp-quoting" $QUOTING_SYMBOLS
-    assert_symbols "csharp policy" "$OUT/csharp-policy" $POLICY_SYMBOLS
+    for contract in $CONTRACTS; do
+      assert_symbols "csharp $contract" "$OUT/csharp-$contract" $(symbols_for "$contract")
+    done
 
     money=$(find "$OUT/csharp-quoting" -name Money.cs | head -1)
     grep -qE "public string Amount" "$money" \
@@ -285,4 +316,4 @@ case "$LANG_TARGET" in
     ;;
 esac
 
-echo "✓ ${LANG_TARGET} generation OK (quoting + policy)"
+echo "✓ ${LANG_TARGET} generation OK (every contract)"

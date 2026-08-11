@@ -1,7 +1,7 @@
 # Generating from the policy contract
 
 The per-language pages cover the mechanics — prerequisites, flags, traps. Everything there applies
-to both contracts; you change one input path and one package name:
+to every contract; you change one input path and one package name:
 
 ```bash
 curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/policy/openapi.yaml
@@ -10,10 +10,16 @@ curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/policy/
 This page covers what is **different** about generating from policy, and the one piece of client
 logic that is easy to get catastrophically wrong.
 
-## Both contracts, side by side
+> **Applies to the requirements contract as well.** `GET /cases` returns the same snapshot envelope
+> from `core/schemas/snapshot.yaml` under the same absence rule, so the snapshot walk below is the
+> walk you need there too — substitute `dist/requirements/openapi.yaml`, `cases` for `policies` and
+> `case_id` for `policy_id`. Everything about why a partial walk is dangerous carries over
+> unchanged; only the consequence differs, closing live requirements rather than lapsing policies.
 
-Generate them as two packages. They share `core/` schemas by `$ref`, but each bundle is
-self-contained, so the generated types will be duplicated across the two — that is fine and
+## Several contracts, side by side
+
+Generate each as its own package. They share `core/` schemas by `$ref`, but each bundle is
+self-contained, so the generated types will be duplicated across them — that is fine and
 deliberate. Do not try to merge them into one package: the shared names (`Money`, `Problem`,
 `CoverType`) are identical today, but the contracts version independently and will drift.
 

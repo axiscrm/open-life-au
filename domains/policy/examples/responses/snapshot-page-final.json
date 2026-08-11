@@ -24,6 +24,7 @@
       "product_name": "Protection Plus",
       "status": "in_force",
       "policy_holder": {
+        "client_id": "CL-88213",
         "first_name": "Jordan",
         "last_name": "Alvarez",
         "date_of_birth": "1985-03-14",
@@ -77,7 +78,9 @@
         "policy_fee": {
           "amount": "7.80",
           "currency": "AUD"
-        }
+        },
+        "payment_method": "superannuation_rollover",
+        "payment_method_detail": "Rollover from Example Super Fund"
       },
       "covers": [
         {
@@ -125,6 +128,7 @@
       "status": "in_arrears",
       "status_detail": "Premium unpaid - collection retry scheduled",
       "policy_holder": {
+        "client_id": "CL-90477",
         "first_name": "Priya",
         "last_name": "Nand",
         "date_of_birth": "1990-11-02",
@@ -156,7 +160,9 @@
           "amount": "1110.00",
           "currency": "AUD"
         },
-        "structure": "stepped"
+        "structure": "stepped",
+        "payment_method": "direct_debit",
+        "payment_method_detail": "Bank account ending 4417"
       },
       "covers": [
         {
@@ -180,12 +186,23 @@
         {
           "dishonoured_on": "2026-07-15",
           "amount_outstanding": {
-            "amount": "192.40",
+            "amount": "96.20",
             "currency": "AUD"
           },
           "reason": "Insufficient funds",
           "expected_lapse_on": "2026-08-15",
           "attempts": 2
+        },
+        {
+          "dishonoured_on": "2026-06-15",
+          "amount_outstanding": {
+            "amount": "96.20",
+            "currency": "AUD"
+          },
+          "amount_is_estimate": true,
+          "reason": "Insufficient funds",
+          "expected_lapse_on": "2026-08-15",
+          "attempts": 3
         }
       ],
       "policy_version": 3

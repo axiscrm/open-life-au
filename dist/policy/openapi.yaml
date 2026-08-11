@@ -10,9 +10,14 @@ info:
 
     ## What this is
 
-    Three operations. Pull the book as a snapshot (`GET /policies`), fetch one policy
-    (`GET /policies/{policy_id}`), and find out what the implementation supports
-    (`GET /capabilities`). Most consumers will only ever call the first, once a day.
+    Four operations. Pull the book as a snapshot (`GET /policies`), pull the arrears worklist
+    (`GET /arrears`), fetch one policy (`GET /policies/{policy_id}`), and find out what the
+    implementation supports (`GET /capabilities`).
+
+    Most consumers will call the first once a day and the second rather more often. Only
+    `GET /policies` and `GET /capabilities` are required; an insurer whose collections data lives
+    apart from its in-force book may implement `GET /arrears` on its own, and that is a conformant
+    implementation.
 
     ## Snapshot, not stream
 
@@ -41,6 +46,13 @@ info:
     outstanding, why, and when it will lapse if nothing is done. This is the most time-sensitive
     record in the contract — it is what an adviser must act on within days — and it is the part
     currently obtained by scraping a portal overnight.
+
+    The same records are also served as a worklist of their own by `GET /arrears`, which exists
+    because on the insurer's side collections and the in-force book are usually different reports
+    from different systems on different cadences. Serving them separately lets an insurer offer the
+    urgent one at the freshness it needs — and lets an insurer that only has the arrears report
+    implement something useful rather than nothing. Absence means something weaker on that
+    operation than it does on `GET /policies`; the difference is spelled out there and it matters.
 
     ## Personal information
 
@@ -191,6 +203,76 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+  /arrears:
+    get:
+      operationId: listArrears
+      summary: Pull the arrears worklist
+      description: |-
+        Return every policy the calling credential can see that is currently behind on premium, as a consistent snapshot, paged.
+        This is the most time-sensitive operation in the standard. A dishonour found the same morning is a phone call; the same dishonour found four days later is often a lapsed policy. It is also the part consumers obtain today by scraping a portal overnight.
+        ### Optional, and independently implementable
+        OPTIONAL — declare it in `capabilities.arrears_snapshot.supported`, and reject it with `422` where unsupported rather than returning an empty worklist. An empty worklist means "nobody is behind", which is the single most dangerous thing an unimplemented endpoint could say.
+        It does not require `GET /policies`. On the insurer's side the arrears list and the in-force book are usually different reports from different systems, and an insurer that can serve this one alone should serve it: implementing only this operation is a conformant, and useful, implementation.
+        ### Reconciling on absence — the rule is weaker here
+        The snapshot discipline is the same as `GET /policies`: before acting on absence a consumer MUST have reached `complete: true`, seen one unchanging `snapshot_id` across every page, and assembled `total_count` distinct policies. A partial walk makes unfetched rows look absent.
+        What absence MEANS is weaker. A policy that has dropped out of this worklist is no longer in arrears — but that is either because it was **paid** or because it **lapsed**, and this response does not say which. Those call for opposite actions. A consumer that needs to distinguish them MUST read the policy's status from `GET /policies` or `GET /policies/{policy_id}` rather than assuming the happy case.
+        ### Personal information
+        Rows carry the policy holder's name and contact details — an arrears row nobody can telephone is not actionable. Servers MUST send `Cache-Control: no-store`.
+      tags:
+        - Policies
+      security:
+        - oauth2:
+            - policies.read
+      parameters:
+        - $ref: '#/components/parameters/AdviserCodes'
+        - $ref: '#/components/parameters/ExpectedLapseBefore'
+        - $ref: '#/components/parameters/ChangedSince'
+        - $ref: '#/components/parameters/SnapshotId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: One page of the arrears worklist. An empty `items` array on a `complete` first page means nobody under this credential is currently behind — a normal answer, not an error.
+          headers:
+            Cache-Control:
+              description: MUST be `no-store`.
+              required: true
+              schema:
+                type: string
+                const: no-store
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-OpenLife-Spec-Version:
+              $ref: '#/components/headers/SpecVersion'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArrearsPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: The cursor belongs to a snapshot that has expired or been rebuilt. Problem type `snapshot-expired`. Start the walk again from the beginning; do NOT stitch the pages already fetched onto a new snapshot.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: This implementation does not serve an arrears worklist, or a supplied parameter is not supported. Problem type `unsupported-operation`. Returned rather than an empty worklist, deliberately — see the description above.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /capabilities:
     get:
       operationId: getPolicyCapabilities
@@ -509,6 +591,17 @@ components:
       schema:
         type: string
         maxLength: 64
+    ExpectedLapseBefore:
+      name: expected_lapse_before
+      in: query
+      description: |-
+        OPTIONAL. Restrict the worklist to policies expected to lapse on or before this date — the triage a consumer actually wants when the worklist is longer than the day allows.
+        An implementation that does not support it MUST reject it with `422` rather than ignoring it. Silently returning the whole worklist to a consumer that asked for "lapsing this week" presents every row as urgent, which is worse than not offering the filter: the consumer works the list top-down believing it is prioritised.
+        Rows whose `expected_lapse_on` is absent are EXCLUDED when this filter is applied, because they cannot be shown to satisfy it. An insurer that does not populate `expected_lapse_on` therefore returns an empty worklist under this filter, which is why it is gated on `capabilities.fields.expected_lapse_date` as well.
+      required: false
+      schema:
+        type: string
+        format: date
   schemas:
     PolicyStatus:
       title: PolicyStatus
@@ -534,6 +627,47 @@ components:
       type: string
       minLength: 1
       maxLength: 512
+    SnapshotMode:
+      title: SnapshotMode
+      description: |-
+        Whether this response is a FULL snapshot or an INCREMENTAL delta.
+        Required, and load-bearing. Without it the two are byte-indistinguishable: an incremental response carries the same envelope, the same `complete: true`, and a `total_count` that matches the handful of changed records — so it passes every reconciliation gate, and a consumer that applies it will remove everything that did not happen to change. A stray `changed_since` from configuration or a retry wrapper is enough to trigger it.
+        **Absence carries NO meaning when `mode` is `incremental`.** A consumer MUST refuse to run absence-based reconciliation on anything but `full`.
+      type: string
+      enum:
+        - full
+        - incremental
+    SnapshotId:
+      title: SnapshotId
+      description: |-
+        Identifies this consistent view.
+        MUST be unique per generation and MUST NOT be reused. Deriving it from a business date is not sufficient: a re-run of the same night's extract under the same id lets a consumer stitch half of one view onto half of another while every page agrees on the identifier, which is the exact seam this field exists to prevent. Compare `generated_at` as well. Opaque, and stable for the whole walk.
+        A server MUST hold the snapshot stable while it is being paged: records must not shift between pages because the underlying data changed mid-walk. Where an implementation cannot do that, it MUST issue a new `snapshot_id` and reject the stale cursor with `409` rather than quietly serving a mixture of two views — a consumer that reconciles across a shifted boundary loses rows in exactly the way this file exists to prevent.
+      type: string
+      minLength: 1
+      maxLength: 128
+    SnapshotGeneratedAt:
+      title: SnapshotGeneratedAt
+      description: When the snapshot was taken. RFC 3339 with an explicit offset.
+      type: string
+      format: date-time
+    SnapshotTotalCount:
+      title: SnapshotTotalCount
+      description: |-
+        Total records in the snapshot, counted as DISTINCT identities across all pages.
+        MUST be identical on every page bearing the same `snapshot_id`. A consumer MUST fail the run if it varies mid-walk, because a changing total means the underlying view moved and the pages already fetched no longer describe one set.
+        Counted distinct, and compared distinct, deliberately: a cursor that emits one record twice and skips another leaves the assembled COUNT correct while a live record is missing. Compare the size of the distinct set of identities assembled — not the number of items received.
+      type: integer
+      minimum: 0
+    PolicyId:
+      title: PolicyId
+      description: |-
+        The insurer's own policy or plan number, as it appears on correspondence and in the adviser portal. Stable for the life of the policy — this is the key a consumer reconciles on, so an insurer that renumbers a policy MUST surface the prior number in `previous_policy_id`.
+        Send it BARE. No surrounding whitespace, and no quoting of any kind — in particular not the leading apostrophe a spreadsheet export adds to stop a number-like string being coerced. This is the reconciliation key, so a policy that arrives quoted on one run and plain on the next is two policies as far as a consumer is concerned, and every join half-matches in silence. One live extract carried 5,373 quoted rows against 46,314 plain ones, the same policies under two keys, with nothing in the data to signal it.
+      type: string
+      minLength: 1
+      maxLength: 64
+      pattern: ^[^\s'"](?:.*[^\s'"])?$
     PolicyVersion:
       title: PolicyVersion
       description: |-
@@ -663,6 +797,13 @@ components:
         - last_name
       additionalProperties: false
       properties:
+        client_id:
+          description: |-
+            The insurer's own identifier for this person as a PARTY, stable across every policy they hold with this insurer. Optional, because not every insurer's book is keyed this way.
+            Where it exists it is worth far more than it looks. Without it, a consumer holding two policies from one insurer can only decide whether they belong to the same person by matching name and date of birth — which fails on a married name, a legal name against a preferred one, and every transcription difference between two systems, and which false-matches on a common name sharing a birthday. Both failure modes are silent, and the second attaches a policy to the wrong client.
+            Scoped to the issuing insurer. It carries no meaning at another insurer and MUST NOT be compared across them.
+          type: string
+          maxLength: 64
         first_name:
           type: string
           maxLength: 100
@@ -670,6 +811,9 @@ components:
           type: string
           maxLength: 100
         last_name:
+          description: |-
+            Send it in its natural mixed case, as the person writes it. NOT upper-cased.
+            This looks like presentation and is not. Case is destroyed in one direction only: a consumer receiving "MCDONALD", "O'BRIEN" or "DE VRIES" cannot mechanically recover "McDonald", "O'Brien" or "de Vries", because no rule distinguishes them from "Mcdonald", "Obrien" and "De Vries" — and the surnames this mangles are not evenly distributed across the population. An insurer whose store holds the name correctly and upper-cases it on the way out is discarding information nothing downstream can reconstruct.
           type: string
           minLength: 1
           maxLength: 100
@@ -722,13 +866,15 @@ components:
         ownership_type:
           $ref: '#/components/schemas/OwnershipResponse'
         owner_name:
-          description: The legal owner where it is not the life insured — a superannuation trustee, an SMSF, a company, or another individual.
+          description: |-
+            The legal owner where it is not the life insured — a superannuation trustee, an SMSF, a company, or another individual.
+            Send it as the entity is legally named, and do not case-normalise it. These are mostly entity names rather than personal ones, so a consumer applying title case to them produces "Abc Super Fund Pty Ltd" and "Smith Smsf" — and a consumer receiving one MUST NOT re-case it either.
           type: string
           maxLength: 255
     Distribution:
       title: Distribution
       description: |-
-        Who wrote and services the policy. This is the insurer's view of the adviser relationship, which is what makes the record attributable in the consumer's system.
+        Who wrote and services this business. This is the insurer's view of the adviser relationship, which is what makes the record attributable in the consumer's system.
         Note the boundary: everything here is the INSURER's record. A consumer's own grouping — which internal team or user group owns the client — is not the insurer's to know and has no field here.
       type: object
       additionalProperties: false
@@ -822,6 +968,28 @@ components:
         - level_65
         - level_70
         - blended
+    PaymentMethod:
+      title: PaymentMethod
+      description: |-
+        How the premium is collected. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing.
+        Carried because it changes what an adviser does when a payment fails, which is the whole point of the `arrears` block. An expired card is a two-minute call to the client; a rejected superannuation rollover is a conversation with the fund and often a different person entirely; a failed employer deduction may not be the client's doing at all. Without this the follow-up on every dishonour starts by finding out how the policy was being paid.
+        Known values:
+          - `direct_debit`             debited from a bank account
+          - `credit_card`              charged to a credit or debit card
+          - `bpay`                     client-initiated BPAY
+          - `direct_credit`            client-initiated transfer or deposit
+          - `cheque`
+          - `superannuation_rollover`  paid by rollover from a retail fund or SMSF
+          - `employer_deduction`       deducted from salary by an employer
+      type: string
+      x-extensible-enum:
+        - direct_debit
+        - credit_card
+        - bpay
+        - direct_credit
+        - cheque
+        - superannuation_rollover
+        - employer_deduction
     PolicyPremium:
       title: PolicyPremium
       description: 'What the policy costs as currently billed. Unlike a quote, this is a single frequency — the one the policy is actually paid at — because a policy has one billing arrangement, not six. `annualised` is supplied rather than derived, for the same reason quoting returns all six frequencies: frequency loadings mean the annual figure is not the billed amount times the number of periods.'
@@ -847,6 +1015,12 @@ components:
         policy_fee:
           description: Policy or administration fee, already included in `amount`.
           $ref: '#/components/schemas/NonNegativeMoney'
+        payment_method:
+          $ref: '#/components/schemas/PaymentMethod'
+        payment_method_detail:
+          description: The insurer's own wording for the payment arrangement, where it carries more than the enum does — a masked account or card tail, the name of the paying super fund, an employer scheme. MUST NOT carry a full account number, card number or any other unmasked credential.
+          type: string
+          maxLength: 100
     CoverTypeResponse:
       title: CoverTypeResponse
       description: |-
@@ -867,7 +1041,6 @@ components:
       type: object
       required:
         - benefit_name
-        - sum_insured
       additionalProperties: false
       properties:
         cover_id:
@@ -886,7 +1059,9 @@ components:
           description: The benefit mapped onto the shared cover vocabulary, where one applies. Populating this is what lets a consumer compare an in-force book against new quotes without maintaining a per-insurer benefit-name lookup. Omit rather than guess — an absent `cover_type` with a populated `benefit_name` is an honest answer.
           $ref: '#/components/schemas/CoverTypeResponse'
         sum_insured:
-          description: Current sum insured, after any indexation. For monthly-benefit covers this is the monthly amount.
+          description: |-
+            Current sum insured, after any indexation. For monthly-benefit covers this is the monthly amount, not the annualised one.
+            Optional only because one live book genuinely has no such column — see the note on `required` above. An implementation that holds the value MUST populate it, and an implementation that does not MUST say so in `capabilities.fields.benefit_sum_insured`, because an omitted amount and an unreported one look identical and mean completely different things.
           $ref: '#/components/schemas/NonNegativeMoney'
         premium:
           description: This benefit's share of the policy premium, at the policy's billing frequency.
@@ -929,18 +1104,29 @@ components:
           type: string
           format: date
         amount_outstanding:
-          description: Total currently outstanding, not just the failed instalment. MUST be greater than zero — this block means "behind on premium", and a nil outstanding amount is a contradiction rather than a cleared policy. Omit the whole block when the policy is paid up.
+          description: |-
+            The amount outstanding for THIS failure — the instalment that dishonoured on `dishonoured_on`, plus any fee the insurer has added to it. NOT the policy's total arrears. A consumer wanting total exposure sums the array; one that reads this as the policy total and also sums will double-count a policy two months behind.
+            MUST be greater than zero — this block means "behind on premium", and a nil outstanding amount is a contradiction rather than a cleared policy. Omit the whole block when the policy is paid up.
           allOf:
             - $ref: '#/components/schemas/NonNegativeMoney'
             - properties:
                 amount:
                   pattern: ^(?!0+(\.0+)?$)\d{1,12}(\.\d{1,2})?$
+        amount_is_estimate:
+          description: |-
+            `true` where `amount_outstanding` was COMPUTED rather than read from the insurer's own ledger — typically the instalment premium multiplied by the number of periods since `paid_to`. Defaults to `false`, so an insurer reporting a real figure need not send it.
+            This field exists because the alternative to it is silence. An insurer that knows a policy is behind but cannot state the exact amount has, without this, only two options: withhold the row entirely, or present a derived number as though it came off the ledger. Both have happened in production. In one extract the required-amount rule withheld more money than it delivered — $139,261 excluded against $136,616 reported — and in another a usable amount was available on 5 of 93 arrears policies.
+            A consumer SHOULD still work an estimated row: the policy is genuinely in arrears and `expected_lapse_on` is unaffected. What it MUST NOT do is reconcile an estimated amount against a payment, or present it as the amount owing without qualification.
+          type: boolean
+          default: false
         reason:
           description: Why the payment failed, in the insurer's own wording — "insufficient funds", "account closed", "card expired". Materially changes what the adviser does next, so worth carrying verbatim rather than mapping to an enum nobody agrees on.
           type: string
           maxLength: 200
         expected_lapse_on:
-          description: When the policy will lapse if the arrears are not cleared. The single most actionable field here — it is what turns a list of dishonours into a prioritised worklist.
+          description: |-
+            When the policy will lapse if the arrears are not cleared. The single most actionable field here — it is what turns a list of dishonours into a prioritised worklist rather than a list of equally urgent problems.
+            Optional in the schema, but an implementation reporting arrears at all SHOULD populate it: every insurer known to publish arrears data today supplies a lapse date, so it is a realistic ask rather than an aspirational one. Declare it in `capabilities.fields.expected_lapse_date`.
           type: string
           format: date
         attempts:
@@ -965,10 +1151,7 @@ components:
               const: in_arrears
       properties:
         policy_id:
-          description: The insurer's own policy or plan number, as it appears on correspondence and in the adviser portal. Stable for the life of the policy — this is the key a consumer reconciles on, so an insurer that renumbers a policy MUST surface the prior number in `previous_policy_id`.
-          type: string
-          minLength: 1
-          maxLength: 64
+          $ref: '#/components/schemas/PolicyId'
         policy_version:
           $ref: '#/components/schemas/PolicyVersion'
         previous_policy_id:
@@ -1027,6 +1210,13 @@ components:
       properties:
         next_cursor:
           $ref: '#/components/schemas/Cursor'
+    SnapshotComplete:
+      title: SnapshotComplete
+      description: |-
+        `true` on the final page of the walk, and only there. This is the flag a consumer's reconciliation gates on.
+        A server MUST NOT send `complete: true` together with `page.next_cursor` — the two contradict each other, and a consumer gating on `complete` would stop early and treat the unfetched remainder as absent. A consumer MUST fail the run if it sees both.
+        Required on every page precisely so that "the insurer never sends it" cannot deadlock a consumer that correctly refuses to reconcile without it.
+      type: boolean
     SnapshotCoverage:
       title: SnapshotCoverage
       description: What this snapshot claims to contain. Absence means "not in force", but only within the declared scope — a consumer that asked for one adviser code must not lapse policies belonging to another.
@@ -1037,7 +1227,10 @@ components:
       additionalProperties: false
       properties:
         adviser_codes:
-          description: 'The adviser codes this snapshot covers. When a request filtered on adviser codes, this echoes the effective set; otherwise it is every code the credential can see. Echoing it matters: it is how a consumer knows whether a code it expected was silently excluded, which would otherwise look identical to that adviser having no policies.'
+          description: |-
+            The adviser codes this snapshot covers. When a request filtered on adviser codes, this echoes the effective set; otherwise it is every code the credential can see.
+            THE ECHO IS THE POINT, and it is worth understanding why before treating this as housekeeping. A credential's scope is decided on the insurer's side and can be narrower than the consumer believes — a practice-level credential issued where a licensee-level one was intended, or a code quietly dropped from a group overnight. Nothing in the policy data shows it. Every row is valid, every field is populated, the walk completes, and the snapshot is simply smaller than it should be.
+            This has happened: a credential scoped to a practice returned 823 policies across 9 advisers where the licensee book was 3,406 across 95. A feed pointed at it cut that insurer's book to roughly a quarter for a week before anyone noticed, and the absence rule then lapsed the difference. An echoed code set turns that from a silent loss into a first-night assertion failure — a consumer that knows which codes it expects can compare, and one that does not can at least alert on the set changing between runs.
           type: array
           items:
             type: string
@@ -1070,33 +1263,13 @@ components:
       additionalProperties: false
       properties:
         mode:
-          description: |-
-            Whether this response is a FULL snapshot or an INCREMENTAL delta.
-            Required, and load-bearing. Without it the two are byte-indistinguishable: an incremental response carries the same envelope, the same `complete: true`, and a `total_count` that matches the handful of changed policies — so it passes every reconciliation gate, and a consumer that applies it will lapse everything that did not happen to change. A stray `changed_since` from configuration or a retry wrapper is enough to trigger it.
-            **Absence carries NO meaning when `mode` is `incremental`.** A consumer MUST refuse to run absence-based reconciliation on anything but `full`.
-          type: string
-          enum:
-            - full
-            - incremental
+          $ref: '#/components/schemas/SnapshotMode'
         snapshot_id:
-          description: |-
-            Identifies this consistent view of the book.
-            MUST be unique per generation and MUST NOT be reused. Deriving it from a business date is not sufficient: a re-run of the same night's extract under the same id lets a consumer stitch half of one view onto half of another while every page agrees on the identifier, which is the exact seam this field exists to prevent. Compare `generated_at` as well. Opaque and stable for the whole walk.
-            A server MUST hold the snapshot stable while it is being paged: policies must not shift between pages because the underlying data changed mid-walk. Where an implementation cannot do that, it MUST issue a new `snapshot_id` and reject the stale cursor with `409` rather than quietly serving a mixture of two views — a consumer that reconciles across a shifted boundary will lose rows in exactly the way this whole file exists to prevent.
-          type: string
-          minLength: 1
-          maxLength: 128
+          $ref: '#/components/schemas/SnapshotId'
         generated_at:
-          description: When the snapshot was taken. RFC 3339 with an explicit offset.
-          type: string
-          format: date-time
+          $ref: '#/components/schemas/SnapshotGeneratedAt'
         total_count:
-          description: |-
-            Total policies in the snapshot, counted as DISTINCT `policy_id` values across all pages.
-            MUST be identical on every page bearing the same `snapshot_id`. A consumer MUST fail the run if it varies mid-walk, because a changing total means the underlying view moved and the pages already fetched no longer describe one book.
-            Counted distinct, and compared distinct, deliberately: a cursor that emits one policy twice and skips another leaves the assembled COUNT correct while a live policy is missing. Compare `new Set(policies.map(p => p.policy_id)).size` against this, never `policies.length`.
-          type: integer
-          minimum: 0
+          $ref: '#/components/schemas/SnapshotTotalCount'
         policies:
           type: array
           items:
@@ -1105,11 +1278,7 @@ components:
           description: Continuation state. The shared pagination schema deliberately carries no count of its own, so there is exactly one authoritative total for a snapshot — `total_count` above.
           $ref: '#/components/schemas/PageInfo'
         complete:
-          description: |-
-            `true` on the final page of the walk, and only there. This is the flag a consumer's reconciliation gates on.
-            A server MUST NOT send `complete: true` together with `page.next_cursor` — the two contradict each other, and a consumer gating on `complete` would stop early and treat the unfetched remainder as absent. A consumer MUST fail the run if it sees both.
-            Required on every page precisely so that "the insurer never sends it" cannot deadlock a consumer that correctly refuses to reconcile without it.
-          type: boolean
+          $ref: '#/components/schemas/SnapshotComplete'
         coverage:
           $ref: '#/components/schemas/SnapshotCoverage'
     Problem:
@@ -1181,6 +1350,111 @@ components:
                 - 30d
                 - 60d
                 - 90d
+    ArrearsItem:
+      title: ArrearsItem
+      description: |-
+        One policy in arrears, with enough context attached to act on it without a second call.
+        Deliberately a PROJECTION of `Policy` rather than the whole thing. It carries no `covers`, no `dates` block and no `ownership`, for two reasons: an insurer producing this from a collections report generally does not have them to hand, and requiring them would defeat the point of the operation being independently implementable. Every field that IS here is one the follow-up actually uses — who to call, on what number, about which policy, for how much, by when.
+        Where the same policy also appears on `/policies`, every shared field MUST agree.
+      type: object
+      required:
+        - policy_id
+        - insurer_id
+        - arrears
+      additionalProperties: false
+      properties:
+        policy_id:
+          $ref: '#/components/schemas/PolicyId'
+        policy_version:
+          $ref: '#/components/schemas/PolicyVersion'
+        insurer_id:
+          $ref: '#/components/schemas/InsurerId'
+        brand_id:
+          $ref: '#/components/schemas/BrandId'
+        product_name:
+          $ref: '#/components/schemas/ProductName'
+        status:
+          description: The policy's current status. Normally `in_arrears`; carried because an insurer may report a policy as behind on premium while its own record still says something else, and a consumer reconciling this against `/policies` needs to see that rather than have it flattened away.
+          $ref: '#/components/schemas/PolicyStatusResponse'
+        policy_holder:
+          description: The same schema the policy snapshot uses. Contact details matter more here than anywhere else in the contract — an arrears row without a phone number or email is a task nobody can action — so an implementation that populates contact anywhere SHOULD populate it here.
+          $ref: '#/components/schemas/PolicyHolder'
+        distribution:
+          description: Who the work routes to. `adviser_code` is what a consumer assigns the task on, so an implementation that omits it produces a worklist nobody owns.
+          $ref: '#/components/schemas/Distribution'
+        premium:
+          description: 'What the policy costs as billed, including how it is collected. `payment_method` is load-bearing on this operation specifically: the follow-up for an expired card, a rejected superannuation rollover and a failed employer deduction are three different conversations with three different people.'
+          $ref: '#/components/schemas/PolicyPremium'
+        paid_to:
+          description: The date premiums are paid up to. Restated from the policy record rather than referenced, because an arrears row is unreadable without it — the outstanding amounts say how much, and this says since when.
+          type: string
+          format: date
+        arrears:
+          description: The outstanding failures on this policy, most recent first. At least one — a row in this worklist with no arrears is a contradiction, and unlike the policy snapshot there is no "absent means paid up" reading available here.
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Arrears'
+    ArrearsCoverage:
+      title: ArrearsCoverage
+      description: What this worklist claims to contain. Absence means "not in arrears", but only within the declared scope.
+      type: object
+      required:
+        - adviser_codes
+      additionalProperties: false
+      properties:
+        adviser_codes:
+          description: |-
+            The adviser codes this worklist covers — the effective set where the request filtered, every code the credential can see otherwise.
+            Echoing it matters more here than anywhere else in the contract, because the consequence of a silently narrowed scope is not a stale record but an unworked dishonour. A code missing from this list produces an empty worklist for that adviser, which is indistinguishable from that adviser having nobody in arrears — and the difference between those two is a policy that lapses. See the same field on `SnapshotCoverage` for the incident that motivates it.
+          type: array
+          items:
+            type: string
+            maxLength: 32
+        changed_since:
+          description: Echoed when `changed_since` was honoured. MUST be present when `mode` is `incremental`.
+          type: string
+          format: date-time
+    ArrearsPage:
+      title: ArrearsPage
+      description: |-
+        One page of the arrears worklist: every policy the calling credential can see that is currently behind on premium.
+        The snapshot discipline is exactly that of `PolicyPage` and the envelope fields are the same schemas — a walk is only usable once it has reached `complete: true` under one unchanging `snapshot_id` with the declared `total_count` assembled.
+        ## What absence means here, and why it is weaker than on `/policies`
+        A policy present in the last complete arrears snapshot and absent from this one is **no longer in arrears**. That is the useful part: it is how a consumer closes a dishonour task without the insurer having to publish a cleared event.
+        It is weaker than the policy snapshot's absence rule because it is ambiguous in a way that one is not. A policy leaves this snapshot for either of two reasons — the arrears were **paid**, or the policy **lapsed, was cancelled or terminated**. Those call for opposite actions, and nothing in this response distinguishes them. A consumer MUST NOT infer that a policy which dropped out of the arrears list has been brought up to date; to distinguish, read the policy's current status from `/policies` or `/policies/{policy_id}`.
+        An implementation serving both operations MUST keep them consistent: a policy carrying an `arrears` block on `/policies` MUST appear here, and vice versa, at equal `policy_version`. Where the two are generated from different systems and can briefly disagree, say so in `capabilities.arrears_snapshot.independent_of_policy_snapshot`, because a consumer that trusts one over the other needs to know which is which.
+      type: object
+      required:
+        - mode
+        - snapshot_id
+        - generated_at
+        - total_count
+        - complete
+        - coverage
+        - items
+      additionalProperties: false
+      properties:
+        mode:
+          $ref: '#/components/schemas/SnapshotMode'
+        snapshot_id:
+          $ref: '#/components/schemas/SnapshotId'
+        generated_at:
+          $ref: '#/components/schemas/SnapshotGeneratedAt'
+        total_count:
+          $ref: '#/components/schemas/SnapshotTotalCount'
+        items:
+          description: The policies in arrears. An empty array on a `complete` first page is a valid and unremarkable answer — it means nobody under this credential is currently behind.
+          type: array
+          items:
+            $ref: '#/components/schemas/ArrearsItem'
+        page:
+          description: Continuation state. As on `PolicyPage`, the shared pagination schema carries no count of its own so that `total_count` is the only authoritative total.
+          $ref: '#/components/schemas/PageInfo'
+        complete:
+          $ref: '#/components/schemas/SnapshotComplete'
+        coverage:
+          $ref: '#/components/schemas/ArrearsCoverage'
     Capabilities:
       title: Capabilities
       description: What this implementation of the policy contract supports.
@@ -1235,6 +1509,30 @@ components:
               description: Whether ended policies can be requested.
               type: boolean
               default: false
+        arrears_snapshot:
+          description: |-
+            Whether this implementation serves `GET /arrears`, the standalone arrears worklist.
+            Independent of `snapshot` above, deliberately. An insurer whose collections data lives in a different system from its in-force extract may be able to serve one and not the other, in either direction, and the contract should let it say which rather than forcing an all-or-nothing answer.
+          type: object
+          additionalProperties: false
+          properties:
+            supported:
+              type: boolean
+              default: false
+            independent_of_policy_snapshot:
+              description: |-
+                `true` where the worklist is generated from a different system than `GET /policies`, so the two can briefly disagree about whether a policy is in arrears.
+                Worth declaring rather than leaving a consumer to discover it. A consumer that knows the two feeds are independent treats a disagreement as staleness and re-reads; one that believes they share a source treats the same disagreement as a data defect and escalates it to a human. Both feeds are usually right and simply cut at different times.
+              type: boolean
+              default: false
+            supports_expected_lapse_filter:
+              description: 'Whether `expected_lapse_before` is honoured. Read together with `fields.expected_lapse_date`: the filter is useless without the field, since rows lacking a lapse date are excluded by it.'
+              type: boolean
+              default: false
+            typical_lag_hours:
+              description: Roughly how far behind the insurer's own collections system this worklist runs. Advisory, but it is what tells a consumer whether polling hourly is worth anything or whether the data only moves once a day.
+              type: integer
+              minimum: 0
         incremental:
           description: Optional, and deliberately so. The snapshot is the required path — it is the smallest thing an insurer can build and the only one whose absence semantics let a consumer detect a lapse without tombstones. An insurer with a large book may additionally offer `changed_since`, which is far cheaper on both sides for a daily run, but it is an optimisation on top of the snapshot rather than a replacement for it.
           type: object
@@ -1260,6 +1558,22 @@ components:
               type: boolean
               default: false
             expected_lapse_date:
+              type: boolean
+              default: false
+            arrears_amount_is_exact:
+              description: 'Whether outstanding amounts come from the insurer''s own ledger. `false` means some or all are computed, and each such entry carries `amount_is_estimate: true`. A consumer reconciling arrears against payments needs to know this before it starts.'
+              type: boolean
+              default: true
+            benefit_sum_insured:
+              description: Whether benefits carry `sum_insured` at all. `false` is a real answer — at least one live in-force book holds no sum-insured figure for any benefit — and it is the difference between "this benefit has no cover amount" and "this insurer cannot tell you what the cover amount is".
+              type: boolean
+              default: true
+            payment_method:
+              description: 'Whether policies carry how the premium is collected. Read this before building dishonour follow-up on it: the routing differs sharply between a card, a bank account and a superannuation rollover.'
+              type: boolean
+              default: false
+            client_id:
+              description: Whether the policy holder carries the insurer's own party identifier. `false` means a consumer must fall back to name and date of birth to group a person's policies.
               type: boolean
               default: false
             commission_splits:

@@ -14,11 +14,11 @@
   "type": "module",
   "scripts": {
     "lint": "redocly lint",
-    "bundle": "npm run bundle:quoting && npm run bundle:policy",
+    "bundle": "npm run bundle:quoting && npm run bundle:policy && npm run bundle:requirements",
     "bundle:quoting": "redocly bundle domains/quoting/openapi.yaml -o dist/quoting/openapi.yaml && redocly bundle domains/quoting/openapi.yaml -o dist/quoting/openapi.json",
-    "docs": "redocly build-docs domains/quoting/openapi.yaml -o site/quoting/index.html && redocly build-docs domains/policy/openapi.yaml -o site/policy/index.html",
+    "docs": "node scripts/build-site.mjs",
     "postman": "node scripts/build-postman.mjs",
-    "mock": "prism mock dist/quoting/openapi.yaml --port 4010",
+    "mock": "node scripts/mock.mjs",
     "proxy": "prism proxy dist/quoting/openapi.yaml",
     "examples": "node scripts/validate-examples.mjs",
     "audit": "node scripts/npm-audit-gate.mjs --level moderate",
@@ -34,7 +34,12 @@
     "codegen": "for l in typescript python java ruby go csharp; do npm run codegen:$l || exit 1; done",
     "bundle:policy": "redocly bundle domains/policy/openapi.yaml -o dist/policy/openapi.yaml && redocly bundle domains/policy/openapi.yaml -o dist/policy/openapi.json",
     "postman:check": "npm run postman && git diff --exit-code -- postman/ || (echo '' && echo '\u2717 postman/ was stale. It has just been regenerated above \u2014 review and commit it.' && exit 1)",
-    "dist:check": "npm run bundle && git diff --exit-code -- dist/ || (echo '' && echo '\u2717 dist/ was stale. It has just been rebuilt above \u2014 review and commit it.' && exit 1)"
+    "dist:check": "npm run bundle && git diff --exit-code -- dist/ || (echo '' && echo '\u2717 dist/ was stale. It has just been rebuilt above \u2014 review and commit it.' && exit 1)",
+    "bundle:requirements": "redocly bundle domains/requirements/openapi.yaml -o dist/requirements/openapi.yaml && redocly bundle domains/requirements/openapi.yaml -o dist/requirements/openapi.json",
+    "mock:quoting": "node scripts/mock.mjs quoting",
+    "mock:policy": "node scripts/mock.mjs policy",
+    "mock:requirements": "node scripts/mock.mjs requirements",
+    "mock:check": "node scripts/check-mock.mjs"
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.99.0",

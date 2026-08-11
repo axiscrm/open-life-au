@@ -1,0 +1,58 @@
+# Open Life Data Standards (AU) — Requirements — GET /cases/{case_id}
+
+get:
+  operationId: getUnderwritingCase
+  summary: Fetch one case
+  description: >-
+    Return a single application by the insurer's own reference.
+
+    Not part of the scheduled pull — a consumer reconciling a book uses the snapshot. This exists for
+    the case an adviser is looking at one client and wants the insurer's current position rather than
+    whatever last night's run captured, which on a case being actively chased is often already out of
+    date.
+
+    Also the way to resolve the one ambiguity in the snapshot's absence rule. A case that has
+    dropped out has nothing outstanding, but the snapshot cannot say whether that is because the
+    requirements were met or because the application was declined or withdrawn. Where that
+    distinction matters, read `status` here.
+
+    Returns `404` where the case is outside the credential's scope as well as where it does not
+    exist. The two are deliberately indistinguishable: answering `403` for a case that exists but
+    belongs to another practice would confirm its existence to a caller with no right to know.
+
+    Carries personal information, so servers MUST send `Cache-Control: no-store`.
+  tags: [Requirements]
+  security:
+    - oauth2: [requirements.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/CaseIdPath'
+    - $ref: '../components/parameters.yaml#/RequestId'
+  responses:
+    '200':
+      description: >-
+        The case, including any outstanding requirements. A case with everything met is returned
+        with an empty `requirements` array — unlike in the snapshot, where such a case is simply
+        absent.
+      headers:
+        Cache-Control:
+          description: MUST be `no-store`.
+          required: true
+          schema:
+            type: string
+            const: no-store
+        X-Request-Id:
+          $ref: '../../../core/http/headers.yaml#/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/case.yaml#/UnderwritingCase'
+    '401':
+      $ref: '../../../core/http/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../../core/http/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../../core/http/responses.yaml#/NotFound'
+    '429':
+      $ref: '../../../core/http/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../../../core/http/responses.yaml#/InternalError'

@@ -1,0 +1,103 @@
+# Open Life Data Standards (AU) — Requirements — GET /cases
+
+get:
+  operationId: listUnderwritingCases
+  summary: Pull the outstanding requirements
+  description: >-
+    Return every application the calling credential can see that is waiting on something, as a
+    consistent snapshot, paged.
+
+    This is the contract's primary operation and for most consumers the only one they will call.
+    Walk every page, reconcile against what you hold, and act on what is outstanding.
+
+    ### The snapshot is the required path, and this is the domain where that matters most
+
+    Insurers communicate requirements as notices — an item is raised, and *sometimes* a second
+    message says it arrived. A consumer assembled from those notices holds a list only as good as the
+    messages it never missed, with nothing in the stream to say whether it missed one. Several
+    sources carry no receipt signal at all, so no safe closing rule exists from them and items stay
+    open until a human clears them by hand. Lists built that way only grow, and end up reconciled by
+    telephone.
+
+    A complete outstanding-requirements snapshot removes the whole problem. Everything in it is
+    outstanding; anything absent is done with.
+
+    ### Reconciling on absence — read this before you do it
+
+    A case in the last complete snapshot and absent from this one has nothing outstanding. A
+    requirement absent from a case still present has been met or withdrawn. Both are only safe once
+    the **entire** walk has completed, so before acting on absence a consumer MUST have:
+
+    - reached a page with `complete: true`;
+    - seen the same `snapshot_id` on every page; and
+    - assembled `total_count` distinct cases.
+
+    If any of those fails, treat the run as failed and keep the previous state. A stale worklist is
+    recoverable; one that has closed a book's outstanding requirements is not.
+
+    ### Scope
+
+    Absence means "nothing outstanding" only within `coverage`. A snapshot filtered to two adviser
+    codes says nothing about a third, and one filtered to `medical` says nothing about an
+    outstanding signature.
+
+    ### Personal information
+
+    Responses carry each life's name, date of birth and contact details, because a requirement
+    nobody can attribute or chase is not actionable. Servers MUST send `Cache-Control: no-store`.
+  tags: [Requirements]
+  security:
+    - oauth2: [requirements.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/AdviserCodes'
+    - $ref: '../components/parameters.yaml#/Categories'
+    - $ref: '../components/parameters.yaml#/DueBefore'
+    - $ref: '../components/parameters.yaml#/ChangedSince'
+    - $ref: '../components/parameters.yaml#/SnapshotId'
+    - $ref: '../components/parameters.yaml#/Cursor'
+    - $ref: '../components/parameters.yaml#/Limit'
+    - $ref: '../components/parameters.yaml#/RequestId'
+  responses:
+    '200':
+      description: >-
+        One page of the snapshot. An empty `cases` array on a `complete` first page means nothing is
+        outstanding under this credential — not an error.
+      headers:
+        Cache-Control:
+          description: MUST be `no-store`.
+          required: true
+          schema:
+            type: string
+            const: no-store
+        X-Request-Id:
+          $ref: '../../../core/http/headers.yaml#/XRequestId'
+        X-OpenLife-Spec-Version:
+          $ref: '../../../core/http/headers.yaml#/SpecVersion'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/snapshot.yaml#/RequirementsPage'
+    '400':
+      $ref: '../../../core/http/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../../core/http/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../../core/http/responses.yaml#/Forbidden'
+    '409':
+      description: >-
+        The cursor belongs to a snapshot that has expired or been rebuilt. Problem type
+        `snapshot-expired`. Start the walk again from the beginning; do NOT stitch the pages already
+        fetched onto a new snapshot, because the two views may disagree and the seam is exactly
+        where records go missing.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../../../core/schemas/problems.yaml#/Problem'
+    '422':
+      $ref: '../../../core/http/responses.yaml#/UnprocessableEntity'
+    '429':
+      $ref: '../../../core/http/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../../../core/http/responses.yaml#/InternalError'
+    '503':
+      $ref: '../../../core/http/responses.yaml#/ServiceUnavailable'

@@ -1,0 +1,47 @@
+# Open Life Data Standards (AU) — Requirements — GET /capabilities
+
+get:
+  operationId: getRequirementsCapabilities
+  summary: What this implementation supports
+  description: >-
+    Describe which parts of a requirement this insurer populates, which categories it reports, how
+    long a snapshot stays walkable, and whether incremental pulls or pushed events are available.
+
+    Worth calling before the first snapshot and caching thereafter. Two blocks in particular change
+    how a consumer should behave rather than merely what it displays: `snapshot.categories_available`
+    says which categories may be reconciled on absence at all, and `fields.requirement_type_mapping`
+    says whether this insurer's requirements can be counted alongside another's or only read.
+  tags: [Discovery]
+  security:
+    - oauth2: [requirements.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/RequestId'
+  responses:
+    '200':
+      description: The capability document.
+      headers:
+        ETag:
+          description: Servers SHOULD supply one and honour `If-None-Match`.
+          schema:
+            type: string
+        Cache-Control:
+          description: Safe to cache — carries no personal information.
+          schema:
+            type: string
+            example: 'public, max-age=3600'
+        X-Request-Id:
+          $ref: '../../../core/http/headers.yaml#/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/capabilities.yaml#/Capabilities'
+    '304':
+      description: Not modified.
+    '401':
+      $ref: '../../../core/http/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../../core/http/responses.yaml#/Forbidden'
+    '429':
+      $ref: '../../../core/http/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../../../core/http/responses.yaml#/InternalError'

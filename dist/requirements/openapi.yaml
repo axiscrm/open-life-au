@@ -1,0 +1,1312 @@
+openapi: 3.1.0
+info:
+  title: Open Life Requirements API (AU)
+  version: 0.1.0
+  summary: A vendor-neutral contract for retrieving outstanding underwriting requirements on Australian life applications.
+  description: |
+    A contract an insurer implements so that adviser software can see what its applications are
+    waiting on — instead of reading notification emails, transcribing them, and inventing a code for
+    each one.
+
+    ## What this is
+
+    Three operations. Pull everything outstanding as a snapshot (`GET /cases`), fetch one
+    application (`GET /cases/{case_id}`), and find out what the implementation supports
+    (`GET /capabilities`). Most consumers will only ever call the first.
+
+    ## The problem this solves
+
+    An application in underwriting accumulates a list of things still owed: a blood profile, a report
+    from the client's own doctor, a signature, an income statement. Insurers communicate that list
+    constantly, and almost none of them code it. What arrives is a sentence — and every consumer that
+    wants to count, age, route or chase those items invents its own key for it.
+
+    So two consumers reading the same insurer's message produce different keys, neither can be
+    reconciled against the other or against the insurer, and nobody can answer "how many applications
+    are held up on medicals" across a book. **The shared vocabulary in
+    `core/schemas/requirement-vocabulary.yaml` is the most valuable thing in this contract**, and the
+    single most useful thing to ask an insurer to populate.
+
+    Mapping is lossy by design, so it never travels alone: every requirement carries the insurer's
+    own `description` verbatim alongside the mapped type, and MUST NOT drop it. "Specialist report"
+    does not tell an adviser which specialist.
+
+    ## Snapshot, not stream — and here it is not a preference
+
+    The required path is a **complete snapshot of what is outstanding**, paged. Every other contract
+    in this standard makes that choice for good reasons; this one has no workable alternative.
+
+    Insurers emit requirements as events. A notice goes out when an item is raised and — sometimes,
+    from some insurers — another when it is met. A list assembled from those is only as good as the
+    messages it never missed, with nothing in the stream to say whether it missed one. Several
+    sources carry no receipt signal **at all**: they say what is needed and never say it arrived.
+    Against those, no safe closing rule can be derived from the source, so items stay open until a
+    human clears them by hand. Lists built this way only grow, and end up reconciled by telephone.
+
+    A complete outstanding-requirements snapshot dissolves all of it. Everything in it is
+    outstanding; anything absent is done with, and the difference between met, waived and moot stops
+    mattering because the consumer's next action is the same.
+
+    **The one thing to get right:** absence only means "nothing outstanding" once the whole walk has
+    finished. A partial walk makes unfetched cases look absent, and a consumer that reconciles off it
+    will close a book's worth of live requirements from a response that is entirely well-formed.
+    Hence `snapshot_id`, `total_count` and `complete` — see `GET /cases`.
+
+    ## Cases, not requirement rows
+
+    A requirement is the unit of work, but a **case** is the unit of action: an adviser rings the
+    client once about all three outstanding items, not three times. So requirements nest under the
+    application they belong to, rather than arriving as flat rows repeating the client's name, date
+    of birth, product and adviser code on every line.
+
+    ## Personal information
+
+    Like the policy contract and unlike quoting, this carries names, dates of birth and contact
+    details. A requirement nobody can attribute to a person or chase with them is not actionable.
+    Responses are therefore `Cache-Control: no-store`, and `InsuredLife` is a closed schema scoped to
+    matching and contact rather than being a general client record.
+
+    ## Conformance
+
+    Insurer records differ enormously in what they carry — some code their requirements, most do not;
+    some set deadlines, most do not; almost none say which life on a joint application an item
+    belongs to. Declare what you populate in `GET /capabilities` and the conformance suite tests you
+    against that. What is not optional is the snapshot being complete and consistent.
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+  contact:
+    name: Open Life Data Standards (AU)
+    url: https://github.com/axiscrm/open-life-au
+servers:
+  - url: https://{host}/{basePath}
+    description: An insurer's implementation.
+    variables:
+      host:
+        default: api.insurer.example.com.au
+      basePath:
+        default: openlife/requirements/v1
+security:
+  - oauth2:
+      - requirements.read
+tags:
+  - name: Requirements
+    description: Retrieving outstanding underwriting requirements.
+  - name: Discovery
+    description: What an implementation supports.
+paths:
+  /cases:
+    get:
+      operationId: listUnderwritingCases
+      summary: Pull the outstanding requirements
+      description: |-
+        Return every application the calling credential can see that is waiting on something, as a consistent snapshot, paged.
+        This is the contract's primary operation and for most consumers the only one they will call. Walk every page, reconcile against what you hold, and act on what is outstanding.
+        ### The snapshot is the required path, and this is the domain where that matters most
+        Insurers communicate requirements as notices — an item is raised, and *sometimes* a second message says it arrived. A consumer assembled from those notices holds a list only as good as the messages it never missed, with nothing in the stream to say whether it missed one. Several sources carry no receipt signal at all, so no safe closing rule exists from them and items stay open until a human clears them by hand. Lists built that way only grow, and end up reconciled by telephone.
+        A complete outstanding-requirements snapshot removes the whole problem. Everything in it is outstanding; anything absent is done with.
+        ### Reconciling on absence — read this before you do it
+        A case in the last complete snapshot and absent from this one has nothing outstanding. A requirement absent from a case still present has been met or withdrawn. Both are only safe once the **entire** walk has completed, so before acting on absence a consumer MUST have:
+        - reached a page with `complete: true`; - seen the same `snapshot_id` on every page; and - assembled `total_count` distinct cases.
+        If any of those fails, treat the run as failed and keep the previous state. A stale worklist is recoverable; one that has closed a book's outstanding requirements is not.
+        ### Scope
+        Absence means "nothing outstanding" only within `coverage`. A snapshot filtered to two adviser codes says nothing about a third, and one filtered to `medical` says nothing about an outstanding signature.
+        ### Personal information
+        Responses carry each life's name, date of birth and contact details, because a requirement nobody can attribute or chase is not actionable. Servers MUST send `Cache-Control: no-store`.
+      tags:
+        - Requirements
+      security:
+        - oauth2:
+            - requirements.read
+      parameters:
+        - $ref: '#/components/parameters/AdviserCodes'
+        - $ref: '#/components/parameters/Categories'
+        - $ref: '#/components/parameters/DueBefore'
+        - $ref: '#/components/parameters/ChangedSince'
+        - $ref: '#/components/parameters/SnapshotId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: One page of the snapshot. An empty `cases` array on a `complete` first page means nothing is outstanding under this credential — not an error.
+          headers:
+            Cache-Control:
+              description: MUST be `no-store`.
+              required: true
+              schema:
+                type: string
+                const: no-store
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-OpenLife-Spec-Version:
+              $ref: '#/components/headers/SpecVersion'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequirementsPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: The cursor belongs to a snapshot that has expired or been rebuilt. Problem type `snapshot-expired`. Start the walk again from the beginning; do NOT stitch the pages already fetched onto a new snapshot, because the two views may disagree and the seam is exactly where records go missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /cases/{case_id}:
+    get:
+      operationId: getUnderwritingCase
+      summary: Fetch one case
+      description: |-
+        Return a single application by the insurer's own reference.
+        Not part of the scheduled pull — a consumer reconciling a book uses the snapshot. This exists for the case an adviser is looking at one client and wants the insurer's current position rather than whatever last night's run captured, which on a case being actively chased is often already out of date.
+        Also the way to resolve the one ambiguity in the snapshot's absence rule. A case that has dropped out has nothing outstanding, but the snapshot cannot say whether that is because the requirements were met or because the application was declined or withdrawn. Where that distinction matters, read `status` here.
+        Returns `404` where the case is outside the credential's scope as well as where it does not exist. The two are deliberately indistinguishable: answering `403` for a case that exists but belongs to another practice would confirm its existence to a caller with no right to know.
+        Carries personal information, so servers MUST send `Cache-Control: no-store`.
+      tags:
+        - Requirements
+      security:
+        - oauth2:
+            - requirements.read
+      parameters:
+        - $ref: '#/components/parameters/CaseIdPath'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: The case, including any outstanding requirements. A case with everything met is returned with an empty `requirements` array — unlike in the snapshot, where such a case is simply absent.
+          headers:
+            Cache-Control:
+              description: MUST be `no-store`.
+              required: true
+              schema:
+                type: string
+                const: no-store
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnderwritingCase'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /capabilities:
+    get:
+      operationId: getRequirementsCapabilities
+      summary: What this implementation supports
+      description: |-
+        Describe which parts of a requirement this insurer populates, which categories it reports, how long a snapshot stays walkable, and whether incremental pulls or pushed events are available.
+        Worth calling before the first snapshot and caching thereafter. Two blocks in particular change how a consumer should behave rather than merely what it displays: `snapshot.categories_available` says which categories may be reconciled on absence at all, and `fields.requirement_type_mapping` says whether this insurer's requirements can be counted alongside another's or only read.
+      tags:
+        - Discovery
+      security:
+        - oauth2:
+            - requirements.read
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: The capability document.
+          headers:
+            ETag:
+              description: Servers SHOULD supply one and honour `If-None-Match`.
+              schema:
+                type: string
+            Cache-Control:
+              description: Safe to cache — carries no personal information.
+              schema:
+                type: string
+                example: public, max-age=3600
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Capabilities'
+        '304':
+          description: Not modified.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+webhooks:
+  requirementRaised:
+    post:
+      operationId: onRequirementRaised
+      x-openlife-webhook: true
+      security:
+        - webhookSignature: []
+      summary: A requirement was raised
+      description: Sent when an underwriter adds a requirement to an application. The consumer's own snapshot remains authoritative; this is a prompt to look sooner, not a replacement for reconciliation.
+      tags:
+        - Requirements
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event_type
+                - event_id
+                - occurred_at
+                - case_version
+                - case_id
+                - insurer_id
+                - requirement
+              additionalProperties: false
+              properties:
+                event_type:
+                  description: 'Which event this is. Required, and it must be IN the payload: OpenAPI webhook keys are names rather than URLs, so a consumer publishing one endpoint for both would otherwise have to classify by sniffing which members are present.'
+                  type: string
+                  const: requirement.raised
+                event_id:
+                  description: Unique per event. Delivery is at-least-once, so consumers MUST deduplicate on this rather than assuming exactly-once.
+                  type: string
+                  maxLength: 128
+                occurred_at:
+                  type: string
+                  format: date-time
+                case_version:
+                  $ref: '#/components/schemas/CaseVersion'
+                case_id:
+                  type: string
+                  maxLength: 64
+                insurer_id:
+                  $ref: '#/components/schemas/InsurerId'
+                requirement:
+                  $ref: '#/components/schemas/Requirement'
+      responses:
+        '204':
+          description: Accepted. Consumers SHOULD acknowledge quickly and process asynchronously; an insurer's delivery timeout is not the place to do reconciliation work.
+        '410':
+          $ref: '#/components/responses/Gone'
+  requirementSatisfied:
+    post:
+      operationId: onRequirementSatisfied
+      x-openlife-webhook: true
+      security:
+        - webhookSignature: []
+      summary: A requirement was met
+      description: 'Sent when an outstanding requirement is satisfied or withdrawn. Worth pushing as well as the raise: without it a consumer keeps chasing a client who has already sent what was asked for, which is a worse experience than never having known. This is precisely the signal several existing insurer feeds omit entirely.'
+      tags:
+        - Requirements
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event_type
+                - event_id
+                - occurred_at
+                - case_version
+                - case_id
+                - insurer_id
+                - requirement_id
+              additionalProperties: false
+              properties:
+                event_type:
+                  type: string
+                  const: requirement.satisfied
+                event_id:
+                  type: string
+                  maxLength: 128
+                occurred_at:
+                  type: string
+                  format: date-time
+                case_version:
+                  $ref: '#/components/schemas/CaseVersion'
+                case_id:
+                  type: string
+                  maxLength: 64
+                insurer_id:
+                  $ref: '#/components/schemas/InsurerId'
+                requirement_id:
+                  description: 'Which requirement was met, identified by the same `requirement_id` the snapshot carried. Required, and it is why that identifier has to be stable: a consumer cannot close the right task from an identifier the insurer regenerates.'
+                  type: string
+                  maxLength: 64
+                satisfied_on:
+                  type: string
+                  format: date
+      responses:
+        '204':
+          description: Accepted.
+        '410':
+          $ref: '#/components/responses/Gone'
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: |
+        OAuth 2.0 client credentials (RFC 6749, section 4.4). Machine-to-machine only.
+
+        The credential determines which adviser codes the caller can see, which is what makes the
+        snapshot's absence semantics safe: a consumer can only ever be told about, and therefore only
+        ever close, requirements within its own scope.
+
+        Servers SHOULD publish an RFC 8414 metadata document. mTLS MAY additionally be required —
+        this contract carries personal information, and some insurers will want it.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.insurer.example.com.au/oauth2/token
+          refreshUrl: https://auth.insurer.example.com.au/oauth2/token
+          scopes:
+            requirements.read: Read outstanding underwriting requirements for the credential's adviser codes.
+    webhookSignature:
+      type: apiKey
+      in: header
+      name: X-OpenLife-Signature
+      description: |
+        Signature over a webhook delivery. REQUIRED on every delivery for any insurer that pushes.
+
+        The direction is inverted from everything else here: on a webhook the CONSUMER is the server
+        and the insurer is the client, so the OAuth2 credential above does not apply and there is
+        nothing else authenticating the request. Without a signature a consumer's endpoint is an
+        unauthenticated write to its requirements state.
+
+        Format: `t=<unix-seconds>,v1=<hex>`, where `v1` is the HMAC-SHA256 of `<t>.<raw request body>`
+        using a shared secret exchanged out of band. Sign the RAW body — re-serialising before signing
+        is the usual cause of signatures that verify locally and fail in production.
+
+        A consumer MUST reject a delivery whose signature does not verify, and MUST reject one whose
+        `t` is outside a tolerance of its own choosing (five minutes is typical) so a captured
+        delivery cannot be replayed indefinitely. Rejections SHOULD be `401`.
+
+        mTLS is an acceptable alternative where both parties can manage certificates; it is not a
+        substitute for `event_id` deduplication, which is about retries rather than authenticity.
+  parameters:
+    AdviserCodes:
+      name: adviser_code
+      in: query
+      description: |-
+        Restrict the snapshot to these adviser codes. Repeat the parameter for several. Omitted, the snapshot covers every code the credential can see, which is the normal case.
+        Whatever is applied comes back in `coverage.adviser_codes`, so a consumer can tell an excluded code from an adviser with nothing outstanding.
+      required: false
+      explode: true
+      schema:
+        type: array
+        items:
+          type: string
+          maxLength: 32
+    Categories:
+      name: category
+      in: query
+      description: |-
+        Restrict to these requirement categories. Repeat for several. Omitted, every category is returned.
+        Filtering here is a real hazard for a consumer that then reconciles on absence, so whatever is applied is echoed in `coverage.categories`. A consumer MUST NOT close requirements in a category it did not ask for — a snapshot filtered to `medical` says nothing whatsoever about an outstanding signature.
+      required: false
+      explode: true
+      schema:
+        type: array
+        items:
+          $ref: '#/components/schemas/RequirementCategory'
+    DueBefore:
+      name: due_before
+      in: query
+      description: |-
+        OPTIONAL. Restrict to cases carrying at least one requirement due on or before this date — the triage a consumer wants when the list is longer than the day allows.
+        An implementation that does not support it MUST reject it with `422` rather than ignoring it. Silently returning everything to a consumer that asked for "due this week" presents an unordered list as a prioritised one, and they work it top-down believing otherwise.
+        Requirements with no `due_on` are EXCLUDED when this filter is applied, since they cannot be shown to satisfy it. An insurer that does not populate `due_on` therefore returns nothing under this filter, which is why it is gated on `capabilities.fields.due_dates` as well.
+      required: false
+      schema:
+        type: string
+        format: date
+    ChangedSince:
+      name: changed_since
+      in: query
+      description: |-
+        OPTIONAL, and only where `capabilities.incremental.supported` is true. Return cases changed since this instant instead of everything outstanding.
+        Read `capabilities.incremental.reports_satisfied` before relying on it: an incremental response that omits satisfied requirements cannot be used on its own, because a consumer's list then only ever grows. Pull a periodic full snapshot regardless.
+        An implementation that does not support this MUST reject it with `422` rather than silently ignoring it and returning everything — a consumer that believes it received a delta and actually received the whole set will draw the wrong conclusions about what changed.
+      required: false
+      schema:
+        type: string
+        format: date-time
+    SnapshotId:
+      name: snapshot_id
+      in: query
+      description: Continue an in-progress walk. Supply the `snapshot_id` from the first page alongside the cursor, so the server can prove the cursor belongs to the snapshot the consumer thinks it is walking and reject it with `409` if the snapshot has since expired or been rebuilt.
+      required: false
+      schema:
+        type: string
+        maxLength: 128
+    Cursor:
+      name: cursor
+      in: query
+      description: Continuation token from the previous page's `page.next_cursor`.
+      required: false
+      schema:
+        $ref: '#/components/schemas/Cursor'
+    Limit:
+      name: limit
+      in: query
+      description: Maximum cases per page. A server MAY return fewer; completion is signalled by `complete` and the absence of `page.next_cursor`, never by a short page.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 250
+    RequestId:
+      name: X-Request-Id
+      in: header
+      description: Consumer-supplied correlation identifier. Echoed on the response.
+      required: false
+      schema:
+        type: string
+        maxLength: 128
+    CaseIdPath:
+      name: case_id
+      in: path
+      required: true
+      schema:
+        type: string
+        maxLength: 64
+  schemas:
+    RequirementCategory:
+      title: RequirementCategory
+      description: |-
+        The broad kind of requirement, which is what decides WHO acts on it. This is coarse on purpose: a consumer routes on the category and displays the type, so a requirement whose type is unrecognised is still routed to the right desk rather than landing nowhere.
+          - `medical`         evidence about health — an examination, a test, a report from a doctor.
+                              Chased with the client and usually a medical provider, and the slowest to
+                              clear because a third party controls the timing.
+          - `administrative`  paperwork, authorities, identification and financial evidence. Usually
+                              within the adviser's or client's own control, and therefore the category
+                              where chasing actually works.
+          - `notification`    something the insurer has issued that awaits acknowledgement or a decision
+                              — terms offered, a counter-offer, a warning that the application will be
+                              closed. Not a request for evidence, and treating it as one is a common way
+                              for an offer to expire unanswered.
+      type: string
+      enum:
+        - medical
+        - administrative
+        - notification
+    Cursor:
+      title: Cursor
+      description: Opaque continuation token. Consumers MUST treat it as opaque, MUST NOT construct one, and MUST NOT assume it remains valid indefinitely — a server MAY expire cursors and answer an expired one with 400 `invalid-request`.
+      type: string
+      minLength: 1
+      maxLength: 512
+    SnapshotMode:
+      title: SnapshotMode
+      description: |-
+        Whether this response is a FULL snapshot or an INCREMENTAL delta.
+        Required, and load-bearing. Without it the two are byte-indistinguishable: an incremental response carries the same envelope, the same `complete: true`, and a `total_count` that matches the handful of changed records — so it passes every reconciliation gate, and a consumer that applies it will remove everything that did not happen to change. A stray `changed_since` from configuration or a retry wrapper is enough to trigger it.
+        **Absence carries NO meaning when `mode` is `incremental`.** A consumer MUST refuse to run absence-based reconciliation on anything but `full`.
+      type: string
+      enum:
+        - full
+        - incremental
+    SnapshotId:
+      title: SnapshotId
+      description: |-
+        Identifies this consistent view.
+        MUST be unique per generation and MUST NOT be reused. Deriving it from a business date is not sufficient: a re-run of the same night's extract under the same id lets a consumer stitch half of one view onto half of another while every page agrees on the identifier, which is the exact seam this field exists to prevent. Compare `generated_at` as well. Opaque, and stable for the whole walk.
+        A server MUST hold the snapshot stable while it is being paged: records must not shift between pages because the underlying data changed mid-walk. Where an implementation cannot do that, it MUST issue a new `snapshot_id` and reject the stale cursor with `409` rather than quietly serving a mixture of two views — a consumer that reconciles across a shifted boundary loses rows in exactly the way this file exists to prevent.
+      type: string
+      minLength: 1
+      maxLength: 128
+    SnapshotGeneratedAt:
+      title: SnapshotGeneratedAt
+      description: When the snapshot was taken. RFC 3339 with an explicit offset.
+      type: string
+      format: date-time
+    SnapshotTotalCount:
+      title: SnapshotTotalCount
+      description: |-
+        Total records in the snapshot, counted as DISTINCT identities across all pages.
+        MUST be identical on every page bearing the same `snapshot_id`. A consumer MUST fail the run if it varies mid-walk, because a changing total means the underlying view moved and the pages already fetched no longer describe one set.
+        Counted distinct, and compared distinct, deliberately: a cursor that emits one record twice and skips another leaves the assembled COUNT correct while a live record is missing. Compare the size of the distinct set of identities assembled — not the number of items received.
+      type: integer
+      minimum: 0
+    CaseVersion:
+      title: CaseVersion
+      description: |-
+        A per-case version that increases on every change the insurer records. Optional on a snapshot but strongly RECOMMENDED, and REQUIRED on every webhook.
+        It is what makes ordering decidable. `generated_at` is snapshot-wide and cannot say whether a particular case already reflects a change an event is reporting; and `occurred_at` is not guaranteed monotonic and offers no tiebreak for equal timestamps. With a version, a consumer applies an event only when it exceeds the version already held for that case, and can tell whether the snapshot in hand is newer than an event that arrived after it.
+        Monotonic per case. It carries no meaning across cases and MUST NOT be compared between them.
+      type: integer
+      minimum: 1
+    InsurerId:
+      title: InsurerId
+      description: Stable identifier for the issuing insurer, assigned by this standard's registry so it is the same value at every implementer. Lowercase, hyphenated.
+      type: string
+      pattern: ^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])$
+      examples:
+        - example-life
+    BrandId:
+      title: BrandId
+      description: Stable identifier for the brand a line is sold under. Equal to the `InsurerId` where the insurer sells under a single brand. REQUIRED on every priced line even from a single-insurer endpoint, because one insurer commonly issues several brands and a consumer must not have to infer the brand from a product name.
+      type: string
+      pattern: ^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])$
+      examples:
+        - example-life
+        - example-select
+    ProductName:
+      title: ProductName
+      description: The insurer's own marketing name for a product, verbatim, for display only.
+      type: string
+      minLength: 1
+      maxLength: 200
+      examples:
+        - Protection Plus Life Cover
+    CaseStatus:
+      title: CaseStatus
+      description: |-
+        Where the application sits. RESPONSE-facing and extensible — underwriting workflows differ between insurers and a consumer MUST pass an unrecognised value through rather than failing the page, which would abort the walk and reconcile nothing that night.
+        Known values:
+          - `submitted`              lodged, not yet picked up
+          - `in_underwriting`        being assessed
+          - `awaiting_requirements`  assessment is blocked on the outstanding items
+          - `offer_issued`           terms have been offered and await a response
+          - `on_hold`                suspended by the insurer or at the client's request
+      type: string
+      x-extensible-enum:
+        - submitted
+        - in_underwriting
+        - awaiting_requirements
+        - offer_issued
+        - on_hold
+    LifeRole:
+      title: LifeRole
+      description: |-
+        How this person relates to the application. RESPONSE-facing and extensible.
+          - `life_insured`  the person whose risk is being underwritten
+          - `policy_owner`  the owner, where they are not the life insured
+          - `both`          owner and life insured, the common single-life case
+      type: string
+      x-extensible-enum:
+        - life_insured
+        - policy_owner
+        - both
+    InsuredLife:
+      title: InsuredLife
+      description: |-
+        A person named on the application. Enough to match them against a client record and contact them, and no more.
+        Deliberately NOT shared with the policy contract's `PolicyHolder`, and not with quoting's anonymous `Insured`. The three describe people at three different moments with three different obligations, and the reason to keep them apart is the direction the mistake runs: merging identity schemas tends to push fields INTO the anonymous one. See the header of `domains/policy/components/schemas/policy-holder.yaml`.
+      type: object
+      required:
+        - last_name
+      additionalProperties: false
+      properties:
+        life_id:
+          description: |-
+            The insurer's identifier for this person on this application, referenced by each requirement's `life_id`.
+            REQUIRED IN PRACTICE ON A JOINT APPLICATION, and the reason this field is named rather than left to be inferred: consumers today synthesise one by concatenating the application reference with the person's name, which is unstable the moment a name is corrected and ambiguous where two lives share a surname. An insurer-stated identifier costs nothing and removes both failures.
+          type: string
+          maxLength: 64
+        role:
+          $ref: '#/components/schemas/LifeRole'
+        first_name:
+          type: string
+          maxLength: 100
+        middle_name:
+          type: string
+          maxLength: 100
+        last_name:
+          description: Send it in its natural mixed case, as the person writes it. NOT upper-cased — case is destroyed in one direction only, and "MCDONALD" cannot be mechanically restored to "McDonald" without also producing "Obrien" and "De Vries".
+          type: string
+          minLength: 1
+          maxLength: 100
+        date_of_birth:
+          description: RFC 3339 full-date. Name plus date of birth is what makes a reliable match against an existing client record — a name alone is not unique enough, and attaching a case to the wrong person is worse than failing to match.
+          type: string
+          format: date
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone:
+          description: Mobile preferred. Most chasing of an outstanding requirement starts as a text message, so a landline is materially less useful here than on a servicing record.
+          type: string
+          maxLength: 50
+    Distribution:
+      title: Distribution
+      description: |-
+        Who wrote and services this business. This is the insurer's view of the adviser relationship, which is what makes the record attributable in the consumer's system.
+        Note the boundary: everything here is the INSURER's record. A consumer's own grouping — which internal team or user group owns the client — is not the insurer's to know and has no field here.
+      type: object
+      additionalProperties: false
+      properties:
+        adviser_code:
+          description: The adviser or agency code the policy is written under, as issued by this insurer. The primary attribution key.
+          type: string
+          maxLength: 32
+        adviser_name:
+          type: string
+          maxLength: 255
+        practice_name:
+          description: The practice or firm, where the insurer distinguishes it from the adviser.
+          type: string
+          maxLength: 255
+        licensee_name:
+          description: The licensee the adviser operates under.
+          type: string
+          maxLength: 255
+        licensee_code:
+          type: string
+          maxLength: 32
+        practice_code:
+          description: 'The practice identifier, where the insurer issues one. Mirrors `licensee_code`, and worth carrying: grouping a book by `practice_name` alone silently merges two practices trading under the same name, landing commission attribution on the wrong one. Live insurer feeds already publish this.'
+          type: string
+          maxLength: 32
+        new_business_split_percent:
+          description: Share of upfront commission attributed to this adviser code, as a percentage 0-100.
+          type: number
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.001
+        trail_split_percent:
+          description: Share of ongoing commission attributed to this adviser code, as a percentage 0-100.
+          type: number
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.001
+    RequirementType:
+      title: RequirementType
+      description: |-
+        What is outstanding, mapped onto the shared vocabulary.
+        RESPONSE-facing and EXTENSIBLE. A consumer MUST pass an unrecognised value through for display rather than failing — underwriting practice varies and this list will grow. Where an insurer's requirement genuinely fits nothing here, send `other` with a populated `description` and `insurer_code`; `other` is an honest answer and inventing a near-fit is not, because a mis-mapped requirement is worse than an unmapped one that still carries its own wording.
+        ## Medical
+
+          - `medical_examination`               a paramedical or doctor's examination
+          - `physical_measurements`             height, weight, blood pressure taken on their own
+          - `blood_profile`                     pathology on a blood sample
+          - `urine_test`                        urinalysis, including nicotine and drug screens
+          - `ecg`                               resting electrocardiogram
+          - `exercise_ecg`                      stress ECG — a materially bigger ask of the client than
+                                                a resting one, so it is named separately
+          - `personal_medical_attendant_report` a report from the client's own usual doctor. Distinct
+                                                from `specialist_report` because the chase is different:
+                                                the client can prompt their own GP, and often must
+          - `specialist_report`                 a report from a treating specialist
+          - `hospital_records`                  records released by a hospital or clinic
+          - `medical_questionnaire`             a supplementary questionnaire about a disclosed condition
+
+        ## Administrative
+
+          - `application_signature`             an unsigned or incompletely signed application
+          - `identity_verification`             proof of identity
+          - `payment_authority`                 direct debit, card or other collection authority
+          - `outstanding_premium`               an initial premium not yet received
+          - `financial_evidence`                income or financial justification for the sum insured
+          - `superannuation_rollover_form`      the form authorising a rollover to fund the premium
+          - `smsf_documentation`                trust deed and related SMSF evidence
+          - `ownership_documentation`           company, trust or other third-party ownership evidence
+          - `replacement_policy_form`           the declaration required when cover is being replaced
+          - `previous_insurer_details`          details of existing or prior cover
+          - `occupation_questionnaire`          a questionnaire about the client's duties
+          - `pursuits_questionnaire`            a questionnaire about hazardous sports or activities
+          - `travel_questionnaire`              a questionnaire about residence or travel
+          - `advice_documentation`              the advice record the insurer requires on file
+
+        ## Notification
+
+          - `underwriting_decision`             a decision has been issued and awaits acknowledgement
+          - `counter_offer`                     terms offered with a loading or exclusion, awaiting
+                                                acceptance. The most time-critical value here — an
+                                                unanswered counter-offer expires and the application
+                                                closes
+          - `terms_acceptance`                  issued terms awaiting the client's signature
+          - `application_lapsing`               the insurer will close the application unless something
+                                                happens, usually with a stated date
+
+        ## Anything else
+
+          - `other`                             read `description` and `insurer_code`
+      type: string
+      x-extensible-enum:
+        - medical_examination
+        - physical_measurements
+        - blood_profile
+        - urine_test
+        - ecg
+        - exercise_ecg
+        - personal_medical_attendant_report
+        - specialist_report
+        - hospital_records
+        - medical_questionnaire
+        - application_signature
+        - identity_verification
+        - payment_authority
+        - outstanding_premium
+        - financial_evidence
+        - superannuation_rollover_form
+        - smsf_documentation
+        - ownership_documentation
+        - replacement_policy_form
+        - previous_insurer_details
+        - occupation_questionnaire
+        - pursuits_questionnaire
+        - travel_questionnaire
+        - advice_documentation
+        - underwriting_decision
+        - counter_offer
+        - terms_acceptance
+        - application_lapsing
+        - other
+    ResponsibleParty:
+      title: ResponsibleParty
+      description: |-
+        Who the requirement is waiting on. RESPONSE-facing and extensible.
+        Worth stating rather than inferring from the category, because the inference is wrong often enough to matter: a medical questionnaire is waiting on the client, a specialist report is waiting on a doctor, and an adviser who chases the wrong one wastes the call. Where an insurer does not track this, omit it — a guess here sends work to the wrong desk.
+          - `client`            the life insured or policy owner
+          - `adviser`           the adviser or their practice
+          - `insurer`           the insurer itself, including anything with its own underwriters
+          - `medical_provider`  a doctor, clinic, pathology lab or hospital
+          - `third_party`       anyone else — an employer, an accountant, a previous insurer
+      type: string
+      x-extensible-enum:
+        - client
+        - adviser
+        - insurer
+        - medical_provider
+        - third_party
+    RequirementProgress:
+      title: RequirementProgress
+      description: |-
+        How far along an outstanding requirement is. RESPONSE-facing and extensible.
+        Everything in the snapshot is OUTSTANDING — a satisfied requirement leaves the snapshot rather than appearing with a closed state. This says how far the outstanding item has travelled, which is what stops an adviser chasing something the client sent a week ago.
+          - `outstanding`   raised, nothing has happened yet
+          - `requested`     the insurer has asked the responsible party for it
+          - `received`      it has arrived and is awaiting assessment. Still outstanding from the
+                            insurer's side, but NOT something to chase the client about
+          - `under_review`  an underwriter is assessing it
+      type: string
+      x-extensible-enum:
+        - outstanding
+        - requested
+        - received
+        - under_review
+    Requirement:
+      title: Requirement
+      description: |-
+        One thing still owed before the application can proceed.
+        IDENTITY IS `requirement_id`, and it must be stable. The same requirement reported across successive snapshots is the SAME item, not a new one — so an insurer MUST NOT restamp it each time the list is regenerated. Getting this wrong is not cosmetic: a consumer that sees a new identifier every morning reopens a task somebody worked yesterday, and the ageing that prioritises the worklist resets to zero every day, so the oldest requirement in a book looks like the newest.
+      type: object
+      required:
+        - requirement_id
+        - requirement_type
+        - category
+        - description
+        - raised_on
+      additionalProperties: false
+      properties:
+        requirement_id:
+          description: |-
+            The insurer's stable identifier for this requirement, unique within the case and unchanged for its life.
+            Where an insurer has no such identifier it MUST synthesise one deterministically — from the case reference, the requirement type and the life it applies to, for instance — rather than emitting a random value per generation. A deterministic synthetic id preserves the identity rule; a fresh one silently breaks it while looking perfectly well-formed.
+          type: string
+          minLength: 1
+          maxLength: 64
+        requirement_type:
+          $ref: '#/components/schemas/RequirementType'
+        category:
+          $ref: '#/components/schemas/RequirementCategory'
+        insurer_code:
+          description: 'The insurer''s own code for this requirement, verbatim, where it has one. Carried alongside `requirement_type` rather than instead of it: the type is what makes a book comparable across insurers, and this is what makes a query answerable back to the insurer''s own staff.'
+          type: string
+          maxLength: 50
+        description:
+          description: The insurer's own wording of what is owed, verbatim. REQUIRED, and it MUST NOT be dropped in favour of `requirement_type` — the type is a lossy classification and this is the lossless copy. "Specialist report" does not tell an adviser which specialist, for what, or by when; the insurer's sentence usually does.
+          type: string
+          minLength: 1
+          maxLength: 1000
+        life_id:
+          description: |-
+            Which life on the case this requirement applies to, matching a `life_id` in the case's `lives`. Omit only where the requirement genuinely applies to the application as a whole, such as a payment authority.
+            On a joint application this is the difference between a worklist an adviser can act on and one they cannot: two lives each owing bloods is two conversations, and a requirement that does not say whose it is has to be resolved by ringing the insurer.
+          type: string
+          maxLength: 64
+        responsible_party:
+          $ref: '#/components/schemas/ResponsibleParty'
+        progress:
+          $ref: '#/components/schemas/RequirementProgress'
+        raised_on:
+          description: The date the insurer raised this requirement. REQUIRED, because it is the only ageing axis the domain has — without it every outstanding item looks equally old, which is the state consumers are in today. It is what lets a worklist be sorted by the thing that actually predicts trouble.
+          type: string
+          format: date
+        due_on:
+          description: |-
+            The date by which the requirement must be met, where the insurer sets one. Strongly RECOMMENDED where it exists: it is the difference between a list and a prioritised list, and several insurers set real deadlines that never reach the adviser today.
+            On `counter_offer` and `application_lapsing` this is the date the application closes, which makes it the most consequential field in the contract.
+          type: string
+          format: date
+        requested_from:
+          description: Free text naming who specifically has been asked — the practice, the clinic, the pathology provider. Complements `responsible_party`, which says what KIND of party is holding it up.
+          type: string
+          maxLength: 200
+        notes:
+          description: Any further wording the insurer attaches to the requirement.
+          type: string
+          maxLength: 1000
+    UnderwritingCase:
+      title: UnderwritingCase
+      description: |-
+        One application with at least one outstanding requirement, and everything needed to act on it.
+        A case appears in the snapshot ONLY while something is outstanding. When the last requirement is met the case leaves the snapshot — that is the absence rule, and it is what removes the need for the insurer to publish a satisfied event for every item.
+      type: object
+      required:
+        - case_id
+        - insurer_id
+        - lives
+        - requirements
+      additionalProperties: false
+      properties:
+        case_id:
+          description: |-
+            The insurer's own reference for the application, as it appears on their correspondence and in the adviser portal. Stable for the life of the application — this is the key a consumer reconciles on.
+            Send it BARE: no surrounding whitespace and no quoting of any kind, in particular not the leading apostrophe a spreadsheet export adds to stop a number-like string being coerced. The same rule and the same reasoning as `policy_id` in the policy contract, where quoted and plain forms of the same reference were observed side by side and every join half-matched in silence.
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: ^[^\s'"](?:.*[^\s'"])?$
+        case_version:
+          $ref: '#/components/schemas/CaseVersion'
+        policy_id:
+          description: 'The policy number, where the insurer has allocated one before the application completes. This is the join to the policy contract, and it is worth populating as early as the insurer can: without it a consumer cannot connect an application it is chasing to the policy that eventually appears in the book, and the two records live side by side unlinked.'
+          type: string
+          maxLength: 64
+        insurer_id:
+          $ref: '#/components/schemas/InsurerId'
+        brand_id:
+          $ref: '#/components/schemas/BrandId'
+        product_name:
+          $ref: '#/components/schemas/ProductName'
+        status:
+          $ref: '#/components/schemas/CaseStatus'
+        status_detail:
+          description: The insurer's own wording for the status, where it carries more than the enum does.
+          type: string
+          maxLength: 200
+        submitted_on:
+          description: When the application was lodged. The other ageing axis alongside `raised_on` on each requirement, and the one that answers "how long has this client been waiting", which is the question a client actually asks.
+          type: string
+          format: date
+        lives:
+          description: The people insured under this application. At least one. A joint application carries two, and each requirement names which one it belongs to via `life_id`.
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/InsuredLife'
+        distribution:
+          description: Who wrote the application. `adviser_code` is what the work routes on, so an implementation that omits it produces a worklist nobody owns.
+          $ref: '#/components/schemas/Distribution'
+        requirements:
+          description: |-
+            What is still outstanding on this case.
+            IN THE SNAPSHOT this must never be empty, and `RequirementsPage` narrows it to require at least one. A case with nothing outstanding does not belong in the snapshot at all — sending one with an empty array creates a third state between "outstanding" and "absent" that the absence rule cannot interpret, and a consumer has no way to tell it from a population bug.
+            On `GET /cases/{case_id}` an empty array IS meaningful and permitted: it is the insurer confirming that this specific case is clear, which is a useful answer to a direct question and an impossible one to express by omission.
+          type: array
+          items:
+            $ref: '#/components/schemas/Requirement'
+    PageInfo:
+      title: PageInfo
+      description: Continuation state for a paged collection. Absence of `next_cursor` is the ONLY reliable signal that a walk is complete — consumers MUST NOT infer completion from a short page, because a server may return fewer items than requested for its own reasons.
+      type: object
+      additionalProperties: false
+      properties:
+        next_cursor:
+          $ref: '#/components/schemas/Cursor'
+    SnapshotComplete:
+      title: SnapshotComplete
+      description: |-
+        `true` on the final page of the walk, and only there. This is the flag a consumer's reconciliation gates on.
+        A server MUST NOT send `complete: true` together with `page.next_cursor` — the two contradict each other, and a consumer gating on `complete` would stop early and treat the unfetched remainder as absent. A consumer MUST fail the run if it sees both.
+        Required on every page precisely so that "the insurer never sends it" cannot deadlock a consumer that correctly refuses to reconcile without it.
+      type: boolean
+    RequirementsCoverage:
+      title: RequirementsCoverage
+      description: What this snapshot claims to contain. Absence means "nothing outstanding", but only within the declared scope — a consumer that asked for one adviser code must not close requirements belonging to another.
+      type: object
+      required:
+        - adviser_codes
+      additionalProperties: false
+      properties:
+        adviser_codes:
+          description: |-
+            The adviser codes this snapshot covers — the effective set where the request filtered, every code the credential can see otherwise.
+            Echoed for the reason it is echoed everywhere in this standard, and the consequence here is specific: a code silently missing from the credential produces an empty list for that adviser, which is indistinguishable from that adviser having nothing outstanding. Under the absence rule the consumer then CLOSES everything it was tracking for them, and the applications stall with nobody chasing.
+          type: array
+          items:
+            type: string
+            maxLength: 32
+        categories:
+          description: The requirement categories included. Omitted, the snapshot covers all of them. A consumer MUST NOT run absence-based closure for a category absent from this list.
+          type: array
+          items:
+            $ref: '#/components/schemas/RequirementCategory'
+        changed_since:
+          description: Echoed when `changed_since` was honoured. MUST be present when `mode` is `incremental`.
+          type: string
+          format: date-time
+    RequirementsPage:
+      title: RequirementsPage
+      description: |-
+        One page of the outstanding-requirements snapshot: every application the calling credential can see that is waiting on something.
+        ## Reconciling on absence
+        A case present in the last complete snapshot and absent from this one has NOTHING OUTSTANDING. Close it. Likewise a requirement that has disappeared from a case that is still present has been met or withdrawn.
+        That is only safe once the whole walk has finished. Before acting on absence a consumer MUST have reached `complete: true`, seen one unchanging `snapshot_id` across every page, and assembled `total_count` distinct cases. A partial walk makes unfetched cases look absent, and reconciling off it closes every outstanding requirement in the remainder of the book — from a response that is well-formed and valid.
+        Unlike the arrears worklist, absence here is UNAMBIGUOUS in the way that matters: whether the requirement was satisfied, waived or rendered moot by a declined application, the consumer's next action is the same. Where the distinction does matter, read the case's `status` before it drops out, or `GET /cases/{case_id}`.
+      type: object
+      required:
+        - mode
+        - snapshot_id
+        - generated_at
+        - total_count
+        - complete
+        - coverage
+        - cases
+      additionalProperties: false
+      properties:
+        mode:
+          $ref: '#/components/schemas/SnapshotMode'
+        snapshot_id:
+          $ref: '#/components/schemas/SnapshotId'
+        generated_at:
+          $ref: '#/components/schemas/SnapshotGeneratedAt'
+        total_count:
+          description: Total cases in the snapshot, counted as DISTINCT `case_id` values across all pages — cases, not requirements. A consumer comparing this against a count of requirements will fail every run on any book where one application owes two things, which is most of them.
+          $ref: '#/components/schemas/SnapshotTotalCount'
+        cases:
+          description: |-
+            The applications with something outstanding. An empty array on a `complete` first page means nothing is outstanding under this credential — a good day, not an error.
+            Each case here MUST carry at least one requirement. `UnderwritingCase` permits an empty list because `GET /cases/{case_id}` uses it to answer "this case is clear"; in a snapshot that same shape is a third state between outstanding and absent, so it is narrowed away.
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/UnderwritingCase'
+              - properties:
+                  requirements:
+                    minItems: 1
+        page:
+          description: Continuation state. The shared pagination schema carries no count of its own so that `total_count` is the only authoritative total.
+          $ref: '#/components/schemas/PageInfo'
+        complete:
+          $ref: '#/components/schemas/SnapshotComplete'
+        coverage:
+          $ref: '#/components/schemas/RequirementsCoverage'
+    Problem:
+      title: Problem
+      description: An RFC 9457 problem details document.
+      type: object
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          description: A URI identifying the problem kind. Use a registered value from `ProblemType` where one applies. Consumers branch on this field; `title` and `detail` are for humans.
+          type: string
+          format: uri
+          default: about:blank
+        title:
+          description: A short, human-readable summary of the problem kind. Stable per `type`.
+          type: string
+        status:
+          description: The HTTP status code, repeated here so a logged problem is self-contained.
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          description: A human-readable explanation specific to this occurrence. MUST NOT contain personal information about the insured — problem documents are logged widely on both sides.
+          type: string
+        instance:
+          description: A URI reference identifying this specific occurrence.
+          type: string
+          format: uri-reference
+        request_id:
+          description: The value of the `X-Request-Id` header for the failed request, echoed so a consumer can quote one token when asking the insurer to investigate.
+          type: string
+        errors:
+          description: Field-level detail, present on validation failures. Each entry MUST carry a JSON Pointer to the offending member of the request body, so a consumer can highlight the exact control that was wrong rather than showing a whole-form error.
+          type: array
+          items:
+            type: object
+            required:
+              - pointer
+              - detail
+            additionalProperties: false
+            properties:
+              pointer:
+                description: RFC 6901 JSON Pointer into the request body.
+                type: string
+                examples:
+                  - /covers/1/waiting_period
+              detail:
+                type: string
+              value_supplied:
+                description: The rejected value, echoed for diagnosis. Omit where it is sensitive.
+              values_supported:
+                description: The values that would have been accepted. Populating this turns a failed integration attempt into a self-service fix.
+                type: array
+                items: {}
+      examples:
+        - type: https://openlife.org.au/problems/unsupported-value
+          title: Unsupported value
+          status: 422
+          detail: This product does not offer a 730 day waiting period.
+          request_id: 01JQ8Z9YB4T7M2XR
+          errors:
+            - pointer: /covers/1/waiting_period
+              detail: Not offered for this product.
+              value_supplied: 730d
+              values_supported:
+                - 30d
+                - 60d
+                - 90d
+    Capabilities:
+      title: Capabilities
+      description: What this implementation of the requirements contract supports.
+      type: object
+      required:
+        - spec_version
+        - insurer_id
+      additionalProperties: false
+      properties:
+        spec_version:
+          type: string
+          pattern: ^\d+\.\d+\.\d+$
+          examples:
+            - 0.1.0
+        insurer_id:
+          $ref: '#/components/schemas/InsurerId'
+        brands:
+          type: array
+          items:
+            type: object
+            required:
+              - brand_id
+              - name
+            additionalProperties: false
+            properties:
+              brand_id:
+                $ref: '#/components/schemas/BrandId'
+              name:
+                type: string
+                maxLength: 120
+        snapshot:
+          type: object
+          additionalProperties: false
+          properties:
+            max_page_size:
+              type: integer
+              minimum: 1
+            snapshot_stable_for_seconds:
+              description: How long a `snapshot_id` and its cursors stay valid, so a consumer can size its walk against it.
+              type: integer
+              minimum: 60
+            typical_generation_seconds:
+              type: integer
+              minimum: 0
+            categories_available:
+              description: The requirement categories this implementation reports at all. A category absent here is one a consumer MUST NOT run absence-based closure against, because it will never appear and every item in it would be closed on the first run.
+              type: array
+              items:
+                $ref: '#/components/schemas/RequirementCategory'
+        fields:
+          description: Which optional parts of the record this insurer actually populates. The distinction a consumer needs is between "this case does not have one" and "this insurer never reports one", which look identical in the data and lead to very different conclusions.
+          type: object
+          additionalProperties: false
+          properties:
+            requirement_type_mapping:
+              description: Whether requirements carry `requirement_type` mapped to the shared vocabulary, or only the insurer's own `description`. `false` means a consumer cannot count or compare this insurer's requirements against another's — which is exactly the problem the vocabulary exists to fix, so this is the single most useful thing to ask an insurer to turn on.
+              type: boolean
+              default: false
+            insurer_codes:
+              description: Whether the insurer has its own requirement code scheme and publishes it.
+              type: boolean
+              default: false
+            due_dates:
+              description: Whether requirements carry `due_on`. `false` means every item looks equally urgent, and a consumer SHOULD say so on screen rather than presenting an unordered list as a prioritised one.
+              type: boolean
+              default: false
+            life_attribution:
+              description: Whether requirements name which life they belong to via `life_id`. `false` makes joint applications materially harder to work — the adviser has to ask the insurer whose bloods are outstanding.
+              type: boolean
+              default: false
+            responsible_party:
+              type: boolean
+              default: false
+            progress:
+              description: Whether requirements report `progress`. `false` means a consumer cannot distinguish an item the client has already sent from one nobody has touched, so it will chase both.
+              type: boolean
+              default: false
+            policy_id_before_issue:
+              description: Whether a case carries `policy_id` before the application completes. `false` means a consumer cannot link an application to the policy it becomes until the policy appears in the policy contract's snapshot.
+              type: boolean
+              default: false
+            contact_details:
+              description: Whether `email` and `phone` are populated on each life.
+              type: boolean
+              default: false
+        incremental:
+          description: Optional. The snapshot is the required path here — see the header of `snapshot.yaml`, which explains why this domain in particular cannot be served safely by a change feed.
+          type: object
+          additionalProperties: false
+          properties:
+            supported:
+              type: boolean
+              default: false
+            reports_satisfied:
+              description: 'Whether an incremental response reports requirements that were MET since the timestamp, not only ones raised. Without it a consumer cannot use incremental alone: satisfaction is invisible in a feed that only reports what is owed, so its list grows forever. This is the same defect as an incremental policy feed that omits terminations, and it is the usual shape of what insurers send today.'
+              type: boolean
+              default: false
+            max_lookback_days:
+              type: integer
+              minimum: 1
+        webhooks:
+          description: 'Whether this implementation pushes the events declared in the contract''s `webhooks` block. Optional throughout, and explicitly NOT a substitute for the snapshot: an implementation that only pushes events reproduces the missed-event problem this contract exists to remove.'
+          type: object
+          additionalProperties: false
+          properties:
+            supported:
+              type: boolean
+              default: false
+            events:
+              type: array
+              items:
+                type: string
+                enum:
+                  - requirement.raised
+                  - requirement.satisfied
+  headers:
+    XRequestId:
+      description: |-
+        Correlation identifier, echoed from the request or generated by the server when the request did not carry one. REQUIRED on every response, including errors.
+        This is not ceremony. A consumer of several insurers investigating "the premium was wrong last Tuesday" has to be able to hand one token to one insurer's support desk; without it, the only shared identifier is a timestamp.
+      required: true
+      schema:
+        type: string
+        maxLength: 128
+      example: 01JQ8Z9YB4T7M2XR5K3P
+    SpecVersion:
+      description: The version of this standard the response was produced against. Lets a consumer detect an implementation that has moved without announcement.
+      schema:
+        type: string
+        pattern: ^\d+\.\d+\.\d+$
+      example: 0.1.0
+  responses:
+    BadRequest:
+      description: The request could not be parsed, or a value was structurally invalid. Problem type `invalid-request`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    Unauthorized:
+      description: No access token was presented, or it was malformed or expired. Problem type `unauthenticated`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        WWW-Authenticate:
+          description: RFC 6750 challenge.
+          schema:
+            type: string
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    Forbidden:
+      description: The token is valid but lacks the scope required for this operation, or names a campaign the consumer is not authorised for. Problem type `forbidden`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    UnprocessableEntity:
+      description: |-
+        The request was well formed but cannot be priced as asked — an unsupported cover, an unsupported option value, or a combination the product does not permit. Problem types `unsupported-cover`, `unsupported-value`, `invalid-combination`, `incomplete-request`.
+        NOTE the boundary: this status is for a request the insurer will not accept. An insurer that accepts the request but cannot assemble the covers returns 200 with the line flagged `all_needs_met: false`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    TooManyRequests:
+      description: Rate limit exceeded. Problem type `rate-limited`. `Retry-After` is REQUIRED — without it a consumer fanning out across several insurers has no basis for a backoff and will retry into the limit.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying.
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    InternalError:
+      description: Unexpected failure. Problem type `internal-error`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    ServiceUnavailable:
+      description: A dependency of the pricing engine is unavailable. Problem type `upstream-unavailable`. Distinguished from `internal-error` so a consumer can retry this and not that.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 0
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    NotFound:
+      description: Unknown identifier. Problem type `not-found`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    Gone:
+      description: The endpoint is permanently retired — stop delivering to it. Used on webhook receivers so a publisher has a defined way to close a dead subscription, rather than retrying into a black hole until someone notices the queue depth. Problem type `endpoint-retired`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'

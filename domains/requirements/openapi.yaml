@@ -1,0 +1,277 @@
+openapi: 3.1.0
+
+info:
+  title: Open Life Requirements API (AU)
+  # Kept in step with the requirements-v* git tag by release-please — do not edit by hand.
+  version: 0.1.0 # x-release-please-version
+  summary: >-
+    A vendor-neutral contract for retrieving outstanding underwriting requirements on Australian life
+    applications.
+  description: |
+    A contract an insurer implements so that adviser software can see what its applications are
+    waiting on — instead of reading notification emails, transcribing them, and inventing a code for
+    each one.
+
+    ## What this is
+
+    Three operations. Pull everything outstanding as a snapshot (`GET /cases`), fetch one
+    application (`GET /cases/{case_id}`), and find out what the implementation supports
+    (`GET /capabilities`). Most consumers will only ever call the first.
+
+    ## The problem this solves
+
+    An application in underwriting accumulates a list of things still owed: a blood profile, a report
+    from the client's own doctor, a signature, an income statement. Insurers communicate that list
+    constantly, and almost none of them code it. What arrives is a sentence — and every consumer that
+    wants to count, age, route or chase those items invents its own key for it.
+
+    So two consumers reading the same insurer's message produce different keys, neither can be
+    reconciled against the other or against the insurer, and nobody can answer "how many applications
+    are held up on medicals" across a book. **The shared vocabulary in
+    `core/schemas/requirement-vocabulary.yaml` is the most valuable thing in this contract**, and the
+    single most useful thing to ask an insurer to populate.
+
+    Mapping is lossy by design, so it never travels alone: every requirement carries the insurer's
+    own `description` verbatim alongside the mapped type, and MUST NOT drop it. "Specialist report"
+    does not tell an adviser which specialist.
+
+    ## Snapshot, not stream — and here it is not a preference
+
+    The required path is a **complete snapshot of what is outstanding**, paged. Every other contract
+    in this standard makes that choice for good reasons; this one has no workable alternative.
+
+    Insurers emit requirements as events. A notice goes out when an item is raised and — sometimes,
+    from some insurers — another when it is met. A list assembled from those is only as good as the
+    messages it never missed, with nothing in the stream to say whether it missed one. Several
+    sources carry no receipt signal **at all**: they say what is needed and never say it arrived.
+    Against those, no safe closing rule can be derived from the source, so items stay open until a
+    human clears them by hand. Lists built this way only grow, and end up reconciled by telephone.
+
+    A complete outstanding-requirements snapshot dissolves all of it. Everything in it is
+    outstanding; anything absent is done with, and the difference between met, waived and moot stops
+    mattering because the consumer's next action is the same.
+
+    **The one thing to get right:** absence only means "nothing outstanding" once the whole walk has
+    finished. A partial walk makes unfetched cases look absent, and a consumer that reconciles off it
+    will close a book's worth of live requirements from a response that is entirely well-formed.
+    Hence `snapshot_id`, `total_count` and `complete` — see `GET /cases`.
+
+    ## Cases, not requirement rows
+
+    A requirement is the unit of work, but a **case** is the unit of action: an adviser rings the
+    client once about all three outstanding items, not three times. So requirements nest under the
+    application they belong to, rather than arriving as flat rows repeating the client's name, date
+    of birth, product and adviser code on every line.
+
+    ## Personal information
+
+    Like the policy contract and unlike quoting, this carries names, dates of birth and contact
+    details. A requirement nobody can attribute to a person or chase with them is not actionable.
+    Responses are therefore `Cache-Control: no-store`, and `InsuredLife` is a closed schema scoped to
+    matching and contact rather than being a general client record.
+
+    ## Conformance
+
+    Insurer records differ enormously in what they carry — some code their requirements, most do not;
+    some set deadlines, most do not; almost none say which life on a joint application an item
+    belongs to. Declare what you populate in `GET /capabilities` and the conformance suite tests you
+    against that. What is not optional is the snapshot being complete and consistent.
+
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+  contact:
+    name: Open Life Data Standards (AU)
+    url: https://github.com/axiscrm/open-life-au
+
+servers:
+  - url: https://{host}/{basePath}
+    description: An insurer's implementation.
+    variables:
+      host:
+        default: api.insurer.example.com.au
+      basePath:
+        default: openlife/requirements/v1
+
+tags:
+  - name: Requirements
+    description: Retrieving outstanding underwriting requirements.
+  - name: Discovery
+    description: What an implementation supports.
+
+security:
+  - oauth2: [requirements.read]
+
+paths:
+  /cases:
+    $ref: './paths/cases.yaml'
+  /cases/{case_id}:
+    $ref: './paths/cases-id.yaml'
+  /capabilities:
+    $ref: './paths/capabilities.yaml'
+
+# OPTIONAL, and explicitly NOT a substitute for the snapshot.
+#
+# The whole argument of this contract is that an event stream cannot be trusted on its own here, so
+# offering one needs a word of care: these exist for the cases where a day's delay has a cost — a
+# counter-offer with an expiry, an application about to be closed — and an implementation that
+# pushes events INSTEAD of serving snapshots reproduces exactly the problem the contract removes.
+# Declare whether you push in `capabilities.webhooks`.
+#
+# DO NOT REMOVE THE `x-openlife-webhook` EXTENSION ON THESE OPERATIONS.
+#
+# It carries no meaning. It exists because openapi-generator's Spring target crashes on webhook
+# operations that have no extensions at all: SpringCodegen.reformatProvideArgsParams dereferences
+# Operation.getExtensions() without a null check, and a webhook operation returns null there. The
+# result is a NullPointerException that aborts the whole run and emits NOTHING — no models, no
+# interfaces — so every Java implementer is blocked by a construct they never asked for.
+webhooks:
+  requirementRaised:
+    post:
+      operationId: onRequirementRaised
+      x-openlife-webhook: true
+      security:
+        - webhookSignature: []
+      summary: A requirement was raised
+      description: >-
+        Sent when an underwriter adds a requirement to an application. The consumer's own snapshot
+        remains authoritative; this is a prompt to look sooner, not a replacement for reconciliation.
+      tags: [Requirements]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_type, event_id, occurred_at, case_version, case_id, insurer_id, requirement]
+              additionalProperties: false
+              properties:
+                event_type:
+                  description: >-
+                    Which event this is. Required, and it must be IN the payload: OpenAPI webhook
+                    keys are names rather than URLs, so a consumer publishing one endpoint for both
+                    would otherwise have to classify by sniffing which members are present.
+                  type: string
+                  const: requirement.raised
+                event_id:
+                  description: >-
+                    Unique per event. Delivery is at-least-once, so consumers MUST deduplicate on
+                    this rather than assuming exactly-once.
+                  type: string
+                  maxLength: 128
+                occurred_at:
+                  type: string
+                  format: date-time
+                case_version:
+                  $ref: './components/schemas/case.yaml#/CaseVersion'
+                case_id:
+                  type: string
+                  maxLength: 64
+                insurer_id:
+                  $ref: '../../core/schemas/identifiers.yaml#/InsurerId'
+                requirement:
+                  $ref: './components/schemas/requirement.yaml#/Requirement'
+      responses:
+        '204':
+          description: >-
+            Accepted. Consumers SHOULD acknowledge quickly and process asynchronously; an insurer's
+            delivery timeout is not the place to do reconciliation work.
+        '410':
+          $ref: '../../core/http/responses.yaml#/Gone'
+
+  requirementSatisfied:
+    post:
+      operationId: onRequirementSatisfied
+      x-openlife-webhook: true
+      security:
+        - webhookSignature: []
+      summary: A requirement was met
+      description: >-
+        Sent when an outstanding requirement is satisfied or withdrawn. Worth pushing as well as the
+        raise: without it a consumer keeps chasing a client who has already sent what was asked for,
+        which is a worse experience than never having known. This is precisely the signal several
+        existing insurer feeds omit entirely.
+      tags: [Requirements]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_type, event_id, occurred_at, case_version, case_id, insurer_id, requirement_id]
+              additionalProperties: false
+              properties:
+                event_type:
+                  type: string
+                  const: requirement.satisfied
+                event_id:
+                  type: string
+                  maxLength: 128
+                occurred_at:
+                  type: string
+                  format: date-time
+                case_version:
+                  $ref: './components/schemas/case.yaml#/CaseVersion'
+                case_id:
+                  type: string
+                  maxLength: 64
+                insurer_id:
+                  $ref: '../../core/schemas/identifiers.yaml#/InsurerId'
+                requirement_id:
+                  description: >-
+                    Which requirement was met, identified by the same `requirement_id` the snapshot
+                    carried. Required, and it is why that identifier has to be stable: a consumer
+                    cannot close the right task from an identifier the insurer regenerates.
+                  type: string
+                  maxLength: 64
+                satisfied_on:
+                  type: string
+                  format: date
+      responses:
+        '204':
+          description: Accepted.
+        '410':
+          $ref: '../../core/http/responses.yaml#/Gone'
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: |
+        OAuth 2.0 client credentials (RFC 6749, section 4.4). Machine-to-machine only.
+
+        The credential determines which adviser codes the caller can see, which is what makes the
+        snapshot's absence semantics safe: a consumer can only ever be told about, and therefore only
+        ever close, requirements within its own scope.
+
+        Servers SHOULD publish an RFC 8414 metadata document. mTLS MAY additionally be required —
+        this contract carries personal information, and some insurers will want it.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.insurer.example.com.au/oauth2/token
+          refreshUrl: https://auth.insurer.example.com.au/oauth2/token
+          scopes:
+            requirements.read: Read outstanding underwriting requirements for the credential's adviser codes.
+
+    webhookSignature:
+      type: apiKey
+      in: header
+      name: X-OpenLife-Signature
+      description: |
+        Signature over a webhook delivery. REQUIRED on every delivery for any insurer that pushes.
+
+        The direction is inverted from everything else here: on a webhook the CONSUMER is the server
+        and the insurer is the client, so the OAuth2 credential above does not apply and there is
+        nothing else authenticating the request. Without a signature a consumer's endpoint is an
+        unauthenticated write to its requirements state.
+
+        Format: `t=<unix-seconds>,v1=<hex>`, where `v1` is the HMAC-SHA256 of `<t>.<raw request body>`
+        using a shared secret exchanged out of band. Sign the RAW body — re-serialising before signing
+        is the usual cause of signatures that verify locally and fail in production.
+
+        A consumer MUST reject a delivery whose signature does not verify, and MUST reject one whose
+        `t` is outside a tolerance of its own choosing (five minutes is typical) so a captured
+        delivery cannot be replayed indefinitely. Rejections SHOULD be `401`.
+
+        mTLS is an acceptable alternative where both parties can manage certificates; it is not a
+        substitute for `event_id` deduplication, which is about retries rather than authenticity.

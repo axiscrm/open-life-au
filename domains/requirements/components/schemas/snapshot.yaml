@@ -1,0 +1,132 @@
+# Open Life Data Standards (AU) — Requirements — the snapshot envelope.
+#
+# SNAPSHOT-FIRST MATTERS MORE HERE THAN ANYWHERE ELSE IN THE STANDARD, and it is worth being blunt
+# about why, because this is the one domain where the required path does not exist today.
+#
+# Insurers emit requirements as EVENTS. A notice goes out when something is raised, and — sometimes,
+# from some insurers — another when it is met. A consumer building from those events holds a list
+# that is only as good as the events it never missed, and there is nothing in the stream that says
+# whether it missed one. Worse, several sources carry no receipt signal AT ALL: they say what is
+# needed and never say it arrived. Against those, no safe closing rule can be derived from the
+# source, and an item stays open on screen until a human clears it by hand.
+#
+# The result is the state consumers are in now: a requirements list that only grows, is trusted by
+# nobody, and gets reconciled by ringing the insurer.
+#
+# A complete outstanding-requirements snapshot dissolves all of it. Every item in it is outstanding;
+# anything absent is met, withdrawn or no longer relevant, and the distinction stops mattering
+# because the action is the same — stop chasing it. No tombstones, no missed-event problem, and a
+# failed run self-corrects.
+#
+# So the snapshot is the REQUIRED path here, not an option alongside events, and it is the thing to
+# push hardest for in an insurer conversation. The webhooks in this contract are an optimisation on
+# top of it and are explicitly not a substitute — an implementation that only pushes events
+# reproduces exactly the problem this contract exists to remove.
+#
+# The envelope fields come from `core/schemas/snapshot.yaml`; the absence rules are identical to
+# every other snapshot in the standard and are stated there once.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+RequirementsPage:
+  title: RequirementsPage
+  description: >-
+    One page of the outstanding-requirements snapshot: every application the calling credential can
+    see that is waiting on something.
+
+    ## Reconciling on absence
+
+    A case present in the last complete snapshot and absent from this one has NOTHING OUTSTANDING.
+    Close it. Likewise a requirement that has disappeared from a case that is still present has been
+    met or withdrawn.
+
+    That is only safe once the whole walk has finished. Before acting on absence a consumer MUST
+    have reached `complete: true`, seen one unchanging `snapshot_id` across every page, and assembled
+    `total_count` distinct cases. A partial walk makes unfetched cases look absent, and reconciling
+    off it closes every outstanding requirement in the remainder of the book — from a response that
+    is well-formed and valid.
+
+    Unlike the arrears worklist, absence here is UNAMBIGUOUS in the way that matters: whether the
+    requirement was satisfied, waived or rendered moot by a declined application, the consumer's next
+    action is the same. Where the distinction does matter, read the case's `status` before it drops
+    out, or `GET /cases/{case_id}`.
+  type: object
+  # Same required set as every other snapshot in the standard. `{cases: [], complete: true}` must not
+  # validate as "nothing is outstanding anywhere" without the identity and size that prove the walk
+  # actually happened.
+  required: [mode, snapshot_id, generated_at, total_count, complete, coverage, cases]
+  additionalProperties: false
+  properties:
+    mode:
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotMode'
+    snapshot_id:
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotId'
+    generated_at:
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotGeneratedAt'
+    total_count:
+      description: >-
+        Total cases in the snapshot, counted as DISTINCT `case_id` values across all pages — cases,
+        not requirements. A consumer comparing this against a count of requirements will fail every
+        run on any book where one application owes two things, which is most of them.
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotTotalCount'
+    cases:
+      description: >-
+        The applications with something outstanding. An empty array on a `complete` first page means
+        nothing is outstanding under this credential — a good day, not an error.
+
+        Each case here MUST carry at least one requirement. `UnderwritingCase` permits an empty list
+        because `GET /cases/{case_id}` uses it to answer "this case is clear"; in a snapshot that
+        same shape is a third state between outstanding and absent, so it is narrowed away.
+      type: array
+      items:
+        allOf:
+          - $ref: 'case.yaml#/UnderwritingCase'
+          - properties:
+              requirements:
+                minItems: 1
+    page:
+      description: >-
+        Continuation state. The shared pagination schema carries no count of its own so that
+        `total_count` is the only authoritative total.
+      $ref: '../../../../core/schemas/pagination.yaml#/PageInfo'
+    complete:
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotComplete'
+    coverage:
+      $ref: '#/RequirementsCoverage'
+
+RequirementsCoverage:
+  title: RequirementsCoverage
+  description: >-
+    What this snapshot claims to contain. Absence means "nothing outstanding", but only within the
+    declared scope — a consumer that asked for one adviser code must not close requirements
+    belonging to another.
+  type: object
+  required: [adviser_codes]
+  additionalProperties: false
+  properties:
+    adviser_codes:
+      description: >-
+        The adviser codes this snapshot covers — the effective set where the request filtered, every
+        code the credential can see otherwise.
+
+        Echoed for the reason it is echoed everywhere in this standard, and the consequence here is
+        specific: a code silently missing from the credential produces an empty list for that
+        adviser, which is indistinguishable from that adviser having nothing outstanding. Under the
+        absence rule the consumer then CLOSES everything it was tracking for them, and the
+        applications stall with nobody chasing.
+      type: array
+      items:
+        type: string
+        maxLength: 32
+    categories:
+      description: >-
+        The requirement categories included. Omitted, the snapshot covers all of them. A consumer
+        MUST NOT run absence-based closure for a category absent from this list.
+      type: array
+      items:
+        $ref: '../../../../core/schemas/requirement-vocabulary.yaml#/RequirementCategory'
+    changed_since:
+      description: >-
+        Echoed when `changed_since` was honoured. MUST be present when `mode` is `incremental`.
+      type: string
+      format: date-time

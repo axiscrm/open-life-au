@@ -38,6 +38,12 @@ const SUITES = [
     { bundle: "dist/quoting/openapi.yaml", dir: "domains/quoting/examples/requests", schema: "QuoteRequest" },
     { bundle: "dist/quoting/openapi.yaml", dir: "domains/quoting/examples/responses", schema: "QuoteResponse" },
     { bundle: "dist/policy/openapi.yaml", dir: "domains/policy/examples/responses", schema: "PolicyPage" },
+    { bundle: "dist/policy/openapi.yaml", dir: "domains/policy/examples/arrears", schema: "ArrearsPage" },
+    {
+        bundle: "dist/requirements/openapi.yaml",
+        dir: "domains/requirements/examples/responses",
+        schema: "RequirementsPage",
+    },
 ];
 
 /** Ajv instance per bundled contract, built on first use. */

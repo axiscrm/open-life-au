@@ -1,0 +1,64 @@
+# Open Life Data Standards (AU) — distribution.
+#
+# Who wrote and services a piece of business, as the INSURER records it.
+#
+# Shared rather than defined per contract because the same attribution appears everywhere the
+# standard describes real business: an in-force policy, an arrears row, an application awaiting
+# underwriting requirements. `adviser_code` is the key every one of them routes on, and a consumer
+# that grouped a book by one contract's notion of an adviser code and a worklist by another's would
+# split one adviser's work across two buckets without anything looking wrong.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+Distribution:
+  title: Distribution
+  description: >-
+    Who wrote and services this business. This is the insurer's view of the adviser relationship, which
+    is what makes the record attributable in the consumer's system.
+
+    Note the boundary: everything here is the INSURER's record. A consumer's own grouping — which
+    internal team or user group owns the client — is not the insurer's to know and has no field here.
+  type: object
+  additionalProperties: false
+  properties:
+    adviser_code:
+      description: >-
+        The adviser or agency code the policy is written under, as issued by this insurer. The
+        primary attribution key.
+      type: string
+      maxLength: 32
+    adviser_name:
+      type: string
+      maxLength: 255
+    practice_name:
+      description: The practice or firm, where the insurer distinguishes it from the adviser.
+      type: string
+      maxLength: 255
+    licensee_name:
+      description: The licensee the adviser operates under.
+      type: string
+      maxLength: 255
+    licensee_code:
+      type: string
+      maxLength: 32
+    practice_code:
+      description: >-
+        The practice identifier, where the insurer issues one. Mirrors `licensee_code`, and worth
+        carrying: grouping a book by `practice_name` alone silently merges two practices trading under
+        the same name, landing commission attribution on the wrong one. Live insurer feeds already
+        publish this.
+      type: string
+      maxLength: 32
+    new_business_split_percent:
+      description: >-
+        Share of upfront commission attributed to this adviser code, as a percentage 0-100.
+      type: number
+      minimum: 0
+      maximum: 100
+      multipleOf: 0.001
+    trail_split_percent:
+      description: Share of ongoing commission attributed to this adviser code, as a percentage 0-100.
+      type: number
+      minimum: 0
+      maximum: 100
+      multipleOf: 0.001

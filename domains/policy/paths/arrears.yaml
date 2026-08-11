@@ -1,0 +1,101 @@
+# Open Life Data Standards (AU) — Policy — GET /arrears
+
+get:
+  operationId: listArrears
+  summary: Pull the arrears worklist
+  description: >-
+    Return every policy the calling credential can see that is currently behind on premium, as a
+    consistent snapshot, paged.
+
+    This is the most time-sensitive operation in the standard. A dishonour found the same morning is
+    a phone call; the same dishonour found four days later is often a lapsed policy. It is also the
+    part consumers obtain today by scraping a portal overnight.
+
+    ### Optional, and independently implementable
+
+    OPTIONAL — declare it in `capabilities.arrears_snapshot.supported`, and reject it with `422`
+    where unsupported rather than returning an empty worklist. An empty worklist means "nobody is
+    behind", which is the single most dangerous thing an unimplemented endpoint could say.
+
+    It does not require `GET /policies`. On the insurer's side the arrears list and the in-force
+    book are usually different reports from different systems, and an insurer that can serve this
+    one alone should serve it: implementing only this operation is a conformant, and useful,
+    implementation.
+
+    ### Reconciling on absence — the rule is weaker here
+
+    The snapshot discipline is the same as `GET /policies`: before acting on absence a consumer MUST
+    have reached `complete: true`, seen one unchanging `snapshot_id` across every page, and
+    assembled `total_count` distinct policies. A partial walk makes unfetched rows look absent.
+
+    What absence MEANS is weaker. A policy that has dropped out of this worklist is no longer in
+    arrears — but that is either because it was **paid** or because it **lapsed**, and this response
+    does not say which. Those call for opposite actions. A consumer that needs to distinguish them
+    MUST read the policy's status from `GET /policies` or `GET /policies/{policy_id}` rather than
+    assuming the happy case.
+
+    ### Personal information
+
+    Rows carry the policy holder's name and contact details — an arrears row nobody can telephone is
+    not actionable. Servers MUST send `Cache-Control: no-store`.
+  tags: [Policies]
+  security:
+    - oauth2: [policies.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/AdviserCodes'
+    - $ref: '../components/parameters.yaml#/ExpectedLapseBefore'
+    - $ref: '../components/parameters.yaml#/ChangedSince'
+    - $ref: '../components/parameters.yaml#/SnapshotId'
+    - $ref: '../components/parameters.yaml#/Cursor'
+    - $ref: '../components/parameters.yaml#/Limit'
+    - $ref: '../components/parameters.yaml#/RequestId'
+  responses:
+    '200':
+      description: >-
+        One page of the arrears worklist. An empty `items` array on a `complete` first page means
+        nobody under this credential is currently behind — a normal answer, not an error.
+      headers:
+        Cache-Control:
+          description: MUST be `no-store`.
+          required: true
+          schema:
+            type: string
+            const: no-store
+        X-Request-Id:
+          $ref: '../../../core/http/headers.yaml#/XRequestId'
+        X-OpenLife-Spec-Version:
+          $ref: '../../../core/http/headers.yaml#/SpecVersion'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/arrears-snapshot.yaml#/ArrearsPage'
+    '400':
+      $ref: '../../../core/http/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../../core/http/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../../core/http/responses.yaml#/Forbidden'
+    '409':
+      description: >-
+        The cursor belongs to a snapshot that has expired or been rebuilt. Problem type
+        `snapshot-expired`. Start the walk again from the beginning; do NOT stitch the pages already
+        fetched onto a new snapshot.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../../../core/schemas/problems.yaml#/Problem'
+    '422':
+      description: >-
+        This implementation does not serve an arrears worklist, or a supplied parameter is not
+        supported. Problem type `unsupported-operation`. Returned rather than an empty worklist,
+        deliberately — see the description above.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../../../core/schemas/problems.yaml#/Problem'
+    '429':
+      $ref: '../../../core/http/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../../../core/http/responses.yaml#/InternalError'
+    '503':
+      $ref: '../../../core/http/responses.yaml#/ServiceUnavailable'

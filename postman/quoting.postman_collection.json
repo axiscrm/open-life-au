@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "0f5a1c62-7c3e-4a1e-9a2f-2b6d0c9e41aa",
     "name": "Open Life Quoting API (AU)",
-    "description": "A vendor-neutral contract for pricing Australian life risk cover.\n\nSet `baseUrl` and `accessToken` in the collection variables before sending. Request bodies are the contract's own worked examples — they are validated against the schema and posted at a live mock in CI, so they are known to be accepted.",
+    "description": "A vendor-neutral contract for pricing Australian life risk cover.\n\nSet `baseUrl` and `accessToken` in the collection variables before sending. The default `baseUrl` points at this contract's local mock — `npm run mock` serves it on port 4010. Request bodies, where an operation takes one, are the contract's own worked examples: validated against the schema and posted at a live mock in CI, so they are known to be accepted.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -18,8 +18,8 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:4010",
-      "description": "An implementation's base URL. Defaults to the local mock (`npm run mock`) so the collection is usable before you have an insurer endpoint."
+      "value": "http://127.0.0.1:4010",
+      "description": "An implementation's base URL. Defaults to this contract's local mock (`npm run mock`, port 4010) so the collection is usable before you have an insurer endpoint."
     },
     {
       "key": "accessToken",

@@ -1,0 +1,215 @@
+# Open Life Data Standards (AU) — Requirements — an application in underwriting.
+#
+# WHY THIS NESTS REQUIREMENTS UNDER A CASE RATHER THAN RETURNING A FLAT LIST.
+#
+# The obvious shape is one row per requirement, because a requirement is the unit of work. That is
+# how insurers send them and how consumers store them today, and it is wrong for the same reason the
+# flat one-row-per-benefit policy export is wrong.
+#
+# A flat row has to repeat the client's name, date of birth, the product, the adviser code and the
+# licensee on every line, so a case with six outstanding requirements repeats all of it six times —
+# six chances for one copy to disagree with the others, and a consumer that must regroup by
+# application reference and guess which columns were case-level to get back to something workable.
+#
+# It also models the wrong unit of work. An adviser does not action a requirement; they action a
+# case. They ring the client ONCE about all three outstanding items, not three times. A flat feed
+# makes the thing they actually do the thing they have to reconstruct.
+#
+# WHAT LIVES WHERE: identity, parties and attribution on the case; everything that can differ
+# between two items on one application — type, due date, whose it is, how far along — on the
+# requirement.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+UnderwritingCase:
+  title: UnderwritingCase
+  description: >-
+    One application with at least one outstanding requirement, and everything needed to act on it.
+
+    A case appears in the snapshot ONLY while something is outstanding. When the last requirement is
+    met the case leaves the snapshot — that is the absence rule, and it is what removes the need for
+    the insurer to publish a satisfied event for every item.
+  type: object
+  required: [case_id, insurer_id, lives, requirements]
+  additionalProperties: false
+  properties:
+    case_id:
+      description: >-
+        The insurer's own reference for the application, as it appears on their correspondence and
+        in the adviser portal. Stable for the life of the application — this is the key a consumer
+        reconciles on.
+
+        Send it BARE: no surrounding whitespace and no quoting of any kind, in particular not the
+        leading apostrophe a spreadsheet export adds to stop a number-like string being coerced. The
+        same rule and the same reasoning as `policy_id` in the policy contract, where quoted and
+        plain forms of the same reference were observed side by side and every join half-matched in
+        silence.
+      type: string
+      minLength: 1
+      maxLength: 64
+      pattern: '^[^\s''"](?:.*[^\s''"])?$'
+    case_version:
+      $ref: '#/CaseVersion'
+    policy_id:
+      description: >-
+        The policy number, where the insurer has allocated one before the application completes.
+        This is the join to the policy contract, and it is worth populating as early as the insurer
+        can: without it a consumer cannot connect an application it is chasing to the policy that
+        eventually appears in the book, and the two records live side by side unlinked.
+      type: string
+      maxLength: 64
+    insurer_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/InsurerId'
+    brand_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/BrandId'
+    product_name:
+      $ref: '../../../../core/schemas/identifiers.yaml#/ProductName'
+    status:
+      $ref: '#/CaseStatus'
+    status_detail:
+      description: The insurer's own wording for the status, where it carries more than the enum does.
+      type: string
+      maxLength: 200
+    submitted_on:
+      description: >-
+        When the application was lodged. The other ageing axis alongside `raised_on` on each
+        requirement, and the one that answers "how long has this client been waiting", which is the
+        question a client actually asks.
+      type: string
+      format: date
+    lives:
+      description: >-
+        The people insured under this application. At least one. A joint application carries two,
+        and each requirement names which one it belongs to via `life_id`.
+      type: array
+      minItems: 1
+      items:
+        $ref: '#/InsuredLife'
+    distribution:
+      description: >-
+        Who wrote the application. `adviser_code` is what the work routes on, so an implementation
+        that omits it produces a worklist nobody owns.
+      $ref: '../../../../core/schemas/distribution.yaml#/Distribution'
+    requirements:
+      description: >-
+        What is still outstanding on this case.
+
+        IN THE SNAPSHOT this must never be empty, and `RequirementsPage` narrows it to require at
+        least one. A case with nothing outstanding does not belong in the snapshot at all — sending
+        one with an empty array creates a third state between "outstanding" and "absent" that the
+        absence rule cannot interpret, and a consumer has no way to tell it from a population bug.
+
+        On `GET /cases/{case_id}` an empty array IS meaningful and permitted: it is the insurer
+        confirming that this specific case is clear, which is a useful answer to a direct question
+        and an impossible one to express by omission.
+      type: array
+      items:
+        $ref: 'requirement.yaml#/Requirement'
+
+CaseVersion:
+  title: CaseVersion
+  description: >-
+    A per-case version that increases on every change the insurer records. Optional on a snapshot
+    but strongly RECOMMENDED, and REQUIRED on every webhook.
+
+    It is what makes ordering decidable. `generated_at` is snapshot-wide and cannot say whether a
+    particular case already reflects a change an event is reporting; and `occurred_at` is not
+    guaranteed monotonic and offers no tiebreak for equal timestamps. With a version, a consumer
+    applies an event only when it exceeds the version already held for that case, and can tell
+    whether the snapshot in hand is newer than an event that arrived after it.
+
+    Monotonic per case. It carries no meaning across cases and MUST NOT be compared between them.
+  type: integer
+  minimum: 1
+
+CaseStatus:
+  title: CaseStatus
+  description: >-
+    Where the application sits. RESPONSE-facing and extensible — underwriting workflows differ
+    between insurers and a consumer MUST pass an unrecognised value through rather than failing the
+    page, which would abort the walk and reconcile nothing that night.
+
+    Known values:
+      - `submitted`              lodged, not yet picked up
+      - `in_underwriting`        being assessed
+      - `awaiting_requirements`  assessment is blocked on the outstanding items
+      - `offer_issued`           terms have been offered and await a response
+      - `on_hold`                suspended by the insurer or at the client's request
+  type: string
+  x-extensible-enum:
+    - submitted
+    - in_underwriting
+    - awaiting_requirements
+    - offer_issued
+    - on_hold
+
+InsuredLife:
+  title: InsuredLife
+  description: >-
+    A person named on the application. Enough to match them against a client record and contact
+    them, and no more.
+
+    Deliberately NOT shared with the policy contract's `PolicyHolder`, and not with quoting's
+    anonymous `Insured`. The three describe people at three different moments with three different
+    obligations, and the reason to keep them apart is the direction the mistake runs: merging
+    identity schemas tends to push fields INTO the anonymous one. See the header of
+    `domains/policy/components/schemas/policy-holder.yaml`.
+  type: object
+  required: [last_name]
+  additionalProperties: false
+  properties:
+    life_id:
+      description: >-
+        The insurer's identifier for this person on this application, referenced by each
+        requirement's `life_id`.
+
+        REQUIRED IN PRACTICE ON A JOINT APPLICATION, and the reason this field is named rather than
+        left to be inferred: consumers today synthesise one by concatenating the application
+        reference with the person's name, which is unstable the moment a name is corrected and
+        ambiguous where two lives share a surname. An insurer-stated identifier costs nothing and
+        removes both failures.
+      type: string
+      maxLength: 64
+    role:
+      $ref: '#/LifeRole'
+    first_name:
+      type: string
+      maxLength: 100
+    middle_name:
+      type: string
+      maxLength: 100
+    last_name:
+      description: >-
+        Send it in its natural mixed case, as the person writes it. NOT upper-cased — case is
+        destroyed in one direction only, and "MCDONALD" cannot be mechanically restored to
+        "McDonald" without also producing "Obrien" and "De Vries".
+      type: string
+      minLength: 1
+      maxLength: 100
+    date_of_birth:
+      description: >-
+        RFC 3339 full-date. Name plus date of birth is what makes a reliable match against an
+        existing client record — a name alone is not unique enough, and attaching a case to the
+        wrong person is worse than failing to match.
+      type: string
+      format: date
+    email:
+      type: string
+      format: email
+      maxLength: 254
+    phone:
+      description: >-
+        Mobile preferred. Most chasing of an outstanding requirement starts as a text message, so a
+        landline is materially less useful here than on a servicing record.
+      type: string
+      maxLength: 50
+
+LifeRole:
+  title: LifeRole
+  description: >-
+    How this person relates to the application. RESPONSE-facing and extensible.
+      - `life_insured`  the person whose risk is being underwritten
+      - `policy_owner`  the owner, where they are not the life insured
+      - `both`          owner and life insured, the common single-life case
+  type: string
+  x-extensible-enum: [life_insured, policy_owner, both]

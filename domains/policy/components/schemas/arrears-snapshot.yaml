@@ -1,0 +1,182 @@
+# Open Life Data Standards (AU) — Policy — the arrears worklist.
+#
+# WHY THIS EXISTS WHEN `GET /policies?status=in_arrears` ALREADY DOES SOMETHING SIMILAR.
+#
+# It is a fair question and it has one real answer: this operation can be implemented by an insurer
+# that cannot implement `GET /policies` at all.
+#
+# In practice the arrears data and the in-force book are two different reports on the insurer's
+# side, produced by different systems on different cadences — the book is a nightly extract, the
+# arrears list comes off the collections process. Several insurers can produce the second and not
+# the first. Under a contract where the whole-book snapshot is the only path, those insurers cannot
+# be conformant at all, and the highest-value, most time-sensitive record in the standard stays
+# behind a portal login. `GET /arrears` is declared independently in `capabilities` precisely so
+# that implementing it alone is a real option.
+#
+# The secondary reason is cadence. Arrears is the record you want during the day; the book is the
+# one you want overnight. Two operations let an insurer serve them at different freshness and say
+# so, rather than forcing the expensive one to run at the frequency the urgent one needs.
+#
+# WHAT THIS OPERATION IS NOT: a second source of truth for the book. Every row here is a PROJECTION
+# of a policy — deliberately missing `covers`, `dates` and `ownership`, so nobody mistakes it for
+# one. See `ArrearsItem`.
+#
+# THE ABSENCE RULE IS WEAKER HERE THAN ON `/policies`, AND THAT MATTERS. See `ArrearsPage`.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+ArrearsPage:
+  title: ArrearsPage
+  description: >-
+    One page of the arrears worklist: every policy the calling credential can see that is currently
+    behind on premium.
+
+    The snapshot discipline is exactly that of `PolicyPage` and the envelope fields are the same
+    schemas — a walk is only usable once it has reached `complete: true` under one unchanging
+    `snapshot_id` with the declared `total_count` assembled.
+
+    ## What absence means here, and why it is weaker than on `/policies`
+
+    A policy present in the last complete arrears snapshot and absent from this one is **no longer
+    in arrears**. That is the useful part: it is how a consumer closes a dishonour task without the
+    insurer having to publish a cleared event.
+
+    It is weaker than the policy snapshot's absence rule because it is ambiguous in a way that one
+    is not. A policy leaves this snapshot for either of two reasons — the arrears were **paid**, or
+    the policy **lapsed, was cancelled or terminated**. Those call for opposite actions, and nothing
+    in this response distinguishes them. A consumer MUST NOT infer that a policy which dropped out
+    of the arrears list has been brought up to date; to distinguish, read the policy's current
+    status from `/policies` or `/policies/{policy_id}`.
+
+    An implementation serving both operations MUST keep them consistent: a policy carrying an
+    `arrears` block on `/policies` MUST appear here, and vice versa, at equal `policy_version`.
+    Where the two are generated from different systems and can briefly disagree, say so in
+    `capabilities.arrears_snapshot.independent_of_policy_snapshot`, because a consumer that trusts
+    one over the other needs to know which is which.
+  type: object
+  # The same required set as PolicyPage, and for the same reason: an implementation that can produce
+  # a complete snapshot knows its own size, so requiring the gate fields costs nothing and stops
+  # `{items: [], complete: true}` from validating as a legitimate "nobody is in arrears".
+  required: [mode, snapshot_id, generated_at, total_count, complete, coverage, items]
+  additionalProperties: false
+  properties:
+    mode:
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotMode'
+    snapshot_id:
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotId'
+    generated_at:
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotGeneratedAt'
+    total_count:
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotTotalCount'
+    items:
+      description: >-
+        The policies in arrears. An empty array on a `complete` first page is a valid and unremarkable
+        answer — it means nobody under this credential is currently behind.
+      type: array
+      items:
+        $ref: '#/ArrearsItem'
+    page:
+      description: >-
+        Continuation state. As on `PolicyPage`, the shared pagination schema carries no count of its
+        own so that `total_count` is the only authoritative total.
+      $ref: '../../../../core/schemas/pagination.yaml#/PageInfo'
+    complete:
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotComplete'
+    coverage:
+      $ref: '#/ArrearsCoverage'
+
+ArrearsCoverage:
+  title: ArrearsCoverage
+  description: >-
+    What this worklist claims to contain. Absence means "not in arrears", but only within the
+    declared scope.
+  type: object
+  required: [adviser_codes]
+  additionalProperties: false
+  properties:
+    adviser_codes:
+      description: >-
+        The adviser codes this worklist covers — the effective set where the request filtered, every
+        code the credential can see otherwise.
+
+        Echoing it matters more here than anywhere else in the contract, because the consequence of
+        a silently narrowed scope is not a stale record but an unworked dishonour. A code missing
+        from this list produces an empty worklist for that adviser, which is indistinguishable from
+        that adviser having nobody in arrears — and the difference between those two is a policy
+        that lapses. See the same field on `SnapshotCoverage` for the incident that motivates it.
+      type: array
+      items:
+        type: string
+        maxLength: 32
+    changed_since:
+      description: >-
+        Echoed when `changed_since` was honoured. MUST be present when `mode` is `incremental`.
+      type: string
+      format: date-time
+
+ArrearsItem:
+  title: ArrearsItem
+  description: >-
+    One policy in arrears, with enough context attached to act on it without a second call.
+
+    Deliberately a PROJECTION of `Policy` rather than the whole thing. It carries no `covers`, no
+    `dates` block and no `ownership`, for two reasons: an insurer producing this from a collections
+    report generally does not have them to hand, and requiring them would defeat the point of the
+    operation being independently implementable. Every field that IS here is one the follow-up
+    actually uses — who to call, on what number, about which policy, for how much, by when.
+
+    Where the same policy also appears on `/policies`, every shared field MUST agree.
+  type: object
+  required: [policy_id, insurer_id, arrears]
+  additionalProperties: false
+  properties:
+    policy_id:
+      $ref: 'policy.yaml#/PolicyId'
+    policy_version:
+      $ref: 'policy.yaml#/PolicyVersion'
+    insurer_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/InsurerId'
+    brand_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/BrandId'
+    product_name:
+      $ref: '../../../../core/schemas/identifiers.yaml#/ProductName'
+    status:
+      description: >-
+        The policy's current status. Normally `in_arrears`; carried because an insurer may report a
+        policy as behind on premium while its own record still says something else, and a consumer
+        reconciling this against `/policies` needs to see that rather than have it flattened away.
+      $ref: 'policy.yaml#/PolicyStatusResponse'
+    policy_holder:
+      description: >-
+        The same schema the policy snapshot uses. Contact details matter more here than anywhere
+        else in the contract — an arrears row without a phone number or email is a task nobody can
+        action — so an implementation that populates contact anywhere SHOULD populate it here.
+      $ref: 'policy-holder.yaml#/PolicyHolder'
+    distribution:
+      description: >-
+        Who the work routes to. `adviser_code` is what a consumer assigns the task on, so an
+        implementation that omits it produces a worklist nobody owns.
+      $ref: '../../../../core/schemas/distribution.yaml#/Distribution'
+    premium:
+      description: >-
+        What the policy costs as billed, including how it is collected. `payment_method` is
+        load-bearing on this operation specifically: the follow-up for an expired card, a rejected
+        superannuation rollover and a failed employer deduction are three different conversations
+        with three different people.
+      $ref: 'policy.yaml#/PolicyPremium'
+    paid_to:
+      description: >-
+        The date premiums are paid up to. Restated from the policy record rather than referenced,
+        because an arrears row is unreadable without it — the outstanding amounts say how much, and
+        this says since when.
+      type: string
+      format: date
+    arrears:
+      description: >-
+        The outstanding failures on this policy, most recent first. At least one — a row in this
+        worklist with no arrears is a contradiction, and unlike the policy snapshot there is no
+        "absent means paid up" reading available here.
+      type: array
+      minItems: 1
+      items:
+        $ref: 'policy.yaml#/Arrears'

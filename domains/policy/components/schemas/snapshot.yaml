@@ -18,6 +18,26 @@
 
 $schema: https://json-schema.org/draft/2020-12/schema
 
+# ---------------------------------------------------------------------------------------------
+# The envelope fields themselves live in `core/schemas/snapshot.yaml`, not here.
+#
+# Three paged snapshots across this standard now depend on identical absence semantics — the book
+# below, the arrears worklist in `arrears-snapshot.yaml`, and the outstanding-requirements snapshot
+# in the requirements contract. Restating the rules per collection would guarantee that one copy
+# eventually drifts, and the copy that drifts is the one somebody's reconciliation gate was built
+# against. What stays here is what is genuinely policy-specific: the page shape and `SnapshotCoverage`.
+# ---------------------------------------------------------------------------------------------
+
+# NOTE: there is deliberately no `SnapshotPageInfo` wrapper here, and the `page` property on each
+# snapshot refs `core/schemas/pagination.yaml#/PageInfo` directly with its description alongside.
+#
+# A named wrapper was tried and reverted. A schema whose body is only a `$ref` plus a title bundles
+# into a second copy of the target — two schemas both titled `PageInfo` — and openapi-python-client
+# deduplicates models by title, so it failed with "Attempted to generate duplicate models with name
+# PageInfo", dropped the wrapper, and then dropped BOTH page schemas that referenced it. The
+# generated client lost its 200 response on `/policies` and `/arrears` while the generator exited 0.
+# Caught by the codegen matrix; do not reintroduce the wrapper.
+
 PolicyPage:
   title: PolicyPage
   description: >-
@@ -33,54 +53,13 @@ PolicyPage:
   additionalProperties: false
   properties:
     mode:
-      description: >-
-        Whether this response is a FULL snapshot or an INCREMENTAL delta.
-
-        Required, and load-bearing. Without it the two are byte-indistinguishable: an incremental
-        response carries the same envelope, the same `complete: true`, and a `total_count` that
-        matches the handful of changed policies — so it passes every reconciliation gate, and a
-        consumer that applies it will lapse everything that did not happen to change. A stray
-        `changed_since` from configuration or a retry wrapper is enough to trigger it.
-
-        **Absence carries NO meaning when `mode` is `incremental`.** A consumer MUST refuse to run
-        absence-based reconciliation on anything but `full`.
-      type: string
-      enum: [full, incremental]
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotMode'
     snapshot_id:
-      description: >-
-        Identifies this consistent view of the book.
-
-        MUST be unique per generation and MUST NOT be reused. Deriving it from a business date is not
-        sufficient: a re-run of the same night's extract under the same id lets a consumer stitch half
-        of one view onto half of another while every page agrees on the identifier, which is the exact
-        seam this field exists to prevent. Compare `generated_at` as well. Opaque and stable for the whole walk.
-
-        A server MUST hold the snapshot stable while it is being paged: policies must not shift
-        between pages because the underlying data changed mid-walk. Where an implementation cannot
-        do that, it MUST issue a new `snapshot_id` and reject the stale cursor with `409` rather
-        than quietly serving a mixture of two views — a consumer that reconciles across a shifted
-        boundary will lose rows in exactly the way this whole file exists to prevent.
-      type: string
-      minLength: 1
-      maxLength: 128
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotId'
     generated_at:
-      description: When the snapshot was taken. RFC 3339 with an explicit offset.
-      type: string
-      format: date-time
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotGeneratedAt'
     total_count:
-      description: >-
-        Total policies in the snapshot, counted as DISTINCT `policy_id` values across all pages.
-
-        MUST be identical on every page bearing the same `snapshot_id`. A consumer MUST fail the run
-        if it varies mid-walk, because a changing total means the underlying view moved and the pages
-        already fetched no longer describe one book.
-
-        Counted distinct, and compared distinct, deliberately: a cursor that emits one policy twice
-        and skips another leaves the assembled COUNT correct while a live policy is missing. Compare
-        `new Set(policies.map(p => p.policy_id)).size` against this, never `policies.length`.
-
-      type: integer
-      minimum: 0
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotTotalCount'
     policies:
       type: array
       items:
@@ -91,17 +70,7 @@ PolicyPage:
         there is exactly one authoritative total for a snapshot — `total_count` above.
       $ref: '../../../../core/schemas/pagination.yaml#/PageInfo'
     complete:
-      description: >-
-        `true` on the final page of the walk, and only there. This is the flag a consumer's
-        reconciliation gates on.
-
-        A server MUST NOT send `complete: true` together with `page.next_cursor` — the two contradict
-        each other, and a consumer gating on `complete` would stop early and treat the unfetched
-        remainder as absent. A consumer MUST fail the run if it sees both.
-
-        Required on every page precisely so that "the insurer never sends it" cannot deadlock a
-        consumer that correctly refuses to reconcile without it.
-      type: boolean
+      $ref: '../../../../core/schemas/snapshot.yaml#/SnapshotComplete'
     coverage:
       $ref: '#/SnapshotCoverage'
 
@@ -121,9 +90,21 @@ SnapshotCoverage:
     adviser_codes:
       description: >-
         The adviser codes this snapshot covers. When a request filtered on adviser codes, this echoes
-        the effective set; otherwise it is every code the credential can see. Echoing it matters:
-        it is how a consumer knows whether a code it expected was silently excluded, which would
-        otherwise look identical to that adviser having no policies.
+        the effective set; otherwise it is every code the credential can see.
+
+        THE ECHO IS THE POINT, and it is worth understanding why before treating this as
+        housekeeping. A credential's scope is decided on the insurer's side and can be narrower than
+        the consumer believes — a practice-level credential issued where a licensee-level one was
+        intended, or a code quietly dropped from a group overnight. Nothing in the policy data shows
+        it. Every row is valid, every field is populated, the walk completes, and the snapshot is
+        simply smaller than it should be.
+
+        This has happened: a credential scoped to a practice returned 823 policies across 9 advisers
+        where the licensee book was 3,406 across 95. A feed pointed at it cut that insurer's book to
+        roughly a quarter for a week before anyone noticed, and the absence rule then lapsed the
+        difference. An echoed code set turns that from a silent loss into a first-night assertion
+        failure — a consumer that knows which codes it expects can compare, and one that does not
+        can at least alert on the set changing between runs.
       type: array
       items:
         type: string

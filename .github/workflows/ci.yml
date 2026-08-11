@@ -59,7 +59,7 @@ jobs:
   # first thing someone evaluating a contract does — would have hit it. So the examples are posted at
   # a real mock here, and a non-200 fails the build.
   mock-roundtrip:
-    name: 🔁 Examples post cleanly at the mock
+    name: 🔁 Every endpoint answers at the mock
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -70,33 +70,25 @@ jobs:
       - run: npm ci
       - run: npm run bundle
 
-      - name: Start the mock
+      - name: Start every mock
         run: |
-          npx prism mock dist/quoting/openapi.yaml --port 4010 > /tmp/prism.log 2>&1 &
-          for _ in $(seq 1 30); do
-            curl -sf -o /dev/null "http://localhost:4010/capabilities" \
-              -H 'Authorization: Bearer test' && break
-            sleep 1
+          nohup node scripts/mock.mjs > /tmp/prism.log 2>&1 &
+          for port in 4010 4011 4012; do
+            for _ in $(seq 1 40); do
+              curl -sf -o /dev/null "http://127.0.0.1:$port/capabilities" \
+                -H 'Authorization: Bearer test' && break
+              sleep 1
+            done
           done
 
-      - name: POST every request example
-        run: |
-          failed=0
-          for f in domains/quoting/examples/requests/*.json; do
-            code=$(curl -s -o /tmp/out.json -w '%{http_code}' \
-              -X POST http://localhost:4010/quotes \
-              -H 'Content-Type: application/json' \
-              -H 'Authorization: Bearer test' \
-              --data @"$f")
-            if [ "$code" = "200" ]; then
-              echo "✓ $code  $(basename "$f")"
-            else
-              echo "::error file=$f::mock returned $code — this example is not a valid payload"
-              cat /tmp/out.json
-              failed=1
-            fi
-          done
-          exit $failed
+      # Drive the requests out of the COMMITTED Postman collections rather than a list written here.
+      #
+      # That is the point of this job. A hand-maintained list drifts the moment an operation is
+      # added — silently, because a shorter list still passes — and the collection is the artefact an
+      # insurer actually imports and runs. Exercising it directly means "the collection works" is a
+      # tested claim rather than an assumption, and a new operation cannot reach main untested.
+      - name: Send every collection request
+        run: node scripts/check-mock.mjs
 
       - name: Mock log on failure
         if: failure()
@@ -177,10 +169,19 @@ jobs:
           path: site/
 
   breaking:
-    name: 💥 Breaking changes
+    name: 💥 Breaking changes (${{ matrix.contract }})
     runs-on: ubuntu-latest
     # Only meaningful against a base branch.
     if: github.event_name == 'pull_request'
+    # Every contract, not just quoting. This was a single hard-coded job against
+    # dist/quoting/openapi.yaml, which meant the policy contract shipped and changed for weeks with
+    # no breaking-change gate at all — and the gap was invisible, because the job was green the
+    # whole time. A matrix entry per contract is the only shape where adding a domain cannot
+    # silently leave it unguarded.
+    strategy:
+      fail-fast: false
+      matrix:
+        contract: [quoting, policy, requirements]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -213,11 +214,11 @@ jobs:
           mkdir -p /tmp/oasdiff
           # A brand-new contract has no base to compare against; an empty document makes every
           # change additive, which is correct for the first PR that introduces one.
-          git show "origin/${{ github.base_ref }}:dist/quoting/openapi.yaml" \
+          git show "origin/${{ github.base_ref }}:dist/${{ matrix.contract }}/openapi.yaml" \
             > /tmp/oasdiff/base.yaml 2>/dev/null \
             || printf 'openapi: 3.1.0\ninfo: {title: none, version: 0.0.0}\npaths: {}\n' \
                > /tmp/oasdiff/base.yaml
-          cp dist/quoting/openapi.yaml /tmp/oasdiff/head.yaml
+          cp dist/${{ matrix.contract }}/openapi.yaml /tmp/oasdiff/head.yaml
 
       # A breaking change is not forbidden — it is a decision that has to be taken deliberately,
       # with a migration note, rather than discovered by an insurer after they have shipped. Apply
@@ -230,19 +231,20 @@ jobs:
 
       # Always publish the human-readable changelog, breaking or not. "What changed in quoting
       # v0.3.0" is a question every implementer asks, and answering it from a diff of a 2,000-line
-      # bundle is nobody's idea of a good time.
+      # bundle is nobody's idea of a good time. Headed per contract, since three of these now write
+      # into the same step summary.
       - name: Changelog for the PR
         run: |
           oasdiff changelog /tmp/oasdiff/base.yaml /tmp/oasdiff/head.yaml \
             > /tmp/oasdiff/changelog.txt || true
           if [ -s /tmp/oasdiff/changelog.txt ]; then
             {
-              echo '## API changes'
+              echo '## API changes — ${{ matrix.contract }}'
               echo '```'
               cat /tmp/oasdiff/changelog.txt
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           else
-            echo '## API changes' >> "$GITHUB_STEP_SUMMARY"
-            echo '_No contract changes in this PR._' >> "$GITHUB_STEP_SUMMARY"
+            echo '## API changes — ${{ matrix.contract }}' >> "$GITHUB_STEP_SUMMARY"
+            echo '_No changes to this contract in this PR._' >> "$GITHUB_STEP_SUMMARY"
           fi

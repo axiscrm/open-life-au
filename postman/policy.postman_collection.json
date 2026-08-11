@@ -1,0 +1,226 @@
+{
+  "info": {
+    "_postman_id": "1b7d2e94-5a06-4c3b-8f71-3d4e5a6b7c80",
+    "name": "Open Life Policy API (AU)",
+    "description": "A vendor-neutral contract for retrieving in-force Australian life policy data.\n\nSet `baseUrl` and `accessToken` in the collection variables before sending. The default `baseUrl` points at this contract's local mock — `npm run mock` serves it on port 4011. Request bodies, where an operation takes one, are the contract's own worked examples: validated against the schema and posted at a live mock in CI, so they are known to be accepted.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:4011",
+      "description": "An implementation's base URL. Defaults to this contract's local mock (`npm run mock`, port 4011) so the collection is usable before you have an insurer endpoint."
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "description": "OAuth2 client-credentials access token. The mock accepts any non-empty value."
+    }
+  ],
+  "item": [
+    {
+      "name": "Policies",
+      "item": [
+        {
+          "name": "Pull a snapshot of the book",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "",
+                "description": "Consumer-supplied correlation identifier. Echoed on the response.",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/policies?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "policies"
+              ],
+              "query": [
+                {
+                  "key": "adviser_code",
+                  "value": "",
+                  "description": "Restrict the snapshot to these adviser codes. Repeat the parameter for several. Omitted, the snapshot covers every code the credential can see — which is the normal case for a daily pull.",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "Restrict to these statuses. Repeat for several. Omitted, an implementation returns its in-force set — `in_force`, `in_arrears` and `pending` — which is what a servicing book needs.",
+                  "disabled": true
+                },
+                {
+                  "key": "changed_since",
+                  "value": "",
+                  "description": "OPTIONAL, and only where `capabilities.incremental.supported` is true. Return policies changed since this instant instead of the full book.",
+                  "disabled": true
+                },
+                {
+                  "key": "snapshot_id",
+                  "value": "",
+                  "description": "Continue an in-progress walk. Supply the `snapshot_id` from the first page alongside the cursor, so the server can prove the cursor belongs to the snapshot the consumer thinks it is walking and reject it with `409` if the snapshot has since expired or been rebuilt.",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "description": "Continuation token from the previous page's `page.next_cursor`.",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "250",
+                  "description": "Maximum policies per page. A server MAY return fewer; completion is signalled by `complete` and the absence of `page.next_cursor`, never by a short page.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Return every policy the calling credential can see, as a consistent snapshot, paged.\nThis is the contract's primary operation and for most consumers the only one they will call: once a day, walk every page, reconcile against what you hold.\n### Reconciling on absence — read this before you do it\nA snapshot's value is that a policy which has *disappeared* since the last run is no longer in force. No tombstones needed, and a bad run self-corrects because the next one restates the truth.\nThat rule is only safe once the **entire** walk has completed. A walk that stops halfway makes every unfetched policy look absent, and reconciling off it will mark most of a book as lapsed — from a response that is well-formed, valid, and completely wrong.\nSo before acting on absence, a consumer MUST have:\n- reached a page with `complete: true`; - seen the same `snapshot_id` on every page; and - where `total_count` was supplied, assembled that many policies.\nIf any of those fails, treat the run as failed and keep the previous state. Some of the book is better than a book that has been wrongly lapsed.\n### Scope\nAbsence means \"not in force\" only within `coverage`. A snapshot filtered to two adviser codes says nothing about a third, and a default snapshot says nothing about policies in a status it does not include.\n### Personal information\nResponses carry the policy holder's name, date of birth and contact details, because the record is useless without enough identity to match it to a client. Servers MUST send `Cache-Control: no-store`."
+          },
+          "response": []
+        },
+        {
+          "name": "Fetch one policy",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "",
+                "description": "Consumer-supplied correlation identifier. Echoed on the response.",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/policies/:policy_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "policies",
+                ":policy_id"
+              ],
+              "variable": [
+                {
+                  "key": "policy_id",
+                  "value": "P-4471902",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "Return a single policy by the insurer's own policy number.\nNot part of the daily pull — a consumer reconciling a book uses the snapshot. This exists for the case an adviser is looking at one client and wants the insurer's current record rather than whatever last night's run captured, and for investigating a discrepancy between the two.\nCarries the policy holder's personal information, so servers MUST send `Cache-Control: no-store`."
+          },
+          "response": []
+        },
+        {
+          "name": "Pull the arrears worklist",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "",
+                "description": "Consumer-supplied correlation identifier. Echoed on the response.",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/arrears?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "arrears"
+              ],
+              "query": [
+                {
+                  "key": "adviser_code",
+                  "value": "",
+                  "description": "Restrict the snapshot to these adviser codes. Repeat the parameter for several. Omitted, the snapshot covers every code the credential can see — which is the normal case for a daily pull.",
+                  "disabled": true
+                },
+                {
+                  "key": "expected_lapse_before",
+                  "value": "",
+                  "description": "OPTIONAL. Restrict the worklist to policies expected to lapse on or before this date — the triage a consumer actually wants when the worklist is longer than the day allows.",
+                  "disabled": true
+                },
+                {
+                  "key": "changed_since",
+                  "value": "",
+                  "description": "OPTIONAL, and only where `capabilities.incremental.supported` is true. Return policies changed since this instant instead of the full book.",
+                  "disabled": true
+                },
+                {
+                  "key": "snapshot_id",
+                  "value": "",
+                  "description": "Continue an in-progress walk. Supply the `snapshot_id` from the first page alongside the cursor, so the server can prove the cursor belongs to the snapshot the consumer thinks it is walking and reject it with `409` if the snapshot has since expired or been rebuilt.",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "description": "Continuation token from the previous page's `page.next_cursor`.",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "250",
+                  "description": "Maximum policies per page. A server MAY return fewer; completion is signalled by `complete` and the absence of `page.next_cursor`, never by a short page.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Return every policy the calling credential can see that is currently behind on premium, as a consistent snapshot, paged.\nThis is the most time-sensitive operation in the standard. A dishonour found the same morning is a phone call; the same dishonour found four days later is often a lapsed policy. It is also the part consumers obtain today by scraping a portal overnight.\n### Optional, and independently implementable\nOPTIONAL — declare it in `capabilities.arrears_snapshot.supported`, and reject it with `422` where unsupported rather than returning an empty worklist. An empty worklist means \"nobody is behind\", which is the single most dangerous thing an unimplemented endpoint could say.\nIt does not require `GET /policies`. On the insurer's side the arrears list and the in-force book are usually different reports from different systems, and an insurer that can serve this one alone should serve it: implementing only this operation is a conformant, and useful, implementation.\n### Reconciling on absence — the rule is weaker here\nThe snapshot discipline is the same as `GET /policies`: before acting on absence a consumer MUST have reached `complete: true`, seen one unchanging `snapshot_id` across every page, and assembled `total_count` distinct policies. A partial walk makes unfetched rows look absent.\nWhat absence MEANS is weaker. A policy that has dropped out of this worklist is no longer in arrears — but that is either because it was **paid** or because it **lapsed**, and this response does not say which. Those call for opposite actions. A consumer that needs to distinguish them MUST read the policy's status from `GET /policies` or `GET /policies/{policy_id}` rather than assuming the happy case.\n### Personal information\nRows carry the policy holder's name and contact details — an arrears row nobody can telephone is not actionable. Servers MUST send `Cache-Control: no-store`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Discovery",
+      "item": [
+        {
+          "name": "What this implementation supports",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "",
+                "description": "Consumer-supplied correlation identifier. Echoed on the response.",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/capabilities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "capabilities"
+              ]
+            },
+            "description": "Describe which parts of the record this insurer populates, how long a snapshot stays walkable, and whether incremental pulls or pushed events are available.\nWorth calling before the first snapshot and caching thereafter. The `fields` block in particular answers a question a consumer otherwise cannot: whether a missing `arrears` means this policy is paid up, or means this insurer never reports arrears at all. Those look identical in the data and lead to very different conclusions about a book."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

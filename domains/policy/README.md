@@ -31,7 +31,19 @@ document, one set of schemas shared by ordinary `$ref`, and one toolchain. Async
 describing brokers and multi-protocol topologies; this is three HTTP callbacks. All three are
 optional — everything they carry is observable by comparing snapshots, just later.
 
-**Arrears live on the policy**, so one call answers what two separate scrapes answer today.
+**Arrears live on the policy**, so one call answers what two separate scrapes answer today — and are
+*also* served as a worklist of their own by `GET /arrears`.
+
+Both, not either. On the insurer's side collections and the in-force book are usually different
+reports from different systems on different cadences, so the two operations are declared
+independently in `capabilities`: an insurer that can only produce the arrears report implements
+`GET /arrears` alone and is conformant. That matters, because arrears is the record with a deadline
+attached and the one still behind a portal login.
+
+The absence rule is **weaker** on `/arrears` than on `/policies`, and this is the thing to get right.
+A policy that drops out of the worklist is no longer in arrears — but that is either because it was
+paid or because it lapsed, and the worklist cannot say which. Read the status from `/policies` before
+assuming the happy case.
 
 ## What must not diverge from quoting
 

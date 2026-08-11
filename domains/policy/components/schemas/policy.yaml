@@ -24,13 +24,7 @@ Policy:
           const: in_arrears
   properties:
     policy_id:
-      description: >-
-        The insurer's own policy or plan number, as it appears on correspondence and in the adviser
-        portal. Stable for the life of the policy — this is the key a consumer reconciles on, so an
-        insurer that renumbers a policy MUST surface the prior number in `previous_policy_id`.
-      type: string
-      minLength: 1
-      maxLength: 64
+      $ref: '#/PolicyId'
     policy_version:
       $ref: '#/PolicyVersion'
     previous_policy_id:
@@ -56,7 +50,7 @@ Policy:
     ownership:
       $ref: '#/PolicyOwnership'
     distribution:
-      $ref: '#/Distribution'
+      $ref: '../../../../core/schemas/distribution.yaml#/Distribution'
     dates:
       $ref: '#/PolicyDates'
     premium:
@@ -97,6 +91,27 @@ Policy:
       description: Policy exclusions, in the insurer's own wording.
       type: string
       maxLength: 2000
+
+PolicyId:
+  title: PolicyId
+  description: >-
+    The insurer's own policy or plan number, as it appears on correspondence and in the adviser
+    portal. Stable for the life of the policy — this is the key a consumer reconciles on, so an
+    insurer that renumbers a policy MUST surface the prior number in `previous_policy_id`.
+
+    Send it BARE. No surrounding whitespace, and no quoting of any kind — in particular not the
+    leading apostrophe a spreadsheet export adds to stop a number-like string being coerced.
+    This is the reconciliation key, so a policy that arrives quoted on one run and plain on the
+    next is two policies as far as a consumer is concerned, and every join half-matches in
+    silence. One live extract carried 5,373 quoted rows against 46,314 plain ones, the same
+    policies under two keys, with nothing in the data to signal it.
+  type: string
+  minLength: 1
+  maxLength: 64
+  # Rejects leading/trailing whitespace and leading/trailing quote characters, which is the
+  # observed failure. Quotes INSIDE the value are permitted — the standard should not assume
+  # what characters an insurer's numbering scheme uses, only that it does not wrap them.
+  pattern: '^[^\s''"](?:.*[^\s''"])?$'
 
 PolicyVersion:
   title: PolicyVersion
@@ -151,61 +166,13 @@ PolicyOwnership:
       description: >-
         The legal owner where it is not the life insured — a superannuation trustee, an SMSF, a
         company, or another individual.
-      type: string
-      maxLength: 255
 
-Distribution:
-  title: Distribution
-  description: >-
-    Who wrote and services the policy. This is the insurer's view of the adviser relationship, which
-    is what makes the record attributable in the consumer's system.
-
-    Note the boundary: everything here is the INSURER's record. A consumer's own grouping — which
-    internal team or user group owns the client — is not the insurer's to know and has no field here.
-  type: object
-  additionalProperties: false
-  properties:
-    adviser_code:
-      description: >-
-        The adviser or agency code the policy is written under, as issued by this insurer. The
-        primary attribution key.
-      type: string
-      maxLength: 32
-    adviser_name:
+        Send it as the entity is legally named, and do not case-normalise it. These are mostly
+        entity names rather than personal ones, so a consumer applying title case to them produces
+        "Abc Super Fund Pty Ltd" and "Smith Smsf" — and a consumer receiving one MUST NOT re-case it
+        either.
       type: string
       maxLength: 255
-    practice_name:
-      description: The practice or firm, where the insurer distinguishes it from the adviser.
-      type: string
-      maxLength: 255
-    licensee_name:
-      description: The licensee the adviser operates under.
-      type: string
-      maxLength: 255
-    licensee_code:
-      type: string
-      maxLength: 32
-    practice_code:
-      description: >-
-        The practice identifier, where the insurer issues one. Mirrors `licensee_code`, and worth
-        carrying: grouping a book by `practice_name` alone silently merges two practices trading under
-        the same name, landing commission attribution on the wrong one. Live insurer feeds already
-        publish this.
-      type: string
-      maxLength: 32
-    new_business_split_percent:
-      description: >-
-        Share of upfront commission attributed to this adviser code, as a percentage 0-100.
-      type: number
-      minimum: 0
-      maximum: 100
-      multipleOf: 0.001
-    trail_split_percent:
-      description: Share of ongoing commission attributed to this adviser code, as a percentage 0-100.
-      type: number
-      minimum: 0
-      maximum: 100
-      multipleOf: 0.001
 
 PolicyDates:
   title: PolicyDates
@@ -271,12 +238,61 @@ PolicyPremium:
     policy_fee:
       description: Policy or administration fee, already included in `amount`.
       $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    payment_method:
+      $ref: '#/PaymentMethod'
+    payment_method_detail:
+      description: >-
+        The insurer's own wording for the payment arrangement, where it carries more than the enum
+        does — a masked account or card tail, the name of the paying super fund, an employer scheme.
+        MUST NOT carry a full account number, card number or any other unmasked credential.
+      type: string
+      maxLength: 100
+
+PaymentMethod:
+  title: PaymentMethod
+  description: >-
+    How the premium is collected. RESPONSE-facing and extensible: a consumer MUST pass an
+    unrecognised value through rather than failing.
+
+    Carried because it changes what an adviser does when a payment fails, which is the whole point
+    of the `arrears` block. An expired card is a two-minute call to the client; a rejected
+    superannuation rollover is a conversation with the fund and often a different person entirely;
+    a failed employer deduction may not be the client's doing at all. Without this the follow-up on
+    every dishonour starts by finding out how the policy was being paid.
+
+    Known values:
+      - `direct_debit`             debited from a bank account
+      - `credit_card`              charged to a credit or debit card
+      - `bpay`                     client-initiated BPAY
+      - `direct_credit`            client-initiated transfer or deposit
+      - `cheque`
+      - `superannuation_rollover`  paid by rollover from a retail fund or SMSF
+      - `employer_deduction`       deducted from salary by an employer
+  type: string
+  x-extensible-enum:
+    - direct_debit
+    - credit_card
+    - bpay
+    - direct_credit
+    - cheque
+    - superannuation_rollover
+    - employer_deduction
 
 PolicyCover:
   title: PolicyCover
   description: One benefit held under the policy.
   type: object
-  required: [benefit_name, sum_insured]
+  # `sum_insured` is NOT required, which will read as a mistake to anyone who has worked with this
+  # data — it is the first thing an adviser looks at. It was required in 0.1.0, and that made an
+  # entire live book unrepresentable: one insurer's in-force extract (~5,242 policies) carries no
+  # sum-insured column at all, for any benefit, and no amount of implementation effort produces one.
+  #
+  # Required, the contract offered that insurer two choices: don't implement, or invent a number.
+  # Optional plus `capabilities.fields.benefit_sum_insured`, it offers a third that is honest — report the
+  # book, declare the gap, and let a consumer decide what to do about it. That is the same trade the
+  # rest of this contract makes, and the alternative is a standard whose conformance bar is set just
+  # above what part of the market can actually supply.
+  required: [benefit_name]
   additionalProperties: false
   properties:
     cover_id:
@@ -310,7 +326,12 @@ PolicyCover:
     sum_insured:
       description: >-
         Current sum insured, after any indexation. For monthly-benefit covers this is the monthly
-        amount.
+        amount, not the annualised one.
+
+        Optional only because one live book genuinely has no such column — see the note on
+        `required` above. An implementation that holds the value MUST populate it, and an
+        implementation that does not MUST say so in `capabilities.fields.benefit_sum_insured`, because an
+        omitted amount and an unreported one look identical and mean completely different things.
       $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
     premium:
       description: This benefit's share of the policy premium, at the policy's billing frequency.
@@ -363,14 +384,37 @@ Arrears:
       format: date
     amount_outstanding:
       description: >-
-        Total currently outstanding, not just the failed instalment. MUST be greater than zero — this
-        block means "behind on premium", and a nil outstanding amount is a contradiction rather than a
-        cleared policy. Omit the whole block when the policy is paid up.
+        The amount outstanding for THIS failure — the instalment that dishonoured on
+        `dishonoured_on`, plus any fee the insurer has added to it. NOT the policy's total arrears.
+        A consumer wanting total exposure sums the array; one that reads this as the policy total
+        and also sums will double-count a policy two months behind.
+
+        MUST be greater than zero — this block means "behind on premium", and a nil outstanding
+        amount is a contradiction rather than a cleared policy. Omit the whole block when the policy
+        is paid up.
       allOf:
         - $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
         - properties:
             amount:
               pattern: '^(?!0+(\.0+)?$)\d{1,12}(\.\d{1,2})?$'
+    amount_is_estimate:
+      description: >-
+        `true` where `amount_outstanding` was COMPUTED rather than read from the insurer's own
+        ledger — typically the instalment premium multiplied by the number of periods since
+        `paid_to`. Defaults to `false`, so an insurer reporting a real figure need not send it.
+
+        This field exists because the alternative to it is silence. An insurer that knows a policy
+        is behind but cannot state the exact amount has, without this, only two options: withhold
+        the row entirely, or present a derived number as though it came off the ledger. Both have
+        happened in production. In one extract the required-amount rule withheld more money than it
+        delivered — $139,261 excluded against $136,616 reported — and in another a usable amount was
+        available on 5 of 93 arrears policies.
+
+        A consumer SHOULD still work an estimated row: the policy is genuinely in arrears and
+        `expected_lapse_on` is unaffected. What it MUST NOT do is reconcile an estimated amount
+        against a payment, or present it as the amount owing without qualification.
+      type: boolean
+      default: false
     reason:
       description: >-
         Why the payment failed, in the insurer's own wording — "insufficient funds", "account
@@ -381,7 +425,13 @@ Arrears:
     expected_lapse_on:
       description: >-
         When the policy will lapse if the arrears are not cleared. The single most actionable field
-        here — it is what turns a list of dishonours into a prioritised worklist.
+        here — it is what turns a list of dishonours into a prioritised worklist rather than a list
+        of equally urgent problems.
+
+        Optional in the schema, but an implementation reporting arrears at all SHOULD populate it:
+        every insurer known to publish arrears data today supplies a lapse date, so it is a
+        realistic ask rather than an aspirational one. Declare it in
+        `capabilities.fields.expected_lapse_date`.
       type: string
       format: date
     attempts:

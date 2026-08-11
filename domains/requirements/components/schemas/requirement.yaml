@@ -1,0 +1,94 @@
+# Open Life Data Standards (AU) — Requirements — one outstanding requirement.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+Requirement:
+  title: Requirement
+  description: >-
+    One thing still owed before the application can proceed.
+
+    IDENTITY IS `requirement_id`, and it must be stable. The same requirement reported across
+    successive snapshots is the SAME item, not a new one — so an insurer MUST NOT restamp it each
+    time the list is regenerated. Getting this wrong is not cosmetic: a consumer that sees a new
+    identifier every morning reopens a task somebody worked yesterday, and the ageing that
+    prioritises the worklist resets to zero every day, so the oldest requirement in a book looks
+    like the newest.
+  type: object
+  required: [requirement_id, requirement_type, category, description, raised_on]
+  additionalProperties: false
+  properties:
+    requirement_id:
+      description: >-
+        The insurer's stable identifier for this requirement, unique within the case and unchanged
+        for its life.
+
+        Where an insurer has no such identifier it MUST synthesise one deterministically — from the
+        case reference, the requirement type and the life it applies to, for instance — rather than
+        emitting a random value per generation. A deterministic synthetic id preserves the identity
+        rule; a fresh one silently breaks it while looking perfectly well-formed.
+      type: string
+      minLength: 1
+      maxLength: 64
+    requirement_type:
+      $ref: '../../../../core/schemas/requirement-vocabulary.yaml#/RequirementType'
+    category:
+      $ref: '../../../../core/schemas/requirement-vocabulary.yaml#/RequirementCategory'
+    insurer_code:
+      description: >-
+        The insurer's own code for this requirement, verbatim, where it has one. Carried alongside
+        `requirement_type` rather than instead of it: the type is what makes a book comparable
+        across insurers, and this is what makes a query answerable back to the insurer's own staff.
+      type: string
+      maxLength: 50
+    description:
+      description: >-
+        The insurer's own wording of what is owed, verbatim. REQUIRED, and it MUST NOT be dropped in
+        favour of `requirement_type` — the type is a lossy classification and this is the lossless
+        copy. "Specialist report" does not tell an adviser which specialist, for what, or by when;
+        the insurer's sentence usually does.
+      type: string
+      minLength: 1
+      maxLength: 1000
+    life_id:
+      description: >-
+        Which life on the case this requirement applies to, matching a `life_id` in the case's
+        `lives`. Omit only where the requirement genuinely applies to the application as a whole,
+        such as a payment authority.
+
+        On a joint application this is the difference between a worklist an adviser can act on and
+        one they cannot: two lives each owing bloods is two conversations, and a requirement that
+        does not say whose it is has to be resolved by ringing the insurer.
+      type: string
+      maxLength: 64
+    responsible_party:
+      $ref: '../../../../core/schemas/requirement-vocabulary.yaml#/ResponsibleParty'
+    progress:
+      $ref: '../../../../core/schemas/requirement-vocabulary.yaml#/RequirementProgress'
+    raised_on:
+      description: >-
+        The date the insurer raised this requirement. REQUIRED, because it is the only ageing axis
+        the domain has — without it every outstanding item looks equally old, which is the state
+        consumers are in today. It is what lets a worklist be sorted by the thing that actually
+        predicts trouble.
+      type: string
+      format: date
+    due_on:
+      description: >-
+        The date by which the requirement must be met, where the insurer sets one. Strongly
+        RECOMMENDED where it exists: it is the difference between a list and a prioritised list, and
+        several insurers set real deadlines that never reach the adviser today.
+
+        On `counter_offer` and `application_lapsing` this is the date the application closes, which
+        makes it the most consequential field in the contract.
+      type: string
+      format: date
+    requested_from:
+      description: >-
+        Free text naming who specifically has been asked — the practice, the clinic, the pathology
+        provider. Complements `responsible_party`, which says what KIND of party is holding it up.
+      type: string
+      maxLength: 200
+    notes:
+      description: Any further wording the insurer attaches to the requirement.
+      type: string
+      maxLength: 1000

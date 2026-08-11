@@ -31,6 +31,22 @@ PolicyHolder:
   required: [last_name]
   additionalProperties: false
   properties:
+    client_id:
+      description: >-
+        The insurer's own identifier for this person as a PARTY, stable across every policy they
+        hold with this insurer. Optional, because not every insurer's book is keyed this way.
+
+        Where it exists it is worth far more than it looks. Without it, a consumer holding two
+        policies from one insurer can only decide whether they belong to the same person by
+        matching name and date of birth — which fails on a married name, a legal name against a
+        preferred one, and every transcription difference between two systems, and which
+        false-matches on a common name sharing a birthday. Both failure modes are silent, and the
+        second attaches a policy to the wrong client.
+
+        Scoped to the issuing insurer. It carries no meaning at another insurer and MUST NOT be
+        compared across them.
+      type: string
+      maxLength: 64
     first_name:
       type: string
       maxLength: 100
@@ -38,6 +54,15 @@ PolicyHolder:
       type: string
       maxLength: 100
     last_name:
+      description: >-
+        Send it in its natural mixed case, as the person writes it. NOT upper-cased.
+
+        This looks like presentation and is not. Case is destroyed in one direction only: a
+        consumer receiving "MCDONALD", "O'BRIEN" or "DE VRIES" cannot mechanically recover
+        "McDonald", "O'Brien" or "de Vries", because no rule distinguishes them from "Mcdonald",
+        "Obrien" and "De Vries" — and the surnames this mangles are not evenly distributed across
+        the population. An insurer whose store holds the name correctly and upper-cases it on the
+        way out is discarding information nothing downstream can reconstruct.
       type: string
       minLength: 1
       maxLength: 100

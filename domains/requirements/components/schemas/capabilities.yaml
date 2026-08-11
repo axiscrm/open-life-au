@@ -1,0 +1,155 @@
+# Open Life Data Standards (AU) — Requirements — capability declaration.
+#
+# Same role as its counterpart in the other contracts: it is what lets a partial implementation be a
+# conformant one. It carries more weight here than elsewhere, because this domain has the widest gap
+# between what insurers hold and what they publish — some code their requirements, most do not; some
+# set deadlines, most do not; almost none identify which life on a joint application an item belongs
+# to. A consumer needs to know which of those it is looking at before it draws conclusions.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+Capabilities:
+  title: Capabilities
+  description: What this implementation of the requirements contract supports.
+  type: object
+  required: [spec_version, insurer_id]
+  additionalProperties: false
+  properties:
+    spec_version:
+      type: string
+      pattern: '^\d+\.\d+\.\d+$'
+      examples: ['0.1.0']
+    insurer_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/InsurerId'
+    brands:
+      type: array
+      items:
+        type: object
+        required: [brand_id, name]
+        additionalProperties: false
+        properties:
+          brand_id:
+            $ref: '../../../../core/schemas/identifiers.yaml#/BrandId'
+          name:
+            type: string
+            maxLength: 120
+
+    snapshot:
+      type: object
+      additionalProperties: false
+      properties:
+        max_page_size:
+          type: integer
+          minimum: 1
+        snapshot_stable_for_seconds:
+          description: >-
+            How long a `snapshot_id` and its cursors stay valid, so a consumer can size its walk
+            against it.
+          type: integer
+          minimum: 60
+        typical_generation_seconds:
+          type: integer
+          minimum: 0
+        categories_available:
+          description: >-
+            The requirement categories this implementation reports at all. A category absent here is
+            one a consumer MUST NOT run absence-based closure against, because it will never appear
+            and every item in it would be closed on the first run.
+          type: array
+          items:
+            $ref: '../../../../core/schemas/requirement-vocabulary.yaml#/RequirementCategory'
+
+    fields:
+      description: >-
+        Which optional parts of the record this insurer actually populates. The distinction a
+        consumer needs is between "this case does not have one" and "this insurer never reports
+        one", which look identical in the data and lead to very different conclusions.
+      type: object
+      additionalProperties: false
+      properties:
+        requirement_type_mapping:
+          description: >-
+            Whether requirements carry `requirement_type` mapped to the shared vocabulary, or only
+            the insurer's own `description`. `false` means a consumer cannot count or compare this
+            insurer's requirements against another's — which is exactly the problem the vocabulary
+            exists to fix, so this is the single most useful thing to ask an insurer to turn on.
+          type: boolean
+          default: false
+        insurer_codes:
+          description: Whether the insurer has its own requirement code scheme and publishes it.
+          type: boolean
+          default: false
+        due_dates:
+          description: >-
+            Whether requirements carry `due_on`. `false` means every item looks equally urgent, and
+            a consumer SHOULD say so on screen rather than presenting an unordered list as a
+            prioritised one.
+          type: boolean
+          default: false
+        life_attribution:
+          description: >-
+            Whether requirements name which life they belong to via `life_id`. `false` makes joint
+            applications materially harder to work — the adviser has to ask the insurer whose bloods
+            are outstanding.
+          type: boolean
+          default: false
+        responsible_party:
+          type: boolean
+          default: false
+        progress:
+          description: >-
+            Whether requirements report `progress`. `false` means a consumer cannot distinguish an
+            item the client has already sent from one nobody has touched, so it will chase both.
+          type: boolean
+          default: false
+        policy_id_before_issue:
+          description: >-
+            Whether a case carries `policy_id` before the application completes. `false` means a
+            consumer cannot link an application to the policy it becomes until the policy appears in
+            the policy contract's snapshot.
+          type: boolean
+          default: false
+        contact_details:
+          description: Whether `email` and `phone` are populated on each life.
+          type: boolean
+          default: false
+
+    incremental:
+      description: >-
+        Optional. The snapshot is the required path here — see the header of `snapshot.yaml`, which
+        explains why this domain in particular cannot be served safely by a change feed.
+      type: object
+      additionalProperties: false
+      properties:
+        supported:
+          type: boolean
+          default: false
+        reports_satisfied:
+          description: >-
+            Whether an incremental response reports requirements that were MET since the timestamp,
+            not only ones raised. Without it a consumer cannot use incremental alone: satisfaction is
+            invisible in a feed that only reports what is owed, so its list grows forever. This is
+            the same defect as an incremental policy feed that omits terminations, and it is the
+            usual shape of what insurers send today.
+          type: boolean
+          default: false
+        max_lookback_days:
+          type: integer
+          minimum: 1
+
+    webhooks:
+      description: >-
+        Whether this implementation pushes the events declared in the contract's `webhooks` block.
+        Optional throughout, and explicitly NOT a substitute for the snapshot: an implementation
+        that only pushes events reproduces the missed-event problem this contract exists to remove.
+      type: object
+      additionalProperties: false
+      properties:
+        supported:
+          type: boolean
+          default: false
+        events:
+          type: array
+          items:
+            type: string
+            enum: [requirement.raised, requirement.satisfied]

@@ -4,3 +4,11 @@ site/
 *.log
 .codegen/
 .idea/
+
+# Scratch space for working notes and source material.
+#
+# Ignored deliberately, and it matters more here than in a private repository: this repo is public,
+# and the material that lands in tmp/ is the internal analysis a contract gets DERIVED from — named
+# insurers, per-insurer coverage, extract volumes. The provenance gate does not scan tmp/, so
+# nothing else would catch it on the way in.
+tmp/

@@ -5,9 +5,12 @@ are the ones run against every change in CI, with the exact flags below — and 
 decoration. Each one is present because the default produced something wrong, and each page says
 what and why.
 
-Every page covers **both contracts** — quoting and policy. The mechanics are the same; you change
-one input path and one package name. [policy.md](policy.md) covers what differs, including the
-snapshot walk, which is the one piece of client logic that is dangerous to get wrong.
+Every page covers **all three contracts** — quoting, policy and requirements. The mechanics are
+identical; you change one input path and one package name. [policy.md](policy.md) covers what
+differs once a contract returns a paged snapshot, including the snapshot walk itself — the one piece
+of client logic that is dangerous to get wrong. **Read it before consuming the requirements
+contract too:** `GET /cases` uses the same envelope and the same absence rule, so the walk described
+there applies unchanged.
 
 | Language | Page | Server stubs | Client |
 |---|---|---|---|
@@ -138,7 +141,7 @@ null. NullPointerException, nothing emitted, Java implementers blocked again. Th
 meaningless `x-openlife-webhook: true` on each webhook operation, which must not be removed.
 
 Because of these, CI does not merely check that generation succeeded. It asserts the load-bearing
-schemas **survived** into every generator's output for **both contracts** — all seven covers for
+schemas **survived** into every generator's output for **every contract** — all seven covers for
 quoting, and `Policy`/`PolicyPage`/`PolicyHolder`/`Arrears` for policy. Counting files would have
 passed two of the three bugs above.
 

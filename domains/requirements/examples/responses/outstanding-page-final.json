@@ -1,0 +1,126 @@
+{
+  "mode": "full",
+  "snapshot_id": "req_2026-08-06T05:00:00Z_b19e",
+  "generated_at": "2026-08-06T05:02:11+10:00",
+  "total_count": 2,
+  "complete": true,
+  "coverage": {
+    "adviser_codes": [
+      "AC100",
+      "AC104"
+    ],
+    "categories": [
+      "medical",
+      "administrative",
+      "notification"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "APP-2026-004471",
+      "case_version": 4,
+      "insurer_id": "example-life",
+      "brand_id": "example-life",
+      "product_name": "Protection Plus",
+      "status": "awaiting_requirements",
+      "submitted_on": "2026-07-02",
+      "lives": [
+        {
+          "life_id": "L1",
+          "role": "both",
+          "first_name": "Jordan",
+          "last_name": "Alvarez",
+          "date_of_birth": "1985-03-14",
+          "email": "jordan.alvarez@example.com.au",
+          "phone": "0400 000 000"
+        }
+      ],
+      "distribution": {
+        "adviser_code": "AC100",
+        "adviser_name": "Sam Rivera",
+        "practice_name": "Rivera Advice",
+        "licensee_name": "Example Licensee Pty Ltd"
+      },
+      "requirements": [
+        {
+          "requirement_id": "APP-2026-004471-R1",
+          "requirement_type": "personal_medical_attendant_report",
+          "category": "medical",
+          "insurer_code": "PMAR",
+          "description": "Personal Medical Attendant Report required from the client's usual doctor, covering the disclosed hypertension.",
+          "life_id": "L1",
+          "responsible_party": "medical_provider",
+          "progress": "requested",
+          "raised_on": "2026-07-09",
+          "due_on": "2026-09-09",
+          "requested_from": "Newtown Family Practice"
+        },
+        {
+          "requirement_id": "APP-2026-004471-R2",
+          "requirement_type": "blood_profile",
+          "category": "medical",
+          "insurer_code": "BLD",
+          "description": "Standard blood profile.",
+          "life_id": "L1",
+          "responsible_party": "client",
+          "progress": "received",
+          "raised_on": "2026-07-09",
+          "due_on": "2026-09-09"
+        },
+        {
+          "requirement_id": "APP-2026-004471-R3",
+          "requirement_type": "payment_authority",
+          "category": "administrative",
+          "description": "Signed direct debit authority outstanding.",
+          "responsible_party": "client",
+          "progress": "outstanding",
+          "raised_on": "2026-07-24"
+        }
+      ]
+    },
+    {
+      "case_id": "APP-2026-004502",
+      "insurer_id": "example-life",
+      "brand_id": "example-select",
+      "product_name": "Select Income Protection",
+      "status": "offer_issued",
+      "submitted_on": "2026-06-18",
+      "policy_id": "P-4472980",
+      "lives": [
+        {
+          "life_id": "L1",
+          "role": "life_insured",
+          "first_name": "Tomas",
+          "last_name": "de Vries",
+          "date_of_birth": "1978-04-22",
+          "phone": "0400 000 222"
+        },
+        {
+          "life_id": "L2",
+          "role": "policy_owner",
+          "first_name": "Anna",
+          "last_name": "de Vries",
+          "date_of_birth": "1980-09-30"
+        }
+      ],
+      "distribution": {
+        "adviser_code": "AC104",
+        "adviser_name": "Dana Osei"
+      },
+      "requirements": [
+        {
+          "requirement_id": "APP-2026-004502-R1",
+          "requirement_type": "counter_offer",
+          "category": "notification",
+          "insurer_code": "CO",
+          "description": "Terms offered with a 50% loading on the income protection benefit. Acceptance required or the application will be closed.",
+          "life_id": "L1",
+          "responsible_party": "adviser",
+          "progress": "outstanding",
+          "raised_on": "2026-07-28",
+          "due_on": "2026-08-27"
+        }
+      ]
+    }
+  ]
+}

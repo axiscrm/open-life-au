@@ -12,9 +12,14 @@ info:
 
     ## What this is
 
-    Three operations. Pull the book as a snapshot (`GET /policies`), fetch one policy
-    (`GET /policies/{policy_id}`), and find out what the implementation supports
-    (`GET /capabilities`). Most consumers will only ever call the first, once a day.
+    Four operations. Pull the book as a snapshot (`GET /policies`), pull the arrears worklist
+    (`GET /arrears`), fetch one policy (`GET /policies/{policy_id}`), and find out what the
+    implementation supports (`GET /capabilities`).
+
+    Most consumers will call the first once a day and the second rather more often. Only
+    `GET /policies` and `GET /capabilities` are required; an insurer whose collections data lives
+    apart from its in-force book may implement `GET /arrears` on its own, and that is a conformant
+    implementation.
 
     ## Snapshot, not stream
 
@@ -43,6 +48,13 @@ info:
     outstanding, why, and when it will lapse if nothing is done. This is the most time-sensitive
     record in the contract — it is what an adviser must act on within days — and it is the part
     currently obtained by scraping a portal overnight.
+
+    The same records are also served as a worklist of their own by `GET /arrears`, which exists
+    because on the insurer's side collections and the in-force book are usually different reports
+    from different systems on different cadences. Serving them separately lets an insurer offer the
+    urgent one at the freshness it needs — and lets an insurer that only has the arrears report
+    implement something useful rather than nothing. Absence means something weaker on that
+    operation than it does on `GET /policies`; the difference is spelled out there and it matters.
 
     ## Personal information
 
@@ -91,6 +103,8 @@ paths:
     $ref: './paths/policies.yaml'
   /policies/{policy_id}:
     $ref: './paths/policies-id.yaml'
+  /arrears:
+    $ref: './paths/arrears.yaml'
   /capabilities:
     $ref: './paths/capabilities.yaml'
 

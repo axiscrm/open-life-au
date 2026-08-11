@@ -1,0 +1,124 @@
+# Open Life Data Standards (AU) — Requirements — parameters.
+
+SnapshotId:
+  name: snapshot_id
+  in: query
+  description: >-
+    Continue an in-progress walk. Supply the `snapshot_id` from the first page alongside the cursor,
+    so the server can prove the cursor belongs to the snapshot the consumer thinks it is walking and
+    reject it with `409` if the snapshot has since expired or been rebuilt.
+  required: false
+  schema:
+    type: string
+    maxLength: 128
+
+AdviserCodes:
+  name: adviser_code
+  in: query
+  description: >-
+    Restrict the snapshot to these adviser codes. Repeat the parameter for several. Omitted, the
+    snapshot covers every code the credential can see, which is the normal case.
+
+    Whatever is applied comes back in `coverage.adviser_codes`, so a consumer can tell an excluded
+    code from an adviser with nothing outstanding.
+  required: false
+  explode: true
+  schema:
+    type: array
+    items:
+      type: string
+      maxLength: 32
+
+Categories:
+  name: category
+  in: query
+  description: >-
+    Restrict to these requirement categories. Repeat for several. Omitted, every category is
+    returned.
+
+    Filtering here is a real hazard for a consumer that then reconciles on absence, so whatever is
+    applied is echoed in `coverage.categories`. A consumer MUST NOT close requirements in a category
+    it did not ask for — a snapshot filtered to `medical` says nothing whatsoever about an
+    outstanding signature.
+  required: false
+  explode: true
+  schema:
+    type: array
+    items:
+      $ref: '../../../core/schemas/requirement-vocabulary.yaml#/RequirementCategory'
+
+DueBefore:
+  name: due_before
+  in: query
+  description: >-
+    OPTIONAL. Restrict to cases carrying at least one requirement due on or before this date — the
+    triage a consumer wants when the list is longer than the day allows.
+
+    An implementation that does not support it MUST reject it with `422` rather than ignoring it.
+    Silently returning everything to a consumer that asked for "due this week" presents an unordered
+    list as a prioritised one, and they work it top-down believing otherwise.
+
+    Requirements with no `due_on` are EXCLUDED when this filter is applied, since they cannot be
+    shown to satisfy it. An insurer that does not populate `due_on` therefore returns nothing under
+    this filter, which is why it is gated on `capabilities.fields.due_dates` as well.
+  required: false
+  schema:
+    type: string
+    format: date
+
+ChangedSince:
+  name: changed_since
+  in: query
+  description: >-
+    OPTIONAL, and only where `capabilities.incremental.supported` is true. Return cases changed since
+    this instant instead of everything outstanding.
+
+    Read `capabilities.incremental.reports_satisfied` before relying on it: an incremental response
+    that omits satisfied requirements cannot be used on its own, because a consumer's list then only
+    ever grows. Pull a periodic full snapshot regardless.
+
+    An implementation that does not support this MUST reject it with `422` rather than silently
+    ignoring it and returning everything — a consumer that believes it received a delta and actually
+    received the whole set will draw the wrong conclusions about what changed.
+  required: false
+  schema:
+    type: string
+    format: date-time
+
+CaseIdPath:
+  name: case_id
+  in: path
+  required: true
+  schema:
+    type: string
+    maxLength: 64
+
+RequestId:
+  name: X-Request-Id
+  in: header
+  description: Consumer-supplied correlation identifier. Echoed on the response.
+  required: false
+  schema:
+    type: string
+    maxLength: 128
+
+Cursor:
+  name: cursor
+  in: query
+  description: Continuation token from the previous page's `page.next_cursor`.
+  required: false
+  schema:
+    $ref: '../../../core/schemas/pagination.yaml#/Cursor'
+
+Limit:
+  name: limit
+  in: query
+  description: >-
+    Maximum cases per page. A server MAY return fewer; completion is signalled by `complete` and the
+    absence of `page.next_cursor`, never by a short page.
+  required: false
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 1000
+    default: 250

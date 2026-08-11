@@ -48,6 +48,20 @@ addFormats(policyAjv);
 policyAjv.addSchema({ ...policyDoc, $id: "policy" }, "policy");
 const validatePage = policyAjv.getSchema("policy#/components/schemas/PolicyPage");
 const validatePolicy = policyAjv.getSchema("policy#/components/schemas/Policy");
+const validateArrearsPage = policyAjv.getSchema("policy#/components/schemas/ArrearsPage");
+
+// The requirements contract, likewise its own bundle and its own document.
+const REQ_BUNDLE = path.join(ROOT, "dist/requirements/openapi.yaml");
+if (!fs.existsSync(REQ_BUNDLE)) {
+    console.error("✗ dist/requirements/openapi.yaml is missing. Run `npm run bundle` first.");
+    process.exit(1);
+}
+const reqDoc = YAML.parse(fs.readFileSync(REQ_BUNDLE, "utf8"));
+const reqAjv = new Ajv2020({ strict: false, allErrors: true, allowUnionTypes: true });
+addFormats(reqAjv);
+reqAjv.addSchema({ ...reqDoc, $id: "requirements" }, "requirements");
+const validateReqPage = reqAjv.getSchema("requirements#/components/schemas/RequirementsPage");
+const validateRequirement = reqAjv.getSchema("requirements#/components/schemas/Requirement");
 
 const AUD = (amount) => ({ amount, currency: "AUD" });
 const insured = {
@@ -366,6 +380,146 @@ const pageBase = {
     policies: [policyBase],
 };
 
+const arrearsItemBase = {
+    policy_id: "P-1",
+    insurer_id: "example-life",
+    arrears: [{ dishonoured_on: "2026-07-15", amount_outstanding: money("96.20") }],
+};
+const arrearsPageBase = {
+    mode: "full",
+    snapshot_id: "arr_1",
+    generated_at: "2026-08-06T09:15:22+10:00",
+    total_count: 1,
+    complete: true,
+    coverage: { adviser_codes: ["AC100"] },
+    items: [arrearsItemBase],
+};
+
+// The arrears worklist repeats the policy snapshot's gate fields, so it repeats its failure modes.
+// Asserted separately rather than assumed: the two pages are separate schemas, and "PolicyPage
+// requires it" is not evidence that ArrearsPage does.
+const ARREARS_PAGE_CASES = [
+    {
+        name: "a worklist page with no total_count",
+        why: "same gate as the policy snapshot — it detects a walk that silently lost a page",
+        doc: (() => { const d = { ...arrearsPageBase }; delete d.total_count; return d; })(),
+    },
+    {
+        name: "a worklist page with no complete flag",
+        why: "an incomplete walk read as complete closes dishonour tasks that are still outstanding",
+        doc: (() => { const d = { ...arrearsPageBase }; delete d.complete; return d; })(),
+    },
+    {
+        name: "a worklist page with no coverage",
+        why: "an empty worklist for a silently dropped adviser code is indistinguishable from nobody being behind",
+        doc: (() => { const d = { ...arrearsPageBase }; delete d.coverage; return d; })(),
+    },
+    {
+        name: "a worklist page with no mode",
+        why: "a delta applied as a full worklist clears every dishonour that did not happen to change",
+        doc: (() => { const d = { ...arrearsPageBase }; delete d.mode; return d; })(),
+    },
+    {
+        name: "a worklist row carrying covers",
+        why: "the row is a projection, not a second source of truth for the book",
+        doc: { ...arrearsPageBase, items: [{ ...arrearsItemBase, covers: [{ benefit_name: "Life Cover" }] }] },
+    },
+    {
+        name: "a worklist row with an empty arrears array",
+        why: "a row in the arrears worklist with no arrears is a contradiction, and there is no absent-means-paid-up reading here",
+        doc: { ...arrearsPageBase, items: [{ ...arrearsItemBase, arrears: [] }] },
+    },
+];
+
+const requirementBase = {
+    requirement_id: "R1",
+    requirement_type: "blood_profile",
+    category: "medical",
+    description: "Standard blood profile.",
+    raised_on: "2026-07-09",
+};
+const caseBase = {
+    case_id: "APP-1",
+    insurer_id: "example-life",
+    lives: [{ life_id: "L1", last_name: "Alvarez" }],
+    requirements: [requirementBase],
+};
+const reqPageBase = {
+    mode: "full",
+    snapshot_id: "req_1",
+    generated_at: "2026-08-06T05:02:11+10:00",
+    total_count: 1,
+    complete: true,
+    coverage: { adviser_codes: ["AC100"] },
+    cases: [caseBase],
+};
+
+const REQ_PAGE_CASES = [
+    {
+        name: "a page with no total_count",
+        why: "the count gate is what detects a walk that silently lost a page",
+        doc: (() => { const d = { ...reqPageBase }; delete d.total_count; return d; })(),
+    },
+    {
+        name: "a page with no complete flag",
+        why: "an incomplete walk read as complete closes a book's live requirements",
+        doc: (() => { const d = { ...reqPageBase }; delete d.complete; return d; })(),
+    },
+    {
+        name: "a page with no coverage",
+        why: "a silently dropped adviser code produces an empty list, and absence then closes their work",
+        doc: (() => { const d = { ...reqPageBase }; delete d.coverage; return d; })(),
+    },
+    {
+        name: "a page with no mode",
+        why: "a delta applied as a full snapshot closes every requirement that did not change",
+        doc: (() => { const d = { ...reqPageBase }; delete d.mode; return d; })(),
+    },
+    {
+        name: "a snapshot case with an empty requirements array",
+        why: "a third state between outstanding and absent, which the absence rule cannot interpret",
+        doc: { ...reqPageBase, cases: [{ ...caseBase, requirements: [] }] },
+    },
+    {
+        name: "a snapshot case with no lives",
+        why: "a requirement nobody can attribute to a person is not actionable",
+        doc: { ...reqPageBase, cases: [{ ...caseBase, lives: [] }] },
+    },
+    {
+        name: "a quoted case_id",
+        why: "the spreadsheet-export apostrophe splits one application into two reconciliation keys",
+        doc: { ...reqPageBase, cases: [{ ...caseBase, case_id: "'APP-1" }] },
+    },
+];
+
+const REQUIREMENT_CASES = [
+    {
+        name: "a requirement with no description",
+        why: "the mapped type is lossy; dropping the insurer's own wording loses what the adviser acts on",
+        doc: (() => { const d = { ...requirementBase }; delete d.description; return d; })(),
+    },
+    {
+        name: "a requirement with no raised_on",
+        why: "without it every outstanding item ages identically and the worklist cannot be prioritised",
+        doc: (() => { const d = { ...requirementBase }; delete d.raised_on; return d; })(),
+    },
+    {
+        name: "a requirement with no requirement_id",
+        why: "identity is what stops a worked task reopening on the next snapshot",
+        doc: (() => { const d = { ...requirementBase }; delete d.requirement_id; return d; })(),
+    },
+    {
+        name: "a requirement with an unrecognised category",
+        why: "category decides which desk actions it, so it is closed rather than extensible",
+        doc: { ...requirementBase, category: "financial" },
+    },
+    {
+        name: "a requirement carrying an unknown field",
+        why: "a misspelled key must surface rather than being silently absorbed",
+        doc: { ...requirementBase, due_date: "2026-09-09" },
+    },
+];
+
 const POLICY_PAGE_CASES = [
     {
         name: "a snapshot page with no total_count",
@@ -454,6 +608,16 @@ const POLICY_CASES = [
         why: "absence means paid up; an empty array is an ambiguous third state",
         doc: { ...policyBase, status: "in_arrears", arrears: [] },
     },
+    {
+        name: "a quoted policy_id",
+        why: "the spreadsheet-export leading apostrophe splits one policy into two reconciliation keys",
+        doc: { ...policyBase, policy_id: "'P-4471902" },
+    },
+    {
+        name: "a policy_id with surrounding whitespace",
+        why: "same defect as quoting — the padded and bare forms are different keys and every join half-matches",
+        doc: { ...policyBase, policy_id: " P-4471902 " },
+    },
 ];
 
 let wronglyAccepted = 0;
@@ -479,6 +643,9 @@ for (const [group, validator, cases] of [
     ["cover line", validateCoverLine, COVER_LINE_CASES],
     ["policy page", validatePage, POLICY_PAGE_CASES],
     ["policy record", validatePolicy, POLICY_CASES],
+    ["arrears worklist", validateArrearsPage, ARREARS_PAGE_CASES],
+    ["requirements page", validateReqPage, REQ_PAGE_CASES],
+    ["requirement", validateRequirement, REQUIREMENT_CASES],
 ]) {
     for (const { name, why, doc: candidate } of cases) {
         if (validator(candidate)) {
@@ -498,6 +665,9 @@ const total =
     RESOLVED_OPTION_CASES.length +
     COVER_LINE_CASES.length +
     POLICY_PAGE_CASES.length +
-    POLICY_CASES.length;
+    POLICY_CASES.length +
+    ARREARS_PAGE_CASES.length +
+    REQ_PAGE_CASES.length +
+    REQUIREMENT_CASES.length;
 console.log(`\n${total - wronglyAccepted}/${total} invalid payloads correctly rejected`);
 process.exit(wronglyAccepted === 0 ? 0 : 1);

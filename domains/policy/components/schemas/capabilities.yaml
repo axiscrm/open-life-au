@@ -64,6 +64,46 @@ Capabilities:
           type: boolean
           default: false
 
+    arrears_snapshot:
+      description: >-
+        Whether this implementation serves `GET /arrears`, the standalone arrears worklist.
+
+        Independent of `snapshot` above, deliberately. An insurer whose collections data lives in a
+        different system from its in-force extract may be able to serve one and not the other, in
+        either direction, and the contract should let it say which rather than forcing an
+        all-or-nothing answer.
+      type: object
+      additionalProperties: false
+      properties:
+        supported:
+          type: boolean
+          default: false
+        independent_of_policy_snapshot:
+          description: >-
+            `true` where the worklist is generated from a different system than `GET /policies`, so
+            the two can briefly disagree about whether a policy is in arrears.
+
+            Worth declaring rather than leaving a consumer to discover it. A consumer that knows the
+            two feeds are independent treats a disagreement as staleness and re-reads; one that
+            believes they share a source treats the same disagreement as a data defect and escalates
+            it to a human. Both feeds are usually right and simply cut at different times.
+          type: boolean
+          default: false
+        supports_expected_lapse_filter:
+          description: >-
+            Whether `expected_lapse_before` is honoured. Read together with
+            `fields.expected_lapse_date`: the filter is useless without the field, since rows
+            lacking a lapse date are excluded by it.
+          type: boolean
+          default: false
+        typical_lag_hours:
+          description: >-
+            Roughly how far behind the insurer's own collections system this worklist runs.
+            Advisory, but it is what tells a consumer whether polling hourly is worth anything or
+            whether the data only moves once a day.
+          type: integer
+          minimum: 0
+
     incremental:
       description: >-
         Optional, and deliberately so. The snapshot is the required path — it is the smallest thing
@@ -101,6 +141,34 @@ Capabilities:
           type: boolean
           default: false
         expected_lapse_date:
+          type: boolean
+          default: false
+        arrears_amount_is_exact:
+          description: >-
+            Whether outstanding amounts come from the insurer's own ledger. `false` means some or
+            all are computed, and each such entry carries `amount_is_estimate: true`. A consumer
+            reconciling arrears against payments needs to know this before it starts.
+          type: boolean
+          default: true
+        benefit_sum_insured:
+          description: >-
+            Whether benefits carry `sum_insured` at all. `false` is a real answer — at least one
+            live in-force book holds no sum-insured figure for any benefit — and it is the
+            difference between "this benefit has no cover amount" and "this insurer cannot tell
+            you what the cover amount is".
+          type: boolean
+          default: true
+        payment_method:
+          description: >-
+            Whether policies carry how the premium is collected. Read this before building
+            dishonour follow-up on it: the routing differs sharply between a card, a bank account
+            and a superannuation rollover.
+          type: boolean
+          default: false
+        client_id:
+          description: >-
+            Whether the policy holder carries the insurer's own party identifier. `false` means a
+            consumer must fall back to name and date of birth to group a person's policies.
           type: boolean
           default: false
         commission_splits:

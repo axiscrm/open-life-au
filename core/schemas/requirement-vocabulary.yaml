@@ -1,0 +1,171 @@
+# Open Life Data Standards (AU) — outstanding underwriting requirements.
+#
+# THIS VOCABULARY IS THE POINT OF THE REQUIREMENTS CONTRACT.
+#
+# An application in underwriting accumulates a list of things still owed before a decision can be
+# made: a blood profile, a report from the client's GP, a signature, an income statement. Insurers
+# communicate that list constantly and almost none of them code it. What arrives is a sentence —
+# "PMAR required from usual doctor", "Bloods o/s", "awaiting completed DD authority" — and every
+# consumer that wants to count, age, route or chase those items has to invent its own key for them.
+#
+# Two consumers reading the SAME insurer's message therefore produce different keys, and neither can
+# be reconciled against the other or against the insurer. Nobody can answer "how many applications
+# are held up on medicals" across a book. That is not an insurer failing; it is a missing shared
+# vocabulary, and supplying one is the highest-value thing this standard can do in this domain.
+#
+# HOW IT IS MEANT TO BE USED. Three fields carry a requirement, and all three matter:
+#
+#   requirement_type   this vocabulary — what KIND of thing is owed, comparable across insurers
+#   insurer_code       the insurer's own code, verbatim, where it has one
+#   description        the insurer's own wording, verbatim, always
+#
+# The type is for counting, ageing and routing. The description is what a human reads and acts on,
+# and it MUST NOT be dropped in favour of the type — "specialist report" does not tell an adviser
+# which specialist. Mapping to a type is lossy by design; the lossless copy travels alongside it.
+#
+# DELIBERATELY NOT A RATING OR PROCESS MODEL. This says what is owed, not what the insurer will
+# conclude, how long it should take, or who must pay for it. Those are the insurer's to decide.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+RequirementCategory:
+  title: RequirementCategory
+  description: >-
+    The broad kind of requirement, which is what decides WHO acts on it. This is coarse on purpose:
+    a consumer routes on the category and displays the type, so a requirement whose type is
+    unrecognised is still routed to the right desk rather than landing nowhere.
+      - `medical`         evidence about health — an examination, a test, a report from a doctor.
+                          Chased with the client and usually a medical provider, and the slowest to
+                          clear because a third party controls the timing.
+      - `administrative`  paperwork, authorities, identification and financial evidence. Usually
+                          within the adviser's or client's own control, and therefore the category
+                          where chasing actually works.
+      - `notification`    something the insurer has issued that awaits acknowledgement or a decision
+                          — terms offered, a counter-offer, a warning that the application will be
+                          closed. Not a request for evidence, and treating it as one is a common way
+                          for an offer to expire unanswered.
+  type: string
+  enum: [medical, administrative, notification]
+
+RequirementType:
+  title: RequirementType
+  description: >-
+    What is outstanding, mapped onto the shared vocabulary.
+
+    RESPONSE-facing and EXTENSIBLE. A consumer MUST pass an unrecognised value through for display
+    rather than failing — underwriting practice varies and this list will grow. Where an insurer's
+    requirement genuinely fits nothing here, send `other` with a populated `description` and
+    `insurer_code`; `other` is an honest answer and inventing a near-fit is not, because a
+    mis-mapped requirement is worse than an unmapped one that still carries its own wording.
+
+    ## Medical
+
+      - `medical_examination`               a paramedical or doctor's examination
+      - `physical_measurements`             height, weight, blood pressure taken on their own
+      - `blood_profile`                     pathology on a blood sample
+      - `urine_test`                        urinalysis, including nicotine and drug screens
+      - `ecg`                               resting electrocardiogram
+      - `exercise_ecg`                      stress ECG — a materially bigger ask of the client than
+                                            a resting one, so it is named separately
+      - `personal_medical_attendant_report` a report from the client's own usual doctor. Distinct
+                                            from `specialist_report` because the chase is different:
+                                            the client can prompt their own GP, and often must
+      - `specialist_report`                 a report from a treating specialist
+      - `hospital_records`                  records released by a hospital or clinic
+      - `medical_questionnaire`             a supplementary questionnaire about a disclosed condition
+
+    ## Administrative
+
+      - `application_signature`             an unsigned or incompletely signed application
+      - `identity_verification`             proof of identity
+      - `payment_authority`                 direct debit, card or other collection authority
+      - `outstanding_premium`               an initial premium not yet received
+      - `financial_evidence`                income or financial justification for the sum insured
+      - `superannuation_rollover_form`      the form authorising a rollover to fund the premium
+      - `smsf_documentation`                trust deed and related SMSF evidence
+      - `ownership_documentation`           company, trust or other third-party ownership evidence
+      - `replacement_policy_form`           the declaration required when cover is being replaced
+      - `previous_insurer_details`          details of existing or prior cover
+      - `occupation_questionnaire`          a questionnaire about the client's duties
+      - `pursuits_questionnaire`            a questionnaire about hazardous sports or activities
+      - `travel_questionnaire`              a questionnaire about residence or travel
+      - `advice_documentation`              the advice record the insurer requires on file
+
+    ## Notification
+
+      - `underwriting_decision`             a decision has been issued and awaits acknowledgement
+      - `counter_offer`                     terms offered with a loading or exclusion, awaiting
+                                            acceptance. The most time-critical value here — an
+                                            unanswered counter-offer expires and the application
+                                            closes
+      - `terms_acceptance`                  issued terms awaiting the client's signature
+      - `application_lapsing`               the insurer will close the application unless something
+                                            happens, usually with a stated date
+
+    ## Anything else
+
+      - `other`                             read `description` and `insurer_code`
+  type: string
+  x-extensible-enum:
+    - medical_examination
+    - physical_measurements
+    - blood_profile
+    - urine_test
+    - ecg
+    - exercise_ecg
+    - personal_medical_attendant_report
+    - specialist_report
+    - hospital_records
+    - medical_questionnaire
+    - application_signature
+    - identity_verification
+    - payment_authority
+    - outstanding_premium
+    - financial_evidence
+    - superannuation_rollover_form
+    - smsf_documentation
+    - ownership_documentation
+    - replacement_policy_form
+    - previous_insurer_details
+    - occupation_questionnaire
+    - pursuits_questionnaire
+    - travel_questionnaire
+    - advice_documentation
+    - underwriting_decision
+    - counter_offer
+    - terms_acceptance
+    - application_lapsing
+    - other
+
+ResponsibleParty:
+  title: ResponsibleParty
+  description: >-
+    Who the requirement is waiting on. RESPONSE-facing and extensible.
+
+    Worth stating rather than inferring from the category, because the inference is wrong often
+    enough to matter: a medical questionnaire is waiting on the client, a specialist report is
+    waiting on a doctor, and an adviser who chases the wrong one wastes the call. Where an insurer
+    does not track this, omit it — a guess here sends work to the wrong desk.
+      - `client`            the life insured or policy owner
+      - `adviser`           the adviser or their practice
+      - `insurer`           the insurer itself, including anything with its own underwriters
+      - `medical_provider`  a doctor, clinic, pathology lab or hospital
+      - `third_party`       anyone else — an employer, an accountant, a previous insurer
+  type: string
+  x-extensible-enum: [client, adviser, insurer, medical_provider, third_party]
+
+RequirementProgress:
+  title: RequirementProgress
+  description: >-
+    How far along an outstanding requirement is. RESPONSE-facing and extensible.
+
+    Everything in the snapshot is OUTSTANDING — a satisfied requirement leaves the snapshot rather
+    than appearing with a closed state. This says how far the outstanding item has travelled, which
+    is what stops an adviser chasing something the client sent a week ago.
+      - `outstanding`   raised, nothing has happened yet
+      - `requested`     the insurer has asked the responsible party for it
+      - `received`      it has arrived and is awaiting assessment. Still outstanding from the
+                        insurer's side, but NOT something to chase the client about
+      - `under_review`  an underwriter is assessing it
+  type: string
+  x-extensible-enum: [outstanding, requested, received, under_review]

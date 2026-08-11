@@ -65,6 +65,27 @@ ChangedSince:
     type: string
     format: date-time
 
+ExpectedLapseBefore:
+  name: expected_lapse_before
+  in: query
+  description: >-
+    OPTIONAL. Restrict the worklist to policies expected to lapse on or before this date — the
+    triage a consumer actually wants when the worklist is longer than the day allows.
+
+    An implementation that does not support it MUST reject it with `422` rather than ignoring it.
+    Silently returning the whole worklist to a consumer that asked for "lapsing this week" presents
+    every row as urgent, which is worse than not offering the filter: the consumer works the list
+    top-down believing it is prioritised.
+
+    Rows whose `expected_lapse_on` is absent are EXCLUDED when this filter is applied, because they
+    cannot be shown to satisfy it. An insurer that does not populate `expected_lapse_on` therefore
+    returns an empty worklist under this filter, which is why it is gated on
+    `capabilities.fields.expected_lapse_date` as well.
+  required: false
+  schema:
+    type: string
+    format: date
+
 PolicyIdPath:
   name: policy_id
   in: path
