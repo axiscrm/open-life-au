@@ -1,0 +1,236 @@
+# Open Life Data Standards (AU) — Commissions — a commission statement.
+#
+# READ THIS BEFORE COPYING THE SNAPSHOT ENVELOPE IN FROM THE OTHER CONTRACTS. It does not belong
+# here, and reaching for it would produce a contract that is wrong in a way that balances.
+#
+# The policy, arrears and requirements contracts are SNAPSHOTS of a current state. Their central
+# rule is that a record which has disappeared is gone: no tombstones, absence is information, and a
+# failed run self-corrects because the next one restates the truth.
+#
+# Commissions are the opposite kind of thing. A statement is a LEDGER ENTRY — issued once, for a
+# period, and never restated. A correction is not an edit to a past statement; it is a new line, in
+# a later statement, usually with a negative amount. So:
+#
+#   - ABSENCE MEANS NOTHING. A statement that stops appearing has not been cancelled; something has
+#     gone wrong with the query. A consumer MUST NOT remove a payment it has already ingested
+#     because a later call did not return it. That single sentence is the reason this contract does
+#     not use `SnapshotMode`, `SnapshotId` or `complete`, and stating it plainly is worth more than
+#     the reuse would have been.
+#
+#   - RE-FETCHING IS SAFE AND EXPECTED. Statements are immutable, so a consumer that fetches an
+#     overlapping period twice must get identical content and deduplicate on `statement_id` and
+#     `line_id`.
+#
+# COMPLETENESS IS PROVEN DIFFERENTLY, AND BETTER. A snapshot can only tell a consumer whether it
+# walked every page. A statement declares its own `line_count` and `total_amount`, so a consumer can
+# prove it received every LINE — money either reconciles or it does not. That check catches a
+# dropped row, which no page-level check in this standard can. See `CommissionStatement`.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+CommissionStatement:
+  title: CommissionStatement
+  description: >-
+    One commission statement: one insurer, one payee, one payment, one period.
+
+    IMMUTABLE ONCE ISSUED. An insurer MUST NOT restate a statement a consumer may already hold —
+    corrections are issued as new lines on a later statement. A consumer re-fetching a period it has
+    already seen MUST receive identical content, and MUST deduplicate on `statement_id`.
+
+    ## The reconciliation triple, and why it is the most important thing here
+
+    `line_count`, `total_amount` and `total_gst` are declared on the statement independently of the
+    lines themselves. Before treating a statement as ingested a consumer MUST fetch every line and
+    verify that they agree — the count matches, and the signed sum of `amount` across all lines
+    equals `total_amount` to the cent.
+
+    This is a stronger guarantee than anything in the snapshot contracts, and deliberately so. A
+    snapshot's page checks can prove a consumer walked every PAGE; they cannot prove it received
+    every ROW. Here the money does that. A single dropped line changes the sum, so it cannot pass —
+    and a dropped commission line is otherwise invisible, because a statement with 38 of its 40
+    lines looks exactly like a statement with 38 lines.
+
+    ## Everything that moves the money must be a line
+
+    `total_amount` is what the payee was actually paid. So an insurer that nets something off — an
+    advance recovery, a manual adjustment, a rounding correction — MUST represent it as a line, even
+    where its own internal statement carries it as a footer figure. Anything netted off outside the
+    lines makes the statement fail to reconcile with nothing to say why, which is precisely the
+    position consumers are in today.
+  type: object
+  required: [statement_id, insurer_id, payee, statement_date, currency, line_count, total_amount]
+  additionalProperties: false
+  properties:
+    statement_id:
+      description: >-
+        The insurer's own identifier for this statement, stable forever and never reused. The
+        deduplication key: a consumer that fetches an overlapping period twice recognises the
+        statement it already holds by this and nothing else.
+
+        Where an insurer has no such identifier it MUST synthesise one deterministically — from the
+        payee, the statement date and the payment reference, for instance — rather than generating a
+        fresh value per request. A regenerated id makes every re-fetch look like a new statement,
+        and a consumer that trusts it doubles a book's commission.
+      type: string
+      minLength: 1
+      maxLength: 128
+    insurer_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/InsurerId'
+    brand_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/BrandId'
+    payee:
+      $ref: '#/StatementPayee'
+    statement_date:
+      description: >-
+        The date the statement was issued. Distinct from `paid_on` — see that field, which is the one
+        a bank reconciliation actually needs.
+      type: string
+      format: date
+    period_start:
+      description: >-
+        First day of the period the statement covers. Optional, because a statement is identified by
+        its own date rather than its period, but strongly RECOMMENDED: without it a consumer cannot
+        tell a weekly statement from a monthly one, and therefore cannot detect a missing week.
+      type: string
+      format: date
+    period_end:
+      type: string
+      format: date
+    paid_on:
+      description: >-
+        The date the funds actually moved. Carried separately from `statement_date` because they are
+        routinely days apart, and it is THIS date a consumer matches against a bank transaction.
+        Reconciling a statement dated the 30th against a deposit that landed on the 2nd is the
+        single most common manual step this contract can remove.
+      type: string
+      format: date
+    payment_reference:
+      description: >-
+        The reference that appears on the payee's bank statement for this payment. Optional but the
+        most valuable optional field in the contract for anyone reconciling weekly: with it, a
+        deposit matches a statement exactly; without it, matching is by amount and date, which fails
+        the moment two statements pay the same amount in one week.
+      type: string
+      maxLength: 140
+    currency:
+      description: ISO 4217 alphabetic code. Only AUD is defined by this version of the standard.
+      type: string
+      const: AUD
+    line_count:
+      description: >-
+        The number of lines on this statement. MUST equal the number a consumer receives from
+        `GET /statements/{statement_id}/lines` once the walk is complete.
+      type: integer
+      minimum: 0
+    total_amount:
+      description: >-
+        The signed sum of every line's `amount`, and the amount actually paid to the payee.
+
+        MAY be negative: a period in which clawbacks exceed earnings is a real, and unwelcome, event
+        rather than an error. A consumer MUST NOT reject or discard a negative statement, and MUST
+        NOT take its absolute value.
+      $ref: '../../../../core/schemas/money.yaml#/Money'
+    total_gst:
+      description: >-
+        The GST component contained WITHIN `total_amount`, not additional to it. Equals the signed
+        sum of each line's `gst_amount`.
+      $ref: '../../../../core/schemas/money.yaml#/Money'
+    sequence:
+      description: >-
+        A per-payee counter that increases by one on each statement issued to them. Optional, and
+        cheap to supply where an insurer numbers its statements at all.
+
+        It is what makes a MISSING statement detectable. Querying by period tells a consumer what it
+        received; only a gap in a sequence tells it what it did not. A consumer holding 41 and 43
+        knows to ask for 42, where one holding two statements a fortnight apart cannot tell a
+        skipped week from a week with no business.
+      type: integer
+      minimum: 1
+    documents:
+      description: >-
+        The insurer's own statement file, where one exists. Worth carrying even once this API is the
+        system of record: the PDF or spreadsheet is the artefact a payee recognises and an auditor
+        asks for, and today it is the only thing anyone has.
+
+        URLS MAY BE SHORT-LIVED AND MAY CARRY AUTHORITY. Treat them as credentials — do not log
+        them, embed them in a shared document, or hand them to anyone outside the payee.
+      type: array
+      maxItems: 10
+      items:
+        $ref: '#/StatementDocument'
+
+StatementPayee:
+  title: StatementPayee
+  description: >-
+    Who the statement was issued to and paid. Usually a licensee or a practice, not an individual
+    adviser — commission is paid at the entity that holds the agreement, and split to advisers
+    downstream by the recipient rather than by the insurer.
+
+    This is why `payee` and each line's `adviser_code` are different things and both are required:
+    the payee is who received the money, the adviser code is who earned it. Collapsing them is the
+    reason a licensee-level statement cannot currently be broken out per adviser without guesswork.
+  type: object
+  required: [payee_id, name]
+  additionalProperties: false
+  properties:
+    payee_id:
+      description: >-
+        The insurer's identifier for the paid entity — the agency, dealer group or practice code the
+        commission agreement sits under. The key a consumer groups statements by.
+      type: string
+      minLength: 1
+      maxLength: 64
+    name:
+      description: >-
+        The entity's registered name. Send it as legally named and do not case-normalise it; these
+        are company names, so a consumer applying title case produces "Abc Advice Pty Ltd".
+      type: string
+      minLength: 1
+      maxLength: 255
+    licensee_code:
+      description: >-
+        The licensee the payee operates under, where the insurer distinguishes it from the payee
+        itself. Carried because a consumer operating more than one licence needs commission to split
+        by licence for its own reporting to add up, and inferring the licence from the payee name is
+        the kind of mapping that works until an entity is renamed.
+      type: string
+      maxLength: 32
+    abn:
+      description: >-
+        Australian Business Number, digits only, no spaces. Relevant here in a way it is not
+        elsewhere in the standard: commission carries GST, and the ABN is what ties a statement to
+        the entity that accounts for it.
+      type: string
+      pattern: '^\d{11}$'
+
+StatementDocument:
+  title: StatementDocument
+  description: A file or link relating to one statement.
+  type: object
+  required: [document_type, url]
+  additionalProperties: false
+  properties:
+    document_type:
+      description: >-
+        What the document is. Extensible: a consumer MUST pass an unrecognised value through and
+        offer the link rather than hiding it.
+          - `statement`     the insurer's own rendered statement, typically a PDF
+          - `remittance`    the payment advice matching it to a bank transaction
+          - `data_extract`  a machine-readable version of the same statement
+      type: string
+      x-extensible-enum: [statement, remittance, data_extract]
+    url:
+      type: string
+      format: uri
+      maxLength: 2048
+    media_type:
+      description: IANA media type, so a consumer knows what it is fetching before it fetches it.
+      type: string
+      maxLength: 100
+      examples: ['application/pdf']
+    expires_at:
+      description: >-
+        When the link stops working. An insurer SHOULD set this on any URL that grants access rather
+        than issuing one that lives forever.
+      type: string
+      format: date-time

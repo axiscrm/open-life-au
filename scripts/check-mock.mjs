@@ -21,13 +21,26 @@ import path from "node:path";
 import process from "node:process";
 import { ROOT, contracts } from "./contracts.mjs";
 
-/** Resolve `{{baseUrl}}/a/:id` against the collection's own variables. */
+/**
+ * Resolve `{{baseUrl}}/a/:id?x=1` against the collection's own variables.
+ *
+ * ENABLED query parameters must be included. Postman sends them, so a check that drops them is not
+ * testing the request in the collection — it is testing a different one, and it fails on any
+ * operation with a required query parameter while the collection itself is perfectly fine. Disabled
+ * ones are the optional parameters Postman ships unticked, and are correctly left off.
+ */
 function urlFor(collection, request) {
     const baseUrl = collection.variable.find((v) => v.key === "baseUrl")?.value;
     if (!baseUrl) throw new Error("collection has no baseUrl variable");
+
     const vars = new Map((request.url.variable ?? []).map((v) => [`:${v.key}`, v.value]));
     const segments = request.url.path.map((s) => vars.get(s) ?? s);
-    return `${baseUrl}/${segments.join("/")}`;
+
+    const query = (request.url.query ?? [])
+        .filter((q) => !q.disabled && q.value !== "")
+        .map((q) => `${encodeURIComponent(q.key)}=${encodeURIComponent(q.value)}`);
+
+    return `${baseUrl}/${segments.join("/")}${query.length ? `?${query.join("&")}` : ""}`;
 }
 
 const requests = [];

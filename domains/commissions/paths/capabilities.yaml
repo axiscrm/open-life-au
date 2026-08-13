@@ -1,0 +1,47 @@
+# Open Life Data Standards (AU) — Commissions — GET /capabilities
+
+get:
+  operationId: getCommissionsCapabilities
+  summary: What this implementation supports
+  description: >-
+    Describe which parts of a statement this insurer populates, how often statements are issued, how
+    far back history reaches, and how wide a period may be requested.
+
+    Worth calling before the first pull and caching thereafter. `statements.frequency` and
+    `statements.history_from` in particular change what a consumer should conclude from an empty
+    response: without them, a period with no statement is indistinguishable from a period before the
+    history begins, and both look like a fortnight with no commission.
+  tags: [Discovery]
+  security:
+    - oauth2: [commissions.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/RequestId'
+  responses:
+    '200':
+      description: The capability document.
+      headers:
+        ETag:
+          description: Servers SHOULD supply one and honour `If-None-Match`.
+          schema:
+            type: string
+        Cache-Control:
+          description: Safe to cache — carries no personal information.
+          schema:
+            type: string
+            example: 'public, max-age=3600'
+        X-Request-Id:
+          $ref: '../../../core/http/headers.yaml#/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/capabilities.yaml#/Capabilities'
+    '304':
+      description: Not modified.
+    '401':
+      $ref: '../../../core/http/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../../core/http/responses.yaml#/Forbidden'
+    '429':
+      $ref: '../../../core/http/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../../../core/http/responses.yaml#/InternalError'

@@ -8,6 +8,7 @@ any code.
 | [`quoting.postman_collection.json`](quoting.postman_collection.json) | [quoting](../domains/quoting/) | 4 | 4010 |
 | [`policy.postman_collection.json`](policy.postman_collection.json) | [policy](../domains/policy/) | 4 | 4011 |
 | [`requirements.postman_collection.json`](requirements.postman_collection.json) | [requirements](../domains/requirements/) | 3 | 4012 |
+| [`commissions.postman_collection.json`](commissions.postman_collection.json) | [commissions](../domains/commissions/) | 4 | 4013 |
 
 <details>
 <summary>What is in each</summary>
@@ -21,9 +22,12 @@ any code.
 **Requirements** — `GET /cases` (everything outstanding) · `GET /cases/{case_id}` ·
 `GET /capabilities`
 
+**Commissions** — `GET /statements` (a period, with the dates pre-filled) ·
+`GET /statements/{statement_id}` · `GET /statements/{statement_id}/lines` · `GET /capabilities`
+
 </details>
 
-> **Generated, not hand-maintained.** `npm run postman` rebuilds all three from `dist/`, and CI fails
+> **Generated, not hand-maintained.** `npm run postman` rebuilds all of them from `dist/`, and CI fails
 > if what is committed differs from what the contracts produce. Edits made here will be overwritten —
 > change the contract instead.
 
@@ -49,9 +53,11 @@ any code.
 
 3. **Send.** Collection-level auth is already `Bearer {{accessToken}}` and every request inherits it.
 
-Requests with a path parameter — `GET /policies/{policy_id}`, `GET /cases/{case_id}` — arrive with a
-worked example already filled in under the request's *Path Variables*, so they can be sent as-is
-against the mock and edited for a real implementation.
+Requests with a path parameter — `GET /policies/{policy_id}`, `GET /cases/{case_id}`,
+`GET /statements/{statement_id}` — arrive with a worked example already filled in under the request's
+*Path Variables*. Required query parameters are pre-filled too: `GET /statements` needs a period, so
+it ships with one. Everything can be sent as-is against the mock and edited for a real
+implementation.
 
 ## Running against the mock
 
@@ -60,7 +66,7 @@ You do not need an insurer endpoint to try any of this:
 ```bash
 npm ci
 npm run bundle
-npm run mock                  # all three contracts at once
+npm run mock                  # every contract at once
 npm run mock:policy           # or just one
 ```
 
@@ -94,6 +100,10 @@ insurer never reports one", which look identical in the data and mean very diffe
 `GET /arrears` or `GET /cases` in the collection. All three are snapshots whose absence semantics are
 only safe once a complete walk has finished, and the collection carries the full rule on each
 request rather than assuming you have read the reference.
+
+**Commissions is not a snapshot** and its rules are different: statements are immutable, absence
+means nothing, and a statement is only correctly ingested once its lines sum to the header's
+`total_amount`. `GET /statements/{statement_id}/lines` carries that rule in full.
 
 ## Why the bodies are trustworthy
 

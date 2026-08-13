@@ -1,0 +1,102 @@
+# Open Life Data Standards (AU) — Commissions — parameters.
+
+IssuedFrom:
+  name: issued_from
+  in: query
+  description: >-
+    First statement date to include, inclusive. REQUIRED — see `issued_to`.
+  required: true
+  schema:
+    type: string
+    format: date
+    examples: ['2026-07-01']
+
+IssuedTo:
+  name: issued_to
+  in: query
+  description: >-
+    Last statement date to include, inclusive. REQUIRED.
+
+    Both bounds are required deliberately, where every other list operation in this standard defaults
+    to "everything". A commission history is unbounded and grows forever, so an implicit default is
+    either the whole history — expensive, and rarely what was meant — or a silent recent window,
+    which returns a smaller number than the caller expected with nothing to indicate a period was
+    cut off. Making the period explicit means a consumer always knows what it asked for, and the
+    answer comes back in `query`.
+  required: true
+  schema:
+    type: string
+    format: date
+    examples: ['2026-07-31']
+
+PayeeIds:
+  name: payee_id
+  in: query
+  description: >-
+    Restrict to these payees. Repeat the parameter for several. Omitted, the response covers every
+    payee the credential can see.
+
+    Whatever is applied comes back in `query.payee_ids`, so a consumer can tell an excluded payee
+    from one that was simply paid nothing.
+  required: false
+  explode: true
+  schema:
+    type: array
+    items:
+      type: string
+      maxLength: 64
+
+AdviserCodes:
+  name: adviser_code
+  in: query
+  description: >-
+    OPTIONAL, on the LINES operation only. Restrict the lines returned to these adviser codes.
+
+    Use it with care, and never for reconciliation: a filtered response no longer sums to the
+    statement's `total_amount`, so the completeness check the statement exists to enable cannot be
+    run against it. Fetch unfiltered to ingest; filter only to display.
+  required: false
+  explode: true
+  schema:
+    type: array
+    items:
+      type: string
+      maxLength: 32
+
+StatementIdPath:
+  name: statement_id
+  in: path
+  required: true
+  schema:
+    type: string
+    maxLength: 128
+
+RequestId:
+  name: X-Request-Id
+  in: header
+  description: Consumer-supplied correlation identifier. Echoed on the response.
+  required: false
+  schema:
+    type: string
+    maxLength: 128
+
+Cursor:
+  name: cursor
+  in: query
+  description: Continuation token from the previous page's `page.next_cursor`.
+  required: false
+  schema:
+    $ref: '../../../core/schemas/pagination.yaml#/Cursor'
+
+Limit:
+  name: limit
+  in: query
+  description: >-
+    Maximum items per page. A server MAY return fewer; completion is signalled by the absence of
+    `page.next_cursor`, never by a short page.
+  required: false
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 1000
+    default: 250

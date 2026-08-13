@@ -5,12 +5,13 @@ are the ones run against every change in CI, with the exact flags below — and 
 decoration. Each one is present because the default produced something wrong, and each page says
 what and why.
 
-Every page covers **all three contracts** — quoting, policy and requirements. The mechanics are
+Every page covers **all four contracts** — quoting, policy, requirements and commissions. The mechanics are
 identical; you change one input path and one package name. [policy.md](policy.md) covers what
 differs once a contract returns a paged snapshot, including the snapshot walk itself — the one piece
 of client logic that is dangerous to get wrong. **Read it before consuming the requirements
 contract too:** `GET /cases` uses the same envelope and the same absence rule, so the walk described
-there applies unchanged.
+there applies unchanged. **It does NOT apply to commissions**, which is a ledger rather than a
+snapshot and has no absence semantics at all — see [that contract's README](../../domains/commissions/README.md).
 
 | Language | Page | Server stubs | Client |
 |---|---|---|---|

@@ -44,7 +44,6 @@ const FORBIDDEN = [
 const ALLOWLIST = new Set([
     "docs/acord-relationship.md",
     "docs/PROVENANCE-RULES.md",
-    "docs/neos-mcp-gap-analysis.md",
 ]);
 
 const TEXT_EXT = new Set([".yaml", ".yml", ".json", ".md", ".js", ".mjs", ".ts", ".py"]);
@@ -59,8 +58,25 @@ function* walk(dir) {
     }
 }
 
+/**
+ * An allowlist entry naming a file that does not exist is a standing exemption for a file nobody has
+ * reviewed. Whoever later creates that path — the name is predictable, since it was chosen once
+ * already — gets a free pass through this gate without anything saying so.
+ *
+ * This is not hypothetical: the list carried an entry for a gap-analysis document that had been
+ * removed, so the exemption outlived the review that justified it. Failing on a stale entry keeps
+ * the list honest and keeps it short, which is the property the comment above depends on.
+ */
 let violations = 0;
 let scanned = 0;
+
+for (const entry of ALLOWLIST) {
+    if (!fs.existsSync(path.join(ROOT, entry))) {
+        violations += 1;
+        console.error(`✗ allowlist entry does not exist: ${entry}`);
+        console.error("    A standing exemption for a file nobody has reviewed. Remove it.");
+    }
+}
 
 for (const top of SCANNED) {
     for (const abs of walk(path.join(ROOT, top))) {

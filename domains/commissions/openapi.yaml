@@ -1,0 +1,232 @@
+openapi: 3.1.0
+
+info:
+  title: Open Life Commissions API (AU)
+  # Kept in step with the commissions-v* git tag by release-please — do not edit by hand.
+  version: 0.1.0 # x-release-please-version
+  summary: >-
+    A vendor-neutral contract for retrieving Australian life insurance commission statements and
+    their lines.
+  description: |
+    A contract an insurer implements so that adviser software can read the commission it has been
+    paid — instead of receiving a spreadsheet and running a per-insurer parser over it.
+
+    ## What this is
+
+    Four operations. List statements for a period (`GET /statements`), fetch one statement header
+    (`GET /statements/{statement_id}`), fetch its lines
+    (`GET /statements/{statement_id}/lines`), and find out what the implementation supports
+    (`GET /capabilities`).
+
+    ## A ledger, not a snapshot — and the difference matters
+
+    The other contracts in this standard are snapshots of a current state, built around one rule: a
+    record that has disappeared is gone. That rule is what removes tombstones and makes a failed run
+    self-correcting.
+
+    **It is exactly wrong here, and this contract deliberately does not use it.** A commission
+    statement is a ledger entry: issued once, for a period, never restated. A correction is not an
+    edit to a past statement, it is a new line on a later one. So:
+
+    - **Absence carries no meaning.** A statement that stops appearing has not been cancelled — the
+      query did not match it, or something failed. A consumer MUST NOT remove a payment it has
+      already ingested because a later call did not return it.
+    - **Re-fetching is safe and expected.** Statements are immutable, so an overlapping query MUST
+      return identical content. Deduplicate on `statement_id` and `line_id`.
+
+    Nothing in the response envelopes here offers absence semantics, because offering them would
+    invite a consumer to delete its own financial history from a response that validated perfectly.
+
+    ## Completeness is proven with money, which is stronger
+
+    Every statement declares `line_count` and `total_amount` independently of its lines. Before
+    treating a statement as ingested, a consumer walks every page of lines and checks that the count
+    matches and the signed sum equals the declared total, to the cent.
+
+    That is a better guarantee than any snapshot in this standard can give. A snapshot's page checks
+    prove a consumer walked every *page*; they cannot prove it received every *row*. Here a single
+    dropped line changes the sum, so it cannot pass unnoticed — and a dropped commission line is
+    otherwise invisible, because a statement carrying 38 of its 40 lines looks precisely like a
+    statement that had 38.
+
+    It follows that **everything moving the money must be a line**. An insurer netting off an
+    advance recovery or an adjustment in a footer, rather than as a line, produces a statement that
+    cannot reconcile with nothing to say why.
+
+    ## Signed amounts
+
+    Amounts are signed and negatives are ordinary: a clawback, a lapse recovery and an advance
+    repayment are all negative lines, and a whole statement may be negative in a bad period. A
+    consumer MUST NOT reject, discard or absolute-value them.
+
+    This is the one place in the standard where the arrears contract's `amount > 0` instinct is
+    inverted. There, a nil amount contradicts the record. Here, the sign *is* the information.
+
+    ## The type vocabulary
+
+    `CommissionType` exists because the same concept — commission on new business — arrives from
+    live statements as at least six different strings, each recognised by one insurer's parser, with
+    anything unrecognised falling through to a default. When an insurer re-cases its own value, that
+    insurer's new business silently reclassifies as ongoing: the row count does not change, the
+    total does not change, only the type does, so a reconciliation that balances on money never sees
+    it. An enumerated type sent by the insurer removes the guessing.
+
+    Read the schema before assuming a `clawback` value is missing. There is deliberately not one —
+    the sign carries direction, the type carries purpose.
+
+    ## Personal information
+
+    Statement headers name entities; lines carry client names, so responses are `Cache-Control:
+    no-store` throughout.
+
+    ## Conformance
+
+    Statements differ enormously in what they carry — almost none break out GST, one supplies no
+    adviser code at all, several report commission only at policy level. Declare what you populate
+    in `GET /capabilities`. What is not optional is the reconciliation triple: without it a consumer
+    cannot know whether it received a whole statement, and everything else this contract offers
+    rests on that.
+
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+  contact:
+    name: Open Life Data Standards (AU)
+    url: https://github.com/axiscrm/open-life-au
+
+servers:
+  - url: https://{host}/{basePath}
+    description: An insurer's implementation.
+    variables:
+      host:
+        default: api.insurer.example.com.au
+      basePath:
+        default: openlife/commissions/v1
+
+tags:
+  - name: Commissions
+    description: Retrieving commission statements and their lines.
+  - name: Discovery
+    description: What an implementation supports.
+
+security:
+  - oauth2: [commissions.read]
+
+paths:
+  /statements:
+    $ref: './paths/statements.yaml'
+  /statements/{statement_id}:
+    $ref: './paths/statements-id.yaml'
+  /statements/{statement_id}/lines:
+    $ref: './paths/statement-lines.yaml'
+  /capabilities:
+    $ref: './paths/capabilities.yaml'
+
+# OPTIONAL. One event, and a narrower case for it than elsewhere in the standard: commission is
+# reconciled on a cycle rather than acted on within hours, so polling at the declared issue frequency
+# is usually enough. It earns its place only where a payee wants to match a deposit the day it lands.
+#
+# DO NOT REMOVE THE `x-openlife-webhook` EXTENSION ON THIS OPERATION.
+#
+# It carries no meaning. It exists because openapi-generator's Spring target crashes on webhook
+# operations that have no extensions at all: SpringCodegen.reformatProvideArgsParams dereferences
+# Operation.getExtensions() without a null check, and a webhook operation returns null there. The
+# result is a NullPointerException that aborts the whole run and emits NOTHING — no models, no
+# interfaces — so every Java implementer is blocked by a construct they never asked for.
+webhooks:
+  commissionStatementIssued:
+    post:
+      operationId: onCommissionStatementIssued
+      x-openlife-webhook: true
+      security:
+        - webhookSignature: []
+      summary: A commission statement was issued
+      description: >-
+        Sent when a statement is published. Carries the header only — a consumer fetches the lines
+        and runs the reconciliation check as it would for a polled statement, because a pushed
+        header is not evidence that the lines behind it are retrievable yet.
+
+        This is a prompt to look sooner, never a replacement for the period query: a missed delivery
+        is a statement a consumer never learns about, and unlike a snapshot there is no absence rule
+        to recover it.
+      tags: [Commissions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_type, event_id, occurred_at, statement]
+              additionalProperties: false
+              properties:
+                event_type:
+                  description: >-
+                    Which event this is. Required, and it must be IN the payload: OpenAPI webhook
+                    keys are names rather than URLs, so a consumer publishing one endpoint for
+                    several event types would otherwise classify by sniffing which members are
+                    present.
+                  type: string
+                  const: commission.statement_issued
+                event_id:
+                  description: >-
+                    Unique per event. Delivery is at-least-once, so consumers MUST deduplicate on
+                    this rather than assuming exactly-once.
+                  type: string
+                  maxLength: 128
+                occurred_at:
+                  type: string
+                  format: date-time
+                statement:
+                  $ref: './components/schemas/statement.yaml#/CommissionStatement'
+      responses:
+        '204':
+          description: >-
+            Accepted. Consumers SHOULD acknowledge quickly and fetch the lines asynchronously; an
+            insurer's delivery timeout is not the place to run a reconciliation.
+        '410':
+          $ref: '../../core/http/responses.yaml#/Gone'
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: |
+        OAuth 2.0 client credentials (RFC 6749, section 4.4). Machine-to-machine only.
+
+        The credential determines which payees the caller can see. Note what that does NOT do: it
+        does not make absence safe, because this contract has no absence semantics. A narrowed
+        credential here produces a smaller total rather than a wrongly-emptied book, which is a
+        quieter failure — hence `query.payee_ids` being echoed on every response.
+
+        Servers SHOULD publish an RFC 8414 metadata document. mTLS MAY additionally be required —
+        this contract carries personal information and financial records, and some insurers will
+        want it.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.insurer.example.com.au/oauth2/token
+          refreshUrl: https://auth.insurer.example.com.au/oauth2/token
+          scopes:
+            commissions.read: Read commission statements for the credential's payees.
+
+    webhookSignature:
+      type: apiKey
+      in: header
+      name: X-OpenLife-Signature
+      description: |
+        Signature over a webhook delivery. REQUIRED on every delivery for any insurer that pushes.
+
+        The direction is inverted from everything else here: on a webhook the CONSUMER is the server
+        and the insurer is the client, so the OAuth2 credential above does not apply and there is
+        nothing else authenticating the request. Without a signature a consumer's endpoint is an
+        unauthenticated write to its commission records.
+
+        Format: `t=<unix-seconds>,v1=<hex>`, where `v1` is the HMAC-SHA256 of `<t>.<raw request body>`
+        using a shared secret exchanged out of band. Sign the RAW body — re-serialising before signing
+        is the usual cause of signatures that verify locally and fail in production.
+
+        A consumer MUST reject a delivery whose signature does not verify, and MUST reject one whose
+        `t` is outside a tolerance of its own choosing (five minutes is typical) so a captured
+        delivery cannot be replayed indefinitely. Rejections SHOULD be `401`.
+
+        mTLS is an acceptable alternative where both parties can manage certificates; it is not a
+        substitute for `event_id` deduplication, which is about retries rather than authenticity.

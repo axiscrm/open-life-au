@@ -71,17 +71,27 @@ Problem:
               integration attempt into a self-service fix.
             type: array
             items: {}
+  # DOMAIN-NEUTRAL ON PURPOSE.
+  #
+  # This example is inherited by every 4xx in every contract, so it renders as the canonical error
+  # in all of their published references and is what the mock returns. It used to be a quoting
+  # waiting-period rejection — excellent for quoting, and confusing everywhere else once there was
+  # more than one contract: an insurer reading the commissions reference met a life-cover waiting
+  # period as the illustration of a 422.
+  #
+  # A contract wanting a domain-specific illustration attaches it at the response, where it is seen
+  # only by the readers it helps.
   examples:
     - type: 'https://openlife.org.au/problems/unsupported-value'
       title: Unsupported value
       status: 422
-      detail: 'This product does not offer a 730 day waiting period.'
+      detail: 'This implementation does not support one of the values supplied.'
       request_id: '01JQ8Z9YB4T7M2XR'
       errors:
-        - pointer: '/covers/1/waiting_period'
-          detail: 'Not offered for this product.'
-          value_supplied: '730d'
-          values_supported: ['30d', '60d', '90d']
+        - pointer: '/example_field'
+          detail: 'Not supported by this implementation.'
+          value_supplied: 'unsupported_value'
+          values_supported: ['supported_value_a', 'supported_value_b']
 
 ProblemType:
   title: ProblemType

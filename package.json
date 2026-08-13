@@ -14,16 +14,15 @@
   "type": "module",
   "scripts": {
     "lint": "redocly lint",
-    "bundle": "npm run bundle:quoting && npm run bundle:policy && npm run bundle:requirements",
+    "bundle": "npm run bundle:quoting && npm run bundle:policy && npm run bundle:requirements && npm run bundle:commissions",
     "bundle:quoting": "redocly bundle domains/quoting/openapi.yaml -o dist/quoting/openapi.yaml && redocly bundle domains/quoting/openapi.yaml -o dist/quoting/openapi.json",
     "docs": "node scripts/build-site.mjs",
     "postman": "node scripts/build-postman.mjs",
     "mock": "node scripts/mock.mjs",
-    "proxy": "prism proxy dist/quoting/openapi.yaml",
     "examples": "node scripts/validate-examples.mjs",
     "audit": "node scripts/npm-audit-gate.mjs --level moderate",
     "provenance": "node scripts/check-provenance.mjs",
-    "verify": "npm run lint && npm run dist:check && npm run examples && npm run rejections && npm run postman:check && npm run provenance",
+    "verify": "npm run lint && npm run versions && npm run dist:check && npm run examples && npm run rejections && npm run postman:check && npm run provenance",
     "rejections": "node scripts/check-rejections.mjs",
     "codegen:typescript": "bash scripts/check-codegen.sh typescript",
     "codegen:python": "bash scripts/check-codegen.sh python",
@@ -39,7 +38,10 @@
     "mock:quoting": "node scripts/mock.mjs quoting",
     "mock:policy": "node scripts/mock.mjs policy",
     "mock:requirements": "node scripts/mock.mjs requirements",
-    "mock:check": "node scripts/check-mock.mjs"
+    "mock:check": "node scripts/check-mock.mjs",
+    "bundle:commissions": "redocly bundle domains/commissions/openapi.yaml -o dist/commissions/openapi.yaml && redocly bundle domains/commissions/openapi.yaml -o dist/commissions/openapi.json",
+    "mock:commissions": "node scripts/mock.mjs commissions",
+    "versions": "node scripts/check-versions.mjs"
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.99.0",

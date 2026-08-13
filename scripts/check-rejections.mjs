@@ -63,6 +63,19 @@ reqAjv.addSchema({ ...reqDoc, $id: "requirements" }, "requirements");
 const validateReqPage = reqAjv.getSchema("requirements#/components/schemas/RequirementsPage");
 const validateRequirement = reqAjv.getSchema("requirements#/components/schemas/Requirement");
 
+// The commissions contract, likewise its own bundle and its own document.
+const COMM_BUNDLE = path.join(ROOT, "dist/commissions/openapi.yaml");
+if (!fs.existsSync(COMM_BUNDLE)) {
+    console.error("✗ dist/commissions/openapi.yaml is missing. Run `npm run bundle` first.");
+    process.exit(1);
+}
+const commDoc = YAML.parse(fs.readFileSync(COMM_BUNDLE, "utf8"));
+const commAjv = new Ajv2020({ strict: false, allErrors: true, allowUnionTypes: true });
+addFormats(commAjv);
+commAjv.addSchema({ ...commDoc, $id: "commissions" }, "commissions");
+const validateCommLine = commAjv.getSchema("commissions#/components/schemas/CommissionLine");
+const validateStatement = commAjv.getSchema("commissions#/components/schemas/CommissionStatement");
+
 const AUD = (amount) => ({ amount, currency: "AUD" });
 const insured = {
     age_next_birthday: 41,
@@ -520,6 +533,99 @@ const REQUIREMENT_CASES = [
     },
 ];
 
+const commLineBase = {
+    line_id: "L1",
+    policy_number: "P-4471902",
+    commission_type: "new_business",
+    amount: money("2104.00"),
+    adviser_code: "AC100",
+};
+const statementBase = {
+    statement_id: "STM-1",
+    insurer_id: "example-life",
+    payee: { payee_id: "PAY-1", name: "Rivera Advice Pty Ltd" },
+    statement_date: "2026-08-06",
+    currency: "AUD",
+    line_count: 1,
+    total_amount: money("2104.00"),
+};
+
+// NOTE WHAT IS *NOT* HERE: a negative amount. It is valid, and asserted as an acceptance in
+// ACCEPTANCE_CASES below rather than rejected here — a clawback is an ordinary commission line and
+// this is the one contract in the standard where the arrears `amount > 0` instinct is inverted.
+// What is rejected is everything that would leave a statement unreconcilable or a line
+// unattributable.
+const COMMISSION_LINE_CASES = [
+    {
+        name: "a line with no adviser_code",
+        why: "the rollup key — without it a payment cannot be attributed to any adviser at all",
+        doc: (() => { const d = { ...commLineBase }; delete d.adviser_code; return d; })(),
+    },
+    {
+        name: "a line with no line_id",
+        why: "statements are re-fetchable, so a line with no identity gets counted twice",
+        doc: (() => { const d = { ...commLineBase }; delete d.line_id; return d; })(),
+    },
+    {
+        name: "a line with no commission_type",
+        why: "an untyped line falls back to a per-insurer guess, the defect the vocabulary removes",
+        doc: (() => { const d = { ...commLineBase }; delete d.commission_type; return d; })(),
+    },
+    {
+        name: "a quoted policy_number",
+        why: "the spreadsheet apostrophe splits one policy into two keys and the join half-matches",
+        doc: { ...commLineBase, policy_number: "'P-4471902" },
+    },
+    {
+        name: "an amount sent as a JSON number",
+        why: "commission is summed to the cent against a bank deposit; a float drifts",
+        doc: { ...commLineBase, amount: { amount: 2104.0, currency: "AUD" } },
+    },
+    {
+        name: "an amount with three decimal places",
+        why: "a statement total that reconciles to a third of a cent reconciles to nothing",
+        doc: { ...commLineBase, amount: money("2104.005") },
+    },
+    {
+        name: "a line carrying an unknown field",
+        why: "a misspelled key must surface rather than being silently absorbed",
+        doc: { ...commLineBase, gst: money("191.27") },
+    },
+];
+
+const COMMISSION_STATEMENT_CASES = [
+    {
+        name: "a statement with no line_count",
+        why: "half the reconciliation triple — without it a dropped line is undetectable",
+        doc: (() => { const d = { ...statementBase }; delete d.line_count; return d; })(),
+    },
+    {
+        name: "a statement with no total_amount",
+        why: "the other half, and the only check that catches a dropped ROW rather than a dropped page",
+        doc: (() => { const d = { ...statementBase }; delete d.total_amount; return d; })(),
+    },
+    {
+        name: "a statement with no payee",
+        why: "commission paid to nobody in particular reconciles against no bank account",
+        doc: (() => { const d = { ...statementBase }; delete d.payee; return d; })(),
+    },
+    {
+        name: "a statement with no statement_id",
+        why: "the deduplication key; without it a re-fetched period doubles a book's commission",
+        doc: (() => { const d = { ...statementBase }; delete d.statement_id; return d; })(),
+    },
+    {
+        name: "a payee with no payee_id",
+        why: "a name is not a key — two practices trade under the same one",
+        doc: { ...statementBase, payee: { name: "Rivera Advice Pty Ltd" } },
+    },
+    {
+        name: "a non-AUD currency",
+        why: "only AUD is defined by this version, and a silently accepted currency mixes ledgers",
+        doc: { ...statementBase, currency: "NZD" },
+    },
+];
+
 const POLICY_PAGE_CASES = [
     {
         name: "a snapshot page with no total_count",
@@ -646,6 +752,8 @@ for (const [group, validator, cases] of [
     ["arrears worklist", validateArrearsPage, ARREARS_PAGE_CASES],
     ["requirements page", validateReqPage, REQ_PAGE_CASES],
     ["requirement", validateRequirement, REQUIREMENT_CASES],
+    ["commission line", validateCommLine, COMMISSION_LINE_CASES],
+    ["commission statement", validateStatement, COMMISSION_STATEMENT_CASES],
 ]) {
     for (const { name, why, doc: candidate } of cases) {
         if (validator(candidate)) {
@@ -654,6 +762,61 @@ for (const [group, validator, cases] of [
             console.error(`    ${why}`);
         } else {
             console.log(`✓ rejected: ${group} — ${name}`);
+        }
+    }
+}
+
+/**
+ * The other direction: payloads that MUST be accepted.
+ *
+ * Almost everything in this file guards against a schema that is too permissive. These guard the
+ * opposite mistake, and they exist because the commissions contract inverts a rule the rest of the
+ * standard applies everywhere else. A negative amount is a defect in an arrears block and an
+ * ordinary clawback on a commission line — so the obvious "tighten this to NonNegativeMoney" edit
+ * looks like a correction, passes every other check in this file, and silently makes every clawback
+ * in the market unrepresentable.
+ */
+const ACCEPTANCE_CASES = [
+    {
+        group: "commission line",
+        name: "a negative amount (a clawback)",
+        why: "the sign carries direction here; NonNegativeMoney would make clawbacks unrepresentable",
+        validator: validateCommLine,
+        doc: { ...commLineBase, amount: money("-780.40"), gst_amount: money("-70.95") },
+    },
+    {
+        group: "commission line",
+        name: "an advance repayment",
+        why: "not commission at all, and negative — must survive both rules",
+        doc: { ...commLineBase, commission_type: "advance_repayment", amount: money("-321.00") },
+        validator: validateCommLine,
+    },
+    {
+        group: "commission statement",
+        name: "a statement whose total is negative",
+        why: "a period where clawbacks exceeded earnings is unwelcome, not invalid",
+        validator: validateStatement,
+        doc: { ...statementBase, total_amount: money("-1240.00") },
+    },
+    {
+        group: "commission line",
+        name: "an unrecognised commission_type",
+        why: "response enums are extensible; a new type must not fail the whole statement",
+        validator: validateCommLine,
+        doc: { ...commLineBase, commission_type: "renewal_bonus_tier_2" },
+    },
+];
+
+let wronglyRejected = 0;
+for (const { group, name, why, validator, doc: candidate } of ACCEPTANCE_CASES) {
+    if (validator(candidate)) {
+        console.log(`✓ accepted: ${group} — ${name}`);
+    } else {
+        wronglyRejected += 1;
+        console.error(`✗ REJECTED — should have been accepted: ${group} — ${name}`);
+        console.error(`    ${why}`);
+        for (const err of (validator.errors ?? []).slice(0, 4)) {
+            console.error(`    ${err.instancePath || "(root)"} ${err.message}`);
         }
     }
 }
@@ -668,6 +831,11 @@ const total =
     POLICY_CASES.length +
     ARREARS_PAGE_CASES.length +
     REQ_PAGE_CASES.length +
-    REQUIREMENT_CASES.length;
+    REQUIREMENT_CASES.length +
+    COMMISSION_LINE_CASES.length +
+    COMMISSION_STATEMENT_CASES.length;
 console.log(`\n${total - wronglyAccepted}/${total} invalid payloads correctly rejected`);
-process.exit(wronglyAccepted === 0 ? 0 : 1);
+console.log(
+    `${ACCEPTANCE_CASES.length - wronglyRejected}/${ACCEPTANCE_CASES.length} valid payloads correctly accepted`,
+);
+process.exit(wronglyAccepted === 0 && wronglyRejected === 0 ? 0 : 1);

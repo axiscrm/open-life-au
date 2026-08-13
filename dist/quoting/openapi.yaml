@@ -2116,16 +2116,15 @@ components:
         - type: https://openlife.org.au/problems/unsupported-value
           title: Unsupported value
           status: 422
-          detail: This product does not offer a 730 day waiting period.
+          detail: This implementation does not support one of the values supplied.
           request_id: 01JQ8Z9YB4T7M2XR
           errors:
-            - pointer: /covers/1/waiting_period
-              detail: Not offered for this product.
-              value_supplied: 730d
+            - pointer: /example_field
+              detail: Not supported by this implementation.
+              value_supplied: unsupported_value
               values_supported:
-                - 30d
-                - 60d
-                - 90d
+                - supported_value_a
+                - supported_value_b
     CoverCapability:
       title: CoverCapability
       description: What one cover type supports. `supported_options` carries VALUE SETS rather than a list of field names, so an insurer can narrow an enum — three waiting periods out of seven — without the standard needing a new version.

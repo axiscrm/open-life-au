@@ -22,6 +22,7 @@ const PORTS = {
     quoting: 4010,
     policy: 4011,
     requirements: 4012,
+    commissions: 4013,
 };
 
 /**
@@ -35,16 +36,20 @@ const COLLECTION_IDS = {
     quoting: "0f5a1c62-7c3e-4a1e-9a2f-2b6d0c9e41aa",
     policy: "1b7d2e94-5a06-4c3b-8f71-3d4e5a6b7c80",
     requirements: "2c8e3fa5-6b17-4d5c-9081-4e5f6a7b8c91",
+    commissions: "3d9f40b6-7c28-4e6d-a192-5f60718c9da2",
 };
 
 /**
- * Example values for path parameters, so a generated request is one someone can actually send
- * rather than a template with `{policy_id}` in the URL. Taken from each contract's worked examples,
- * which means the mock recognises them.
+ * Example values for parameters a generated request cannot be sent without — path templates, and
+ * required query parameters. Taken from each contract's worked examples, so the mock recognises them.
+ *
+ * Consulted only as a FALLBACK: a parameter carrying its own `examples` in the contract wins, which
+ * keeps the spec the source of truth and this map small.
  */
-const PATH_EXAMPLES = {
+const PARAM_EXAMPLES = {
     policy_id: "P-4471902",
     case_id: "APP-2026-004471",
+    statement_id: "STM-2026-08-0417",
 };
 
 export function contracts() {
@@ -73,5 +78,5 @@ export function contracts() {
     });
 }
 
-/** Example value for a path parameter, or a readable placeholder. */
-export const pathExample = (name) => PATH_EXAMPLES[name] ?? `<${name}>`;
+/** Example value for a parameter, or a readable placeholder. */
+export const paramExample = (name) => PARAM_EXAMPLES[name] ?? `<${name}>`;

@@ -44,6 +44,11 @@ const SUITES = [
         dir: "domains/requirements/examples/responses",
         schema: "RequirementsPage",
     },
+    {
+        bundle: "dist/commissions/openapi.yaml",
+        dir: "domains/commissions/examples/responses",
+        schema: "LinePage",
+    },
 ];
 
 /** Ajv instance per bundled contract, built on first use. */
@@ -216,6 +221,65 @@ function checkCoversAccountedFor(response, where) {
     return problems.length === 0;
 }
 
+/**
+ * A commission statement must reconcile: the lines must agree with the header.
+ *
+ * This is the check the entire commissions contract is built around — `line_count` and
+ * `total_amount` exist so a consumer can prove it received every LINE, not merely every page — and
+ * the published example is the first thing an implementer copies. An example that did not itself
+ * reconcile would teach the opposite of the rule it illustrates.
+ *
+ * Not hypothetical: the example committed alongside this check declared a total that was $600 out
+ * on the first attempt, and the schema validated it happily. That is exactly the defect the rule
+ * exists to catch, so it is worth catching here too.
+ *
+ * Cents-integer arithmetic throughout, never floats: amounts are decimal strings precisely so they
+ * do not go through a double, and a tolerance-based comparison here would quietly permit the drift
+ * the string representation exists to prevent.
+ */
+function checkStatementReconciles(page, where) {
+    const problems = [];
+    const lines = page.lines ?? [];
+
+    const ids = new Set(lines.map((l) => l.line_id));
+    if (ids.size !== lines.length) {
+        problems.push(`line_id is not unique within the statement (${lines.length} lines, ${ids.size} ids)`);
+    }
+    if (typeof page.line_count === "number" && ids.size !== page.line_count) {
+        problems.push(`line_count is ${page.line_count} but the page carries ${ids.size} distinct lines`);
+    }
+
+    const summed = lines.reduce((total, l) => total + cents(l.amount), 0);
+    const declared = cents(page.total_amount);
+    if (summed !== declared) {
+        problems.push(
+            `lines sum to ${summed / 100} but total_amount is ${declared / 100} — ` +
+                `a consumer following the contract would reject this statement`,
+        );
+    }
+
+    // GST is a component WITHIN each amount, so it can never exceed it in magnitude, and it must
+    // share its sign. A positive GST on a clawback is the kind of thing that reconciles at the
+    // total and is wrong on the row.
+    for (const [i, l] of lines.entries()) {
+        if (!l.gst_amount) continue;
+        const gst = cents(l.gst_amount);
+        const amt = cents(l.amount);
+        if (gst !== 0 && amt !== 0 && Math.sign(gst) !== Math.sign(amt)) {
+            problems.push(`lines[${i}] (${l.line_id}): gst_amount sign differs from amount`);
+        }
+        if (Math.abs(gst) > Math.abs(amt)) {
+            problems.push(`lines[${i}] (${l.line_id}): gst_amount exceeds amount`);
+        }
+    }
+
+    if (problems.length) {
+        console.error(`✗ ${where}  →  statement reconciliation`);
+        for (const p of problems) console.error(`    ${p}`);
+    }
+    return problems.length === 0;
+}
+
 let checked = 0;
 let failed = 0;
 
@@ -242,6 +306,10 @@ for (const { bundle, dir, schema } of SUITES) {
                     failed += 1;
                     continue;
                 }
+            }
+            if (schema === "LinePage" && !checkStatementReconciles(data, rel)) {
+                failed += 1;
+                continue;
             }
             console.log(`✓ ${rel}  →  ${schema}`);
             continue;

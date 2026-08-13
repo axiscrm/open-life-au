@@ -22,7 +22,7 @@ OUT="${CODEGEN_OUT:-$ROOT/.codegen}"
 
 # Every contract the standard publishes. Adding one here is all that a new domain needs from this
 # script — the per-language branches all loop over it and assert against `symbols_for`.
-CONTRACTS="quoting policy requirements"
+CONTRACTS="quoting policy requirements commissions"
 CONTRACT_COUNT=$(set -- $CONTRACTS; echo $#)
 
 for contract in $CONTRACTS; do
@@ -53,6 +53,7 @@ pascal_name() {
     quoting)      echo "Quoting" ;;
     policy)       echo "Policy" ;;
     requirements) echo "Requirements" ;;
+    commissions)  echo "Commissions" ;;
     *)       echo "$1" ;;
   esac
 }
@@ -94,12 +95,16 @@ POLICY_SYMBOLS="Policy PolicyPage PolicyHolder Arrears PolicyCover SnapshotCover
 # The requirements contract. `Requirement` is nested two levels down — page, case, requirement —
 # which is exactly the depth at which a generator quietly drops a model and still exits 0.
 REQUIREMENTS_SYMBOLS="RequirementsPage UnderwritingCase Requirement InsuredLife RequirementsCoverage"
+# The commissions contract. CommissionLine is nested two levels down and CommissionBasis three, so
+# both sit at the depth where a generator quietly drops a model and still exits 0.
+COMMISSIONS_SYMBOLS="CommissionStatement CommissionLine StatementPage LinePage StatementPayee CommissionBasis"
 
 symbols_for() {
   case "$1" in
     quoting)      echo "$QUOTING_SYMBOLS" ;;
     policy)       echo "$POLICY_SYMBOLS" ;;
     requirements) echo "$REQUIREMENTS_SYMBOLS" ;;
+    commissions)  echo "$COMMISSIONS_SYMBOLS" ;;
     *)            echo "" ;;
   esac
 }
@@ -150,6 +155,10 @@ case "$LANG_TARGET" in
     for op in listUnderwritingCases getUnderwritingCase getRequirementsCapabilities; do
       grep -rq "$op" "$OUT/ts-heyapi-requirements/sdk.gen.ts" \
         || { echo "✗ hey-api: requirements operation $op missing"; exit 1; }
+    done
+    for op in listCommissionStatements getCommissionStatement listCommissionLines getCommissionsCapabilities; do
+      grep -rq "$op" "$OUT/ts-heyapi-commissions/sdk.gen.ts" \
+        || { echo "✗ hey-api: commissions operation $op missing"; exit 1; }
     done
     echo "✓ typescript (@hey-api): all operations present in every contract"
 

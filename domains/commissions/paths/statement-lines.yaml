@@ -1,0 +1,79 @@
+# Open Life Data Standards (AU) — Commissions — GET /statements/{statement_id}/lines
+
+get:
+  operationId: listCommissionLines
+  summary: Fetch the lines on a statement
+  description: >-
+    Return every commission line on one statement, paged.
+
+    ### Reconcile before you ingest
+
+    This is the operation the whole contract is built around, and it comes with an obligation. Walk
+    every page, then check the result against the statement header:
+
+    - the number of distinct `line_id` values equals `line_count`; and
+    - the signed sum of every line's `amount` equals `total_amount`, to the cent.
+
+    If either check fails, treat the statement as **not received** and retry. Do not ingest it
+    partially. A statement missing two of its forty lines reconciles against nothing, balances
+    against no bank deposit, and looks exactly like a statement that had thirty-eight lines — which
+    is the failure this contract exists to make impossible.
+
+    This is a stronger guarantee than the snapshot contracts can offer. Their page checks prove a
+    consumer walked every page; they cannot prove it received every row. Here the money does.
+
+    ### Negative amounts are ordinary
+
+    Clawbacks, reversals and advance repayments are negative lines. A consumer MUST NOT reject,
+    discard or absolute-value them, and a whole statement may legitimately be negative in a period
+    where clawbacks exceeded earnings.
+
+    ### Filtering breaks the check
+
+    `adviser_code` is available for display, but a filtered response no longer sums to
+    `total_amount`. Fetch unfiltered to ingest; filter only to show someone a subset.
+
+    ### Personal information
+
+    Lines carry client names. Servers MUST send `Cache-Control: no-store`.
+  tags: [Commissions]
+  security:
+    - oauth2: [commissions.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/StatementIdPath'
+    - $ref: '../components/parameters.yaml#/AdviserCodes'
+    - $ref: '../components/parameters.yaml#/Cursor'
+    - $ref: '../components/parameters.yaml#/Limit'
+    - $ref: '../components/parameters.yaml#/RequestId'
+  responses:
+    '200':
+      description: >-
+        One page of lines. An empty `lines` array on a statement whose `line_count` is zero is valid;
+        an empty array on a statement declaring lines is a defect the consumer MUST fail on.
+      headers:
+        Cache-Control:
+          description: MUST be `no-store`.
+          required: true
+          schema:
+            type: string
+            const: no-store
+        X-Request-Id:
+          $ref: '../../../core/http/headers.yaml#/XRequestId'
+        X-OpenLife-Spec-Version:
+          $ref: '../../../core/http/headers.yaml#/SpecVersion'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/pages.yaml#/LinePage'
+    '400':
+      $ref: '../../../core/http/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../../core/http/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../../core/http/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../../core/http/responses.yaml#/NotFound'
+    '429':
+      $ref: '../../../core/http/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../../../core/http/responses.yaml#/InternalError'

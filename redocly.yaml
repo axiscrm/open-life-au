@@ -12,6 +12,8 @@ apis:
     root: domains/policy/openapi.yaml
   requirements:
     root: domains/requirements/openapi.yaml
+  commissions:
+    root: domains/commissions/openapi.yaml
 
 extends:
   - recommended-strict

@@ -5,13 +5,14 @@ integrate once instead of once per pair.
 
 **📖 Published reference: [axiscrm.github.io/open-life-au](https://axiscrm.github.io/open-life-au/)**
 
-Three contracts:
+Four contracts:
 
 | Contract | Status | Reference | What it covers |
 |---|---|---|---|
 | [**quoting**](domains/quoting/) | `v0.1.0` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/quoting/) | Pricing life, TPD, trauma, income protection, business expenses, needle stick and child trauma cover |
 | [**policy**](domains/policy/) | `v0.1.0` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/policy/) | In-force policy data, the arrears worklist, and status changes |
 | [**requirements**](domains/requirements/) | `v0.1.0` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/requirements/) | Outstanding underwriting requirements on applications |
+| [**commissions**](domains/commissions/) | `v0.1.0` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/commissions/) | Commission statements and their lines |
 
 Licensed Apache-2.0. Everything here is a draft published for insurers to argue with — see
 [Contributing](#contributing).
@@ -71,12 +72,15 @@ Each guards a **silent** failure — one that produces a plausible number rather
 ## Layout
 
 ```
-core/schemas/       shared by every contract — money, identifiers, problems, occupation, party
+core/schemas/       shared by every contract — money, identifiers, problems, occupation, party,
+                    the snapshot envelope, distribution, and the cover/requirement/commission
+                    vocabularies
 core/http/          shared responses and headers, referenced by every contract
 taxonomy/           the occupation baseline and the risk qualifiers layered over it
 domains/quoting/    the quoting contract: openapi.yaml, paths/, components/, examples/
 domains/policy/     the policy contract: snapshot pull, arrears worklist, optional webhooks
 domains/requirements/  outstanding underwriting requirements, snapshot-first
+domains/commissions/   commission statements and lines — a ledger, deliberately not a snapshot
 dist/               committed bundles — this is what implementers consume
 docs/               concepts, versioning, provenance rules
 docs/generators/    one self-contained guide per language
@@ -84,16 +88,21 @@ postman/            generated collections, one per contract
 scripts/            validation, rejection and provenance gates
 ```
 
-`core/` also holds the snapshot envelope and the requirement vocabulary, both shared across
-contracts. It is pure JSON Schema 2020-12 with no OpenAPI-only keywords, so the same schemas can back the
-event-driven policy contract as well as the request/response quoting one.
+`core/` is pure JSON Schema 2020-12 with no OpenAPI-only keywords, so the same schemas back the
+event-driven parts of the policy and requirements contracts as well as the request/response quoting
+one.
+
+**Note that the commissions contract deliberately does not use the snapshot envelope.** It is a
+ledger rather than a snapshot, so absence carries no meaning in it — see
+[`domains/commissions/README.md`](domains/commissions/README.md), which explains why reusing the
+envelope there would have invited a consumer to delete its own financial history.
 
 ## Working on it
 
 ```bash
 npm ci
-npm run verify      # lint, bundle, examples, rejections, provenance
-npm run mock        # mock every contract at once — quoting :4010, policy :4011, requirements :4012
+npm run verify      # lint, versions, bundle, examples, rejections, provenance
+npm run mock        # mock every contract at once — :4010 quoting, :4011 policy, :4012 requirements, :4013 commissions
 npm run mock:policy # or just one
 npm run mock:check  # send every Postman collection request at the running mocks
 npm run docs        # build the published site into site/ — every contract, plus the landing page
@@ -130,7 +139,7 @@ fails if it drifts from source.
 
 1. Read the reference documentation (`npm run docs`, or the published site).
 2. Run `npm run mock` and point a client at your contract's port — quoting `:4010`, policy `:4011`,
-   requirements `:4012` — to see the shapes in practice. Or import the matching
+   requirements `:4012`, commissions `:4013` — to see the shapes in practice. Or import the matching
    [Postman collection](postman/), which already points at it.
 3. Read `GET /capabilities` for the contract you are implementing — this is how you declare that you
    offer four covers and three waiting periods, or that you cannot report a sum insured, rather than
@@ -144,7 +153,7 @@ The contract is plain OpenAPI 3.1, so any generator will work. These six are run
 in CI, each with the exact flags needed — and the flags matter: every one is there because a default
 produced something wrong.
 
-Every guide covers all three contracts. [docs/generators/policy.md](docs/generators/policy.md) has
+Every guide covers all four contracts. [docs/generators/policy.md](docs/generators/policy.md) has
 the cross-language notes for consuming a snapshot safely — read it for the requirements contract
 too, which uses the same envelope and the same absence rule.
 
@@ -168,6 +177,7 @@ repository:
 curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/quoting/openapi.yaml
 curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/policy/openapi.yaml
 curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/requirements/openapi.yaml
+curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/commissions/openapi.yaml
 ```
 
 If a generator misbehaves, that is a defect in the contract rather than in your setup — please tell

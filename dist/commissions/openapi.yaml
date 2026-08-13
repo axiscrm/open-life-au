@@ -1,0 +1,1216 @@
+openapi: 3.1.0
+info:
+  title: Open Life Commissions API (AU)
+  version: 0.1.0
+  summary: A vendor-neutral contract for retrieving Australian life insurance commission statements and their lines.
+  description: |
+    A contract an insurer implements so that adviser software can read the commission it has been
+    paid — instead of receiving a spreadsheet and running a per-insurer parser over it.
+
+    ## What this is
+
+    Four operations. List statements for a period (`GET /statements`), fetch one statement header
+    (`GET /statements/{statement_id}`), fetch its lines
+    (`GET /statements/{statement_id}/lines`), and find out what the implementation supports
+    (`GET /capabilities`).
+
+    ## A ledger, not a snapshot — and the difference matters
+
+    The other contracts in this standard are snapshots of a current state, built around one rule: a
+    record that has disappeared is gone. That rule is what removes tombstones and makes a failed run
+    self-correcting.
+
+    **It is exactly wrong here, and this contract deliberately does not use it.** A commission
+    statement is a ledger entry: issued once, for a period, never restated. A correction is not an
+    edit to a past statement, it is a new line on a later one. So:
+
+    - **Absence carries no meaning.** A statement that stops appearing has not been cancelled — the
+      query did not match it, or something failed. A consumer MUST NOT remove a payment it has
+      already ingested because a later call did not return it.
+    - **Re-fetching is safe and expected.** Statements are immutable, so an overlapping query MUST
+      return identical content. Deduplicate on `statement_id` and `line_id`.
+
+    Nothing in the response envelopes here offers absence semantics, because offering them would
+    invite a consumer to delete its own financial history from a response that validated perfectly.
+
+    ## Completeness is proven with money, which is stronger
+
+    Every statement declares `line_count` and `total_amount` independently of its lines. Before
+    treating a statement as ingested, a consumer walks every page of lines and checks that the count
+    matches and the signed sum equals the declared total, to the cent.
+
+    That is a better guarantee than any snapshot in this standard can give. A snapshot's page checks
+    prove a consumer walked every *page*; they cannot prove it received every *row*. Here a single
+    dropped line changes the sum, so it cannot pass unnoticed — and a dropped commission line is
+    otherwise invisible, because a statement carrying 38 of its 40 lines looks precisely like a
+    statement that had 38.
+
+    It follows that **everything moving the money must be a line**. An insurer netting off an
+    advance recovery or an adjustment in a footer, rather than as a line, produces a statement that
+    cannot reconcile with nothing to say why.
+
+    ## Signed amounts
+
+    Amounts are signed and negatives are ordinary: a clawback, a lapse recovery and an advance
+    repayment are all negative lines, and a whole statement may be negative in a bad period. A
+    consumer MUST NOT reject, discard or absolute-value them.
+
+    This is the one place in the standard where the arrears contract's `amount > 0` instinct is
+    inverted. There, a nil amount contradicts the record. Here, the sign *is* the information.
+
+    ## The type vocabulary
+
+    `CommissionType` exists because the same concept — commission on new business — arrives from
+    live statements as at least six different strings, each recognised by one insurer's parser, with
+    anything unrecognised falling through to a default. When an insurer re-cases its own value, that
+    insurer's new business silently reclassifies as ongoing: the row count does not change, the
+    total does not change, only the type does, so a reconciliation that balances on money never sees
+    it. An enumerated type sent by the insurer removes the guessing.
+
+    Read the schema before assuming a `clawback` value is missing. There is deliberately not one —
+    the sign carries direction, the type carries purpose.
+
+    ## Personal information
+
+    Statement headers name entities; lines carry client names, so responses are `Cache-Control:
+    no-store` throughout.
+
+    ## Conformance
+
+    Statements differ enormously in what they carry — almost none break out GST, one supplies no
+    adviser code at all, several report commission only at policy level. Declare what you populate
+    in `GET /capabilities`. What is not optional is the reconciliation triple: without it a consumer
+    cannot know whether it received a whole statement, and everything else this contract offers
+    rests on that.
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+  contact:
+    name: Open Life Data Standards (AU)
+    url: https://github.com/axiscrm/open-life-au
+servers:
+  - url: https://{host}/{basePath}
+    description: An insurer's implementation.
+    variables:
+      host:
+        default: api.insurer.example.com.au
+      basePath:
+        default: openlife/commissions/v1
+security:
+  - oauth2:
+      - commissions.read
+tags:
+  - name: Commissions
+    description: Retrieving commission statements and their lines.
+  - name: Discovery
+    description: What an implementation supports.
+paths:
+  /statements:
+    get:
+      operationId: listCommissionStatements
+      summary: List commission statements for a period
+      description: |-
+        Return the statements issued to the calling credential's payees between two dates, headers only, paged.
+        ### A ledger, not a snapshot
+        Statements are immutable once issued. Re-fetching a period a consumer has already seen is safe, expected, and MUST return identical content — deduplicate on `statement_id`.
+        **Absence carries no meaning here.** A statement missing from this response has not been cancelled or withdrawn; either it does not match the query, or something went wrong. A consumer MUST NOT remove a payment it has already ingested because a later call did not return it. This is the opposite of the policy, arrears and requirements contracts, and the difference is deliberate: those describe a current state, this records events that happened.
+        A correction is never a restatement. It arrives as a new line on a later statement, usually with a negative amount.
+        ### Headers only
+        Lines are fetched per statement from `GET /statements/{statement_id}/lines`. A payee's statement can carry thousands of lines and a consumer listing a year of them wants none.
+        ### The period is explicit
+        Both `issued_from` and `issued_to` are required. A commission history grows forever, so a default would be either the whole of it or a silent recent window — and a silently truncated period returns a smaller total than the caller expected with nothing to indicate it. Whatever was applied comes back in `query`.
+        ### Personal information
+        Statement headers carry entity names rather than individuals, but the lines behind them carry client names. Servers MUST send `Cache-Control: no-store` on both.
+      tags:
+        - Commissions
+      security:
+        - oauth2:
+            - commissions.read
+      parameters:
+        - $ref: '#/components/parameters/IssuedFrom'
+        - $ref: '#/components/parameters/IssuedTo'
+        - $ref: '#/components/parameters/PayeeIds'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: One page of statements. An empty `statements` array means none were issued in this period — an ordinary answer, and not a reason to conclude anything about statements outside it.
+          headers:
+            Cache-Control:
+              description: MUST be `no-store`.
+              required: true
+              schema:
+                type: string
+                const: no-store
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-OpenLife-Spec-Version:
+              $ref: '#/components/headers/SpecVersion'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatementPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: The requested period is wider than `capabilities.statements.max_period_days`, or otherwise cannot be served. Problem type `unsupported-value`. Returned rather than a truncated period, deliberately — a shorter answer to a wider question understates a book's commission and nothing in the response says so.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /statements/{statement_id}:
+    get:
+      operationId: getCommissionStatement
+      summary: Fetch one statement header
+      description: |-
+        Return a single statement by the insurer's own identifier, headers only.
+        Useful mainly to re-read the reconciliation triple — `line_count`, `total_amount` and `total_gst` — without re-listing a period, and to resolve a payment reference seen on a bank statement back to the statement that produced it.
+        Immutable: the response for a given `statement_id` MUST NOT change once issued.
+        Returns `404` where the statement is outside the credential's scope as well as where it does not exist. The two are deliberately indistinguishable — answering `403` for a statement belonging to another payee would confirm its existence, and its identifier, to a caller with no right to it.
+      tags:
+        - Commissions
+      security:
+        - oauth2:
+            - commissions.read
+      parameters:
+        - $ref: '#/components/parameters/StatementIdPath'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: The statement header.
+          headers:
+            Cache-Control:
+              description: MUST be `no-store`.
+              required: true
+              schema:
+                type: string
+                const: no-store
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommissionStatement'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /statements/{statement_id}/lines:
+    get:
+      operationId: listCommissionLines
+      summary: Fetch the lines on a statement
+      description: |-
+        Return every commission line on one statement, paged.
+        ### Reconcile before you ingest
+        This is the operation the whole contract is built around, and it comes with an obligation. Walk every page, then check the result against the statement header:
+        - the number of distinct `line_id` values equals `line_count`; and - the signed sum of every line's `amount` equals `total_amount`, to the cent.
+        If either check fails, treat the statement as **not received** and retry. Do not ingest it partially. A statement missing two of its forty lines reconciles against nothing, balances against no bank deposit, and looks exactly like a statement that had thirty-eight lines — which is the failure this contract exists to make impossible.
+        This is a stronger guarantee than the snapshot contracts can offer. Their page checks prove a consumer walked every page; they cannot prove it received every row. Here the money does.
+        ### Negative amounts are ordinary
+        Clawbacks, reversals and advance repayments are negative lines. A consumer MUST NOT reject, discard or absolute-value them, and a whole statement may legitimately be negative in a period where clawbacks exceeded earnings.
+        ### Filtering breaks the check
+        `adviser_code` is available for display, but a filtered response no longer sums to `total_amount`. Fetch unfiltered to ingest; filter only to show someone a subset.
+        ### Personal information
+        Lines carry client names. Servers MUST send `Cache-Control: no-store`.
+      tags:
+        - Commissions
+      security:
+        - oauth2:
+            - commissions.read
+      parameters:
+        - $ref: '#/components/parameters/StatementIdPath'
+        - $ref: '#/components/parameters/AdviserCodes'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: One page of lines. An empty `lines` array on a statement whose `line_count` is zero is valid; an empty array on a statement declaring lines is a defect the consumer MUST fail on.
+          headers:
+            Cache-Control:
+              description: MUST be `no-store`.
+              required: true
+              schema:
+                type: string
+                const: no-store
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-OpenLife-Spec-Version:
+              $ref: '#/components/headers/SpecVersion'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /capabilities:
+    get:
+      operationId: getCommissionsCapabilities
+      summary: What this implementation supports
+      description: |-
+        Describe which parts of a statement this insurer populates, how often statements are issued, how far back history reaches, and how wide a period may be requested.
+        Worth calling before the first pull and caching thereafter. `statements.frequency` and `statements.history_from` in particular change what a consumer should conclude from an empty response: without them, a period with no statement is indistinguishable from a period before the history begins, and both look like a fortnight with no commission.
+      tags:
+        - Discovery
+      security:
+        - oauth2:
+            - commissions.read
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: The capability document.
+          headers:
+            ETag:
+              description: Servers SHOULD supply one and honour `If-None-Match`.
+              schema:
+                type: string
+            Cache-Control:
+              description: Safe to cache — carries no personal information.
+              schema:
+                type: string
+                example: public, max-age=3600
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Capabilities'
+        '304':
+          description: Not modified.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+webhooks:
+  commissionStatementIssued:
+    post:
+      operationId: onCommissionStatementIssued
+      x-openlife-webhook: true
+      security:
+        - webhookSignature: []
+      summary: A commission statement was issued
+      description: |-
+        Sent when a statement is published. Carries the header only — a consumer fetches the lines and runs the reconciliation check as it would for a polled statement, because a pushed header is not evidence that the lines behind it are retrievable yet.
+        This is a prompt to look sooner, never a replacement for the period query: a missed delivery is a statement a consumer never learns about, and unlike a snapshot there is no absence rule to recover it.
+      tags:
+        - Commissions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event_type
+                - event_id
+                - occurred_at
+                - statement
+              additionalProperties: false
+              properties:
+                event_type:
+                  description: 'Which event this is. Required, and it must be IN the payload: OpenAPI webhook keys are names rather than URLs, so a consumer publishing one endpoint for several event types would otherwise classify by sniffing which members are present.'
+                  type: string
+                  const: commission.statement_issued
+                event_id:
+                  description: Unique per event. Delivery is at-least-once, so consumers MUST deduplicate on this rather than assuming exactly-once.
+                  type: string
+                  maxLength: 128
+                occurred_at:
+                  type: string
+                  format: date-time
+                statement:
+                  $ref: '#/components/schemas/CommissionStatement'
+      responses:
+        '204':
+          description: Accepted. Consumers SHOULD acknowledge quickly and fetch the lines asynchronously; an insurer's delivery timeout is not the place to run a reconciliation.
+        '410':
+          $ref: '#/components/responses/Gone'
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: |
+        OAuth 2.0 client credentials (RFC 6749, section 4.4). Machine-to-machine only.
+
+        The credential determines which payees the caller can see. Note what that does NOT do: it
+        does not make absence safe, because this contract has no absence semantics. A narrowed
+        credential here produces a smaller total rather than a wrongly-emptied book, which is a
+        quieter failure — hence `query.payee_ids` being echoed on every response.
+
+        Servers SHOULD publish an RFC 8414 metadata document. mTLS MAY additionally be required —
+        this contract carries personal information and financial records, and some insurers will
+        want it.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.insurer.example.com.au/oauth2/token
+          refreshUrl: https://auth.insurer.example.com.au/oauth2/token
+          scopes:
+            commissions.read: Read commission statements for the credential's payees.
+    webhookSignature:
+      type: apiKey
+      in: header
+      name: X-OpenLife-Signature
+      description: |
+        Signature over a webhook delivery. REQUIRED on every delivery for any insurer that pushes.
+
+        The direction is inverted from everything else here: on a webhook the CONSUMER is the server
+        and the insurer is the client, so the OAuth2 credential above does not apply and there is
+        nothing else authenticating the request. Without a signature a consumer's endpoint is an
+        unauthenticated write to its commission records.
+
+        Format: `t=<unix-seconds>,v1=<hex>`, where `v1` is the HMAC-SHA256 of `<t>.<raw request body>`
+        using a shared secret exchanged out of band. Sign the RAW body — re-serialising before signing
+        is the usual cause of signatures that verify locally and fail in production.
+
+        A consumer MUST reject a delivery whose signature does not verify, and MUST reject one whose
+        `t` is outside a tolerance of its own choosing (five minutes is typical) so a captured
+        delivery cannot be replayed indefinitely. Rejections SHOULD be `401`.
+
+        mTLS is an acceptable alternative where both parties can manage certificates; it is not a
+        substitute for `event_id` deduplication, which is about retries rather than authenticity.
+  parameters:
+    IssuedFrom:
+      name: issued_from
+      in: query
+      description: First statement date to include, inclusive. REQUIRED — see `issued_to`.
+      required: true
+      schema:
+        type: string
+        format: date
+        examples:
+          - '2026-07-01'
+    IssuedTo:
+      name: issued_to
+      in: query
+      description: |-
+        Last statement date to include, inclusive. REQUIRED.
+        Both bounds are required deliberately, where every other list operation in this standard defaults to "everything". A commission history is unbounded and grows forever, so an implicit default is either the whole history — expensive, and rarely what was meant — or a silent recent window, which returns a smaller number than the caller expected with nothing to indicate a period was cut off. Making the period explicit means a consumer always knows what it asked for, and the answer comes back in `query`.
+      required: true
+      schema:
+        type: string
+        format: date
+        examples:
+          - '2026-07-31'
+    PayeeIds:
+      name: payee_id
+      in: query
+      description: |-
+        Restrict to these payees. Repeat the parameter for several. Omitted, the response covers every payee the credential can see.
+        Whatever is applied comes back in `query.payee_ids`, so a consumer can tell an excluded payee from one that was simply paid nothing.
+      required: false
+      explode: true
+      schema:
+        type: array
+        items:
+          type: string
+          maxLength: 64
+    Cursor:
+      name: cursor
+      in: query
+      description: Continuation token from the previous page's `page.next_cursor`.
+      required: false
+      schema:
+        $ref: '#/components/schemas/Cursor'
+    Limit:
+      name: limit
+      in: query
+      description: Maximum items per page. A server MAY return fewer; completion is signalled by the absence of `page.next_cursor`, never by a short page.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 250
+    RequestId:
+      name: X-Request-Id
+      in: header
+      description: Consumer-supplied correlation identifier. Echoed on the response.
+      required: false
+      schema:
+        type: string
+        maxLength: 128
+    StatementIdPath:
+      name: statement_id
+      in: path
+      required: true
+      schema:
+        type: string
+        maxLength: 128
+    AdviserCodes:
+      name: adviser_code
+      in: query
+      description: |-
+        OPTIONAL, on the LINES operation only. Restrict the lines returned to these adviser codes.
+        Use it with care, and never for reconciliation: a filtered response no longer sums to the statement's `total_amount`, so the completeness check the statement exists to enable cannot be run against it. Fetch unfiltered to ingest; filter only to display.
+      required: false
+      explode: true
+      schema:
+        type: array
+        items:
+          type: string
+          maxLength: 32
+  schemas:
+    Cursor:
+      title: Cursor
+      description: Opaque continuation token. Consumers MUST treat it as opaque, MUST NOT construct one, and MUST NOT assume it remains valid indefinitely — a server MAY expire cursors and answer an expired one with 400 `invalid-request`.
+      type: string
+      minLength: 1
+      maxLength: 512
+    InsurerId:
+      title: InsurerId
+      description: Stable identifier for the issuing insurer, assigned by this standard's registry so it is the same value at every implementer. Lowercase, hyphenated.
+      type: string
+      pattern: ^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])$
+      examples:
+        - example-life
+    BrandId:
+      title: BrandId
+      description: Stable identifier for the brand a line is sold under. Equal to the `InsurerId` where the insurer sells under a single brand. REQUIRED on every priced line even from a single-insurer endpoint, because one insurer commonly issues several brands and a consumer must not have to infer the brand from a product name.
+      type: string
+      pattern: ^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])$
+      examples:
+        - example-life
+        - example-select
+    StatementPayee:
+      title: StatementPayee
+      description: |-
+        Who the statement was issued to and paid. Usually a licensee or a practice, not an individual adviser — commission is paid at the entity that holds the agreement, and split to advisers downstream by the recipient rather than by the insurer.
+        This is why `payee` and each line's `adviser_code` are different things and both are required: the payee is who received the money, the adviser code is who earned it. Collapsing them is the reason a licensee-level statement cannot currently be broken out per adviser without guesswork.
+      type: object
+      required:
+        - payee_id
+        - name
+      additionalProperties: false
+      properties:
+        payee_id:
+          description: The insurer's identifier for the paid entity — the agency, dealer group or practice code the commission agreement sits under. The key a consumer groups statements by.
+          type: string
+          minLength: 1
+          maxLength: 64
+        name:
+          description: The entity's registered name. Send it as legally named and do not case-normalise it; these are company names, so a consumer applying title case produces "Abc Advice Pty Ltd".
+          type: string
+          minLength: 1
+          maxLength: 255
+        licensee_code:
+          description: The licensee the payee operates under, where the insurer distinguishes it from the payee itself. Carried because a consumer operating more than one licence needs commission to split by licence for its own reporting to add up, and inferring the licence from the payee name is the kind of mapping that works until an entity is renamed.
+          type: string
+          maxLength: 32
+        abn:
+          description: 'Australian Business Number, digits only, no spaces. Relevant here in a way it is not elsewhere in the standard: commission carries GST, and the ABN is what ties a statement to the entity that accounts for it.'
+          type: string
+          pattern: ^\d{11}$
+    Decimal:
+      title: Decimal
+      description: A fixed-point decimal amount serialised as a string, with at most two fractional digits. Scientific notation, thousands separators, currency symbols and leading `+` are not permitted. Implementations MUST NOT normalise `"0.00"` to `"0"` or vice versa when echoing a value back — but consumers MUST treat the two as numerically equal.
+      type: string
+      pattern: ^-?\d{1,12}(\.\d{1,2})?$
+      examples:
+        - '1234.56'
+        - '0'
+        - '-19.95'
+    Money:
+      title: Money
+      description: An amount of money. Currency is carried explicitly even though this standard is Australia-only, so a future market does not become a breaking change.
+      type: object
+      required:
+        - amount
+        - currency
+      additionalProperties: false
+      properties:
+        amount:
+          $ref: '#/components/schemas/Decimal'
+        currency:
+          title: CurrencyCode
+          description: ISO 4217 alphabetic code. Only AUD is defined by this version of the standard.
+          type: string
+          const: AUD
+      examples:
+        - amount: '1000000.00'
+          currency: AUD
+    StatementDocument:
+      title: StatementDocument
+      description: A file or link relating to one statement.
+      type: object
+      required:
+        - document_type
+        - url
+      additionalProperties: false
+      properties:
+        document_type:
+          description: |-
+            What the document is. Extensible: a consumer MUST pass an unrecognised value through and offer the link rather than hiding it.
+              - `statement`     the insurer's own rendered statement, typically a PDF
+              - `remittance`    the payment advice matching it to a bank transaction
+              - `data_extract`  a machine-readable version of the same statement
+          type: string
+          x-extensible-enum:
+            - statement
+            - remittance
+            - data_extract
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+        media_type:
+          description: IANA media type, so a consumer knows what it is fetching before it fetches it.
+          type: string
+          maxLength: 100
+          examples:
+            - application/pdf
+        expires_at:
+          description: When the link stops working. An insurer SHOULD set this on any URL that grants access rather than issuing one that lives forever.
+          type: string
+          format: date-time
+    CommissionStatement:
+      title: CommissionStatement
+      description: |-
+        One commission statement: one insurer, one payee, one payment, one period.
+        IMMUTABLE ONCE ISSUED. An insurer MUST NOT restate a statement a consumer may already hold — corrections are issued as new lines on a later statement. A consumer re-fetching a period it has already seen MUST receive identical content, and MUST deduplicate on `statement_id`.
+        ## The reconciliation triple, and why it is the most important thing here
+        `line_count`, `total_amount` and `total_gst` are declared on the statement independently of the lines themselves. Before treating a statement as ingested a consumer MUST fetch every line and verify that they agree — the count matches, and the signed sum of `amount` across all lines equals `total_amount` to the cent.
+        This is a stronger guarantee than anything in the snapshot contracts, and deliberately so. A snapshot's page checks can prove a consumer walked every PAGE; they cannot prove it received every ROW. Here the money does that. A single dropped line changes the sum, so it cannot pass — and a dropped commission line is otherwise invisible, because a statement with 38 of its 40 lines looks exactly like a statement with 38 lines.
+        ## Everything that moves the money must be a line
+        `total_amount` is what the payee was actually paid. So an insurer that nets something off — an advance recovery, a manual adjustment, a rounding correction — MUST represent it as a line, even where its own internal statement carries it as a footer figure. Anything netted off outside the lines makes the statement fail to reconcile with nothing to say why, which is precisely the position consumers are in today.
+      type: object
+      required:
+        - statement_id
+        - insurer_id
+        - payee
+        - statement_date
+        - currency
+        - line_count
+        - total_amount
+      additionalProperties: false
+      properties:
+        statement_id:
+          description: |-
+            The insurer's own identifier for this statement, stable forever and never reused. The deduplication key: a consumer that fetches an overlapping period twice recognises the statement it already holds by this and nothing else.
+            Where an insurer has no such identifier it MUST synthesise one deterministically — from the payee, the statement date and the payment reference, for instance — rather than generating a fresh value per request. A regenerated id makes every re-fetch look like a new statement, and a consumer that trusts it doubles a book's commission.
+          type: string
+          minLength: 1
+          maxLength: 128
+        insurer_id:
+          $ref: '#/components/schemas/InsurerId'
+        brand_id:
+          $ref: '#/components/schemas/BrandId'
+        payee:
+          $ref: '#/components/schemas/StatementPayee'
+        statement_date:
+          description: The date the statement was issued. Distinct from `paid_on` — see that field, which is the one a bank reconciliation actually needs.
+          type: string
+          format: date
+        period_start:
+          description: 'First day of the period the statement covers. Optional, because a statement is identified by its own date rather than its period, but strongly RECOMMENDED: without it a consumer cannot tell a weekly statement from a monthly one, and therefore cannot detect a missing week.'
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        paid_on:
+          description: The date the funds actually moved. Carried separately from `statement_date` because they are routinely days apart, and it is THIS date a consumer matches against a bank transaction. Reconciling a statement dated the 30th against a deposit that landed on the 2nd is the single most common manual step this contract can remove.
+          type: string
+          format: date
+        payment_reference:
+          description: 'The reference that appears on the payee''s bank statement for this payment. Optional but the most valuable optional field in the contract for anyone reconciling weekly: with it, a deposit matches a statement exactly; without it, matching is by amount and date, which fails the moment two statements pay the same amount in one week.'
+          type: string
+          maxLength: 140
+        currency:
+          description: ISO 4217 alphabetic code. Only AUD is defined by this version of the standard.
+          type: string
+          const: AUD
+        line_count:
+          description: The number of lines on this statement. MUST equal the number a consumer receives from `GET /statements/{statement_id}/lines` once the walk is complete.
+          type: integer
+          minimum: 0
+        total_amount:
+          description: |-
+            The signed sum of every line's `amount`, and the amount actually paid to the payee.
+            MAY be negative: a period in which clawbacks exceed earnings is a real, and unwelcome, event rather than an error. A consumer MUST NOT reject or discard a negative statement, and MUST NOT take its absolute value.
+          $ref: '#/components/schemas/Money'
+        total_gst:
+          description: The GST component contained WITHIN `total_amount`, not additional to it. Equals the signed sum of each line's `gst_amount`.
+          $ref: '#/components/schemas/Money'
+        sequence:
+          description: |-
+            A per-payee counter that increases by one on each statement issued to them. Optional, and cheap to supply where an insurer numbers its statements at all.
+            It is what makes a MISSING statement detectable. Querying by period tells a consumer what it received; only a gap in a sequence tells it what it did not. A consumer holding 41 and 43 knows to ask for 42, where one holding two statements a fortnight apart cannot tell a skipped week from a week with no business.
+          type: integer
+          minimum: 1
+        documents:
+          description: |-
+            The insurer's own statement file, where one exists. Worth carrying even once this API is the system of record: the PDF or spreadsheet is the artefact a payee recognises and an auditor asks for, and today it is the only thing anyone has.
+            URLS MAY BE SHORT-LIVED AND MAY CARRY AUTHORITY. Treat them as credentials — do not log them, embed them in a shared document, or hand them to anyone outside the payee.
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/StatementDocument'
+    StatementQuery:
+      title: StatementQuery
+      description: |-
+        What this response actually covers, echoed back.
+        Echoed for a reason specific to money: a consumer asking for a quarter and silently receiving a month will conclude that a quarter's commission was lower than it was. Nothing in the data shows it — every statement present is correct, there are simply fewer of them — and the figure is wrong in the direction nobody questions.
+      type: object
+      required:
+        - issued_from
+        - issued_to
+        - payee_ids
+      additionalProperties: false
+      properties:
+        issued_from:
+          description: First statement date included, inclusive.
+          type: string
+          format: date
+        issued_to:
+          description: Last statement date included, inclusive.
+          type: string
+          format: date
+        payee_ids:
+          description: The payees this response covers — the effective set where the request filtered, every payee the credential can see otherwise. A payee silently missing from the credential's scope produces a smaller total with nothing to signal it.
+          type: array
+          items:
+            type: string
+            maxLength: 64
+    PageInfo:
+      title: PageInfo
+      description: Continuation state for a paged collection. Absence of `next_cursor` is the ONLY reliable signal that a walk is complete — consumers MUST NOT infer completion from a short page, because a server may return fewer items than requested for its own reasons.
+      type: object
+      additionalProperties: false
+      properties:
+        next_cursor:
+          $ref: '#/components/schemas/Cursor'
+    StatementPage:
+      title: StatementPage
+      description: |-
+        One page of statements matching the query.
+        Statement HEADERS only — no lines. A payee's statement can carry thousands of lines and a consumer listing a year of statements wants none of them, so lines are fetched per statement from `GET /statements/{statement_id}/lines`.
+        Absence carries no meaning. A statement missing from this response has not been withdrawn; the query did not match it, or something went wrong. Never remove an ingested statement because it did not come back.
+      type: object
+      required:
+        - statements
+        - query
+        - total_count
+      additionalProperties: false
+      properties:
+        statements:
+          description: Statements matching the query, most recent first. An empty array is an ordinary answer meaning no statements were issued in this period.
+          type: array
+          items:
+            $ref: '#/components/schemas/CommissionStatement'
+        total_count:
+          description: Total statements matching the query across all pages. A consumer walking the pages compares the distinct `statement_id` values it assembled against this before concluding it has the whole period — the same discipline as a snapshot walk, without the absence semantics.
+          type: integer
+          minimum: 0
+        query:
+          $ref: '#/components/schemas/StatementQuery'
+        page:
+          description: Continuation state.
+          $ref: '#/components/schemas/PageInfo'
+    Problem:
+      title: Problem
+      description: An RFC 9457 problem details document.
+      type: object
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          description: A URI identifying the problem kind. Use a registered value from `ProblemType` where one applies. Consumers branch on this field; `title` and `detail` are for humans.
+          type: string
+          format: uri
+          default: about:blank
+        title:
+          description: A short, human-readable summary of the problem kind. Stable per `type`.
+          type: string
+        status:
+          description: The HTTP status code, repeated here so a logged problem is self-contained.
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          description: A human-readable explanation specific to this occurrence. MUST NOT contain personal information about the insured — problem documents are logged widely on both sides.
+          type: string
+        instance:
+          description: A URI reference identifying this specific occurrence.
+          type: string
+          format: uri-reference
+        request_id:
+          description: The value of the `X-Request-Id` header for the failed request, echoed so a consumer can quote one token when asking the insurer to investigate.
+          type: string
+        errors:
+          description: Field-level detail, present on validation failures. Each entry MUST carry a JSON Pointer to the offending member of the request body, so a consumer can highlight the exact control that was wrong rather than showing a whole-form error.
+          type: array
+          items:
+            type: object
+            required:
+              - pointer
+              - detail
+            additionalProperties: false
+            properties:
+              pointer:
+                description: RFC 6901 JSON Pointer into the request body.
+                type: string
+                examples:
+                  - /covers/1/waiting_period
+              detail:
+                type: string
+              value_supplied:
+                description: The rejected value, echoed for diagnosis. Omit where it is sensitive.
+              values_supported:
+                description: The values that would have been accepted. Populating this turns a failed integration attempt into a self-service fix.
+                type: array
+                items: {}
+      examples:
+        - type: https://openlife.org.au/problems/unsupported-value
+          title: Unsupported value
+          status: 422
+          detail: This implementation does not support one of the values supplied.
+          request_id: 01JQ8Z9YB4T7M2XR
+          errors:
+            - pointer: /example_field
+              detail: Not supported by this implementation.
+              value_supplied: unsupported_value
+              values_supported:
+                - supported_value_a
+                - supported_value_b
+    PolicyNumber:
+      title: PolicyNumber
+      description: |-
+        The insurer's own policy or plan number, as it appears on correspondence and in the adviser portal. Stable for the life of the policy.
+        Shared rather than defined per contract because this is the JOIN. A policy record, an arrears row and a commission line are three systems' views of the same contract, and they are matched on this value and nothing else — so two contracts carrying two independently-worded rules for it would eventually mean two subtly different keys and a reconciliation that half-matches.
+        SEND IT BARE. No surrounding whitespace, and no quoting of any kind — in particular not the leading apostrophe a spreadsheet export adds to stop a number-like string being coerced. A policy that arrives quoted on one run and plain on the next is two policies as far as a consumer is concerned. One live extract carried 5,373 quoted rows against 46,314 plain ones, the same policies under two keys, with nothing in the data to signal it.
+        CONSUMERS: MATCH ON THE WHOLE VALUE. Do not split it. A normalisation that keeps only the leading segment of a hyphenated number is in production somewhere today and works only because no insurer currently in scope issues a hyphenated policy number — the first one that does loses everything after the hyphen, silently, and matches against the wrong policy or none at all.
+      type: string
+      minLength: 1
+      maxLength: 64
+      pattern: ^[^\s'"](?:.*[^\s'"])?$
+      examples:
+        - P-4471902
+    CommissionType:
+      title: CommissionType
+      description: |-
+        What a commission line is FOR. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing the statement, and MUST NOT silently map it onto a default — an unknown type reported as `renewal` is the exact defect this vocabulary removes.
+        ## The sign carries direction; the type carries purpose
+        Read this before adding a `clawback` value, because there deliberately is not one.
+        A reversal is the SAME type with a NEGATIVE `amount`. A clawback of new-business commission is `new_business` with a negative amount, not a separate kind of thing. The alternative — a `clawback` type — means every consumer summing new-business commission has to know to subtract a second bucket, and the ones that forget report a book as more profitable than it is while every individual figure looks right.
+        So: sum by type and the sign takes care of itself.
+        ## The two that are not commission at all
+        `advance` and `advance_repayment` are named separately for the opposite reason — they are NOT commission and must not be summed as though they were. An advance is money lent against commission not yet earned, and its repayment is servicing that loan rather than a reversal of earnings. A consumer reporting "commission earned this period" excludes both; one that treats an advance as upfront commission reports revenue that has not happened yet.
+        ## Values
+
+          - `new_business`       initial or upfront commission on newly written business
+          - `renewal`            ongoing, trail or servicing commission on in-force business
+          - `bonus`              volume, campaign or quality bonus paid on top of the above
+          - `adviser_fee`        a fee the client agreed to, collected by the insurer and passed on.
+                                 Not commission the insurer decided to pay, and treated differently for
+                                 both disclosure and tax
+          - `advance`            commission paid before it is earned. NOT earnings — see above
+          - `advance_repayment`  recovery of an advance. NOT a clawback — see above
+          - `adjustment`         a correction that cannot be attributed to one of the above, such as a
+                                 rate restatement across a book. Carries the insurer's own `description`
+          - `other`              read `description` and `insurer_code`
+      type: string
+      x-extensible-enum:
+        - new_business
+        - renewal
+        - bonus
+        - adviser_fee
+        - advance
+        - advance_repayment
+        - adjustment
+        - other
+    ProductName:
+      title: ProductName
+      description: The insurer's own marketing name for a product, verbatim, for display only.
+      type: string
+      minLength: 1
+      maxLength: 200
+      examples:
+        - Protection Plus Life Cover
+    Percentage:
+      title: Percentage
+      description: |-
+        A percentage serialised as a decimal string (not a 0-1 ratio): `'25'` means 25%. At most three fractional digits, and at most 1000.
+        A string for the same reason as `Decimal` and `RatePerThousand`. This was a JSON number until 0.2.0, justified on the grounds that percentages are inputs to arithmetic rather than amounts stored to the cent, and that three decimal places are exactly representable. The second half of that is not true: `0.001` has no exact IEEE-754 representation, so a loading of `25.001` arrives as `25.000999...` in every generated client. More to the point, the reasoning proved too clever — a loading percentage IS an input to pricing, and it was the one remaining path by which a contract value reached a rating engine through a double while every amount beside it travelled as a string. The inconsistency was visible in this very file: `RatePerThousand` is the OTHER axis of the same loadings map and was always a string.
+        `'0'` is a MEANINGFUL value — see the loadings schema, where an explicit zero cancels an inherited loading and is not the same as omitting the field. Implementations MUST NOT normalise `'0'` to `'0.000'` or vice versa when echoing a value back, and consumers MUST treat the two as numerically equal.
+      type: string
+      pattern: ^(1000(\.0{1,3})?|\d{1,3}(\.\d{1,3})?)$
+      examples:
+        - '0'
+        - '25'
+        - '62.5'
+        - '12.375'
+    CommissionBasis:
+      title: CommissionBasis
+      description: |-
+        How the amount was arrived at. Entirely optional, and not something any statement supplies today — included because it answers the question every adviser asks about a commission figure, which is "why is it that number".
+        With it, a line is checkable: rate applied to premium over a period. Without it, a commission figure can only be accepted or queried by telephone, and a systematically wrong rate is invisible until someone happens to recompute one by hand.
+      type: object
+      additionalProperties: false
+      properties:
+        premium_amount:
+          description: The premium the commission was calculated on, for the period this line covers.
+          $ref: '#/components/schemas/Money'
+        rate_percent:
+          description: The commission rate applied, as a percentage — `'27.5'` means 27.5% of `premium_amount`.
+          $ref: '#/components/schemas/Percentage'
+        premium_from:
+          description: First day of the premium period this line covers.
+          type: string
+          format: date
+        premium_to:
+          type: string
+          format: date
+    CommissionLine:
+      title: CommissionLine
+      description: |-
+        One commission entry: one policy, one amount, one type.
+        Immutable, like the statement that carries it. A line is never edited — a correction is a new line, on a later statement, usually with a negative `amount` and ideally naming what it reverses via `reverses_line_id`.
+      type: object
+      required:
+        - line_id
+        - policy_number
+        - commission_type
+        - amount
+        - adviser_code
+      additionalProperties: false
+      properties:
+        line_id:
+          description: |-
+            The insurer's identifier for this line, unique within the statement and stable forever.
+            The deduplication key. Because statements are re-fetchable, a consumer will see the same line more than once and must recognise it — and because a statement can legitimately carry two identical-looking rows (the same policy, the same type, the same amount, split across two advisers or two benefits), it cannot be recognised by its contents. Where an insurer has no line identifier it MUST synthesise one deterministically from the statement and the row's position, never randomly.
+          type: string
+          minLength: 1
+          maxLength: 128
+        policy_number:
+          description: The policy this commission relates to — the join to the policy contract, and the field on which the entire value of this feed depends. A line whose policy number does not match is a payment nobody can attribute.
+          $ref: '#/components/schemas/PolicyNumber'
+        commission_type:
+          $ref: '#/components/schemas/CommissionType'
+        insurer_code:
+          description: 'The insurer''s own code or wording for the commission type, verbatim, where it has one. Carried alongside `commission_type` rather than instead of it: the shared type is what makes a book comparable across insurers, and this is what makes a query answerable back to the insurer''s own staff.'
+          type: string
+          maxLength: 50
+        description:
+          description: The insurer's own wording for this line. The lossless copy — `commission_type` is a classification and classifications lose things, so where an insurer explains a line, that explanation travels. Essential on `adjustment`, which means nothing without it.
+          type: string
+          maxLength: 500
+        amount:
+          description: |-
+            The amount for this line, SIGNED, GST-inclusive, as paid.
+            NEGATIVE IS A REAL AND ORDINARY VALUE. A clawback, a reversal, a lapse recovery and an advance repayment are all negative lines, and a consumer MUST NOT reject, discard or absolute-value them. This is the one place in the standard where the arrears contract's `amount > 0` instinct is exactly wrong: there, a nil amount contradicts the record; here, the sign IS the information.
+            GST-inclusive is a choice rather than an observation, and it is made here so nobody has to guess. Statements today are inconsistent — some fold a GST column into the total, at least one appears to gross up by 10% inside it, most supply a GST-inclusive figure with nothing saying so — and a consumer cannot tell which it is holding. Fixing the definition and breaking the component out in `gst_amount` is what makes the number reconcilable.
+          $ref: '#/components/schemas/Money'
+        gst_amount:
+          description: |-
+            The GST component contained WITHIN `amount`, not additional to it. Same sign as `amount`.
+            Optional only because no insurer supplies it as its own field today. It is nonetheless the single most useful thing to add to a statement: a payee reconciling against a bank deposit, or preparing a BAS, currently has to reconstruct it by assumption from a total that may or may not already include it.
+          $ref: '#/components/schemas/Money'
+        adviser_code:
+          description: |-
+            The adviser or agency code this line is attributed to, as issued by this insurer. REQUIRED, and it is the field most worth insisting on.
+            It is the rollup key: without it a line is money paid to a licensee with no way to say which adviser earned it, so no per-adviser view of commission can be built at all — not approximately, not with effort. Every other field on this line degrades gracefully. This one does not, and one live insurer statement supplies nothing equivalent, which leaves that insurer's commission permanently unattributable.
+          type: string
+          minLength: 1
+          maxLength: 32
+        adviser_name:
+          description: Human-readable label alongside the code. Not load-bearing once the code resolves.
+          type: string
+          maxLength: 255
+        client_name:
+          description: The client the policy covers, for reconciliation and support lookups. Send it in natural mixed case, not upper-cased — the same rule and the same reasoning as everywhere else in this standard.
+          type: string
+          maxLength: 255
+        product_name:
+          $ref: '#/components/schemas/ProductName'
+        benefit_name:
+          description: |-
+            The specific benefit the commission relates to, where the insurer splits commission per benefit rather than per policy.
+            A SEPARATE FIELD, not appended to `product_name`. Sources that pre-join the two are the reason this is stated: if either component is blank the join silently loses it, and a consumer receives "Protection Plus" where it should have received "Protection Plus — Income Protection" with nothing to indicate a component went missing. Send the parts; let the consumer join them.
+          type: string
+          maxLength: 200
+        effective_on:
+          description: The date this line relates to — the transaction or premium-due date, not the date it was paid. Where an insurer does not carry one, a consumer falls back to the statement's own date, which is sufficient at the grain most reconciliation actually happens.
+          type: string
+          format: date
+        basis:
+          $ref: '#/components/schemas/CommissionBasis'
+        reverses_line_id:
+          description: |-
+            The `line_id` this line reverses, where it is a clawback or correction of a specific earlier line and the insurer knows which.
+            Optional and very much worth supplying. Without it a consumer sees a negative amount against a policy and can only guess which payment it undoes — so a clawback of a commission from eighteen months ago is indistinguishable from a correction of last month's, and neither can be shown against the earning it relates to.
+          type: string
+          maxLength: 128
+    LinePage:
+      title: LinePage
+      description: |-
+        One page of the lines on a single statement.
+        A consumer MUST walk every page and then verify the result against the statement header before treating it as ingested: the number of distinct `line_id` values equals `line_count`, and the signed sum of `amount` equals `total_amount` to the cent. A statement that fails either check MUST be treated as not received rather than partially ingested — half a statement reconciles against nothing, and the missing half is invisible.
+      type: object
+      required:
+        - statement_id
+        - lines
+        - line_count
+        - total_amount
+      additionalProperties: false
+      properties:
+        statement_id:
+          description: The statement these lines belong to. Repeated on every page so a consumer can prove the pages it assembled belong to one statement, rather than trusting that the cursor it used came from the request it thinks it did.
+          type: string
+          minLength: 1
+          maxLength: 128
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommissionLine'
+        line_count:
+          description: The statement's total line count, restated here so the reconciliation check needs only this response and not a second call. MUST equal `CommissionStatement.line_count` and MUST be identical on every page.
+          type: integer
+          minimum: 0
+        total_amount:
+          description: The statement's signed total, restated here for the same reason. MUST equal `CommissionStatement.total_amount` and MUST be identical on every page.
+          $ref: '#/components/schemas/Money'
+        page:
+          description: Continuation state.
+          $ref: '#/components/schemas/PageInfo'
+    Capabilities:
+      title: Capabilities
+      description: What this implementation of the commissions contract supports.
+      type: object
+      required:
+        - spec_version
+        - insurer_id
+      additionalProperties: false
+      properties:
+        spec_version:
+          type: string
+          pattern: ^\d+\.\d+\.\d+$
+          examples:
+            - 0.1.0
+        insurer_id:
+          $ref: '#/components/schemas/InsurerId'
+        brands:
+          type: array
+          items:
+            type: object
+            required:
+              - brand_id
+              - name
+            additionalProperties: false
+            properties:
+              brand_id:
+                $ref: '#/components/schemas/BrandId'
+              name:
+                type: string
+                maxLength: 120
+        statements:
+          type: object
+          additionalProperties: false
+          properties:
+            max_page_size:
+              type: integer
+              minimum: 1
+            frequency:
+              description: 'How often statements are issued. Advisory, and more useful than it looks: it is what lets a consumer tell a period with no business from a period whose statement never arrived. Without it, a fortnight''s gap in a weekly cycle is indistinguishable from a fortnightly cycle.'
+              type: string
+              x-extensible-enum:
+                - weekly
+                - fortnightly
+                - monthly
+                - quarterly
+                - irregular
+            history_from:
+              description: The earliest statement date this implementation will serve. A consumer backfilling needs to know where the history stops, rather than discovering it as an empty response and concluding no commission was paid.
+              type: string
+              format: date
+            max_period_days:
+              description: The widest `issued_from`..`issued_to` range accepted in one query. A request wider than this is a `422`, never a silently truncated period — see `StatementQuery`.
+              type: integer
+              minimum: 1
+        fields:
+          description: Which optional parts of the record this insurer populates. The distinction a consumer needs is between "this line has no such value" and "this insurer never reports one".
+          type: object
+          additionalProperties: false
+          properties:
+            gst_amount:
+              description: Whether lines break GST out. `false` means a consumer cannot split GST from a total that already contains it, and must not present a GST figure it has inferred.
+              type: boolean
+              default: false
+            adviser_code:
+              description: Whether every line carries `adviser_code`. Required by the schema, so `false` here means this implementation cannot be conformant on that field and a consumer should expect no per-adviser view of its commission at all.
+              type: boolean
+              default: true
+            benefit_name:
+              description: Whether commission is reported per benefit as well as per policy.
+              type: boolean
+              default: false
+            basis:
+              description: Whether lines carry the premium and rate the amount was calculated from. `false` means a commission figure can be accepted or queried, but not checked.
+              type: boolean
+              default: false
+            reverses_line_id:
+              description: Whether a reversing line names the line it reverses. `false` means a negative amount can be attributed to a policy but not to the payment it undoes.
+              type: boolean
+              default: false
+            payment_reference:
+              description: Whether statements carry the reference that appears on the payee's bank statement. This is what makes a deposit match a statement exactly instead of by amount and date.
+              type: boolean
+              default: false
+            sequence:
+              description: Whether statements are sequentially numbered per payee. `false` means a consumer cannot detect a statement it never received — only ones it did.
+              type: boolean
+              default: false
+            documents:
+              description: Whether the insurer's own statement file is available by link.
+              type: boolean
+              default: false
+        webhooks:
+          description: 'Whether this implementation pushes a notification when a statement is issued. Optional throughout, and of narrower value here than elsewhere in the standard: commission is reconciled on a cycle rather than acted on within hours, so polling on the issue frequency above is usually sufficient.'
+          type: object
+          additionalProperties: false
+          properties:
+            supported:
+              type: boolean
+              default: false
+            events:
+              type: array
+              items:
+                type: string
+                enum:
+                  - commission.statement_issued
+  headers:
+    XRequestId:
+      description: |-
+        Correlation identifier, echoed from the request or generated by the server when the request did not carry one. REQUIRED on every response, including errors.
+        This is not ceremony. A consumer of several insurers investigating "the premium was wrong last Tuesday" has to be able to hand one token to one insurer's support desk; without it, the only shared identifier is a timestamp.
+      required: true
+      schema:
+        type: string
+        maxLength: 128
+      example: 01JQ8Z9YB4T7M2XR5K3P
+    SpecVersion:
+      description: The version of this standard the response was produced against. Lets a consumer detect an implementation that has moved without announcement.
+      schema:
+        type: string
+        pattern: ^\d+\.\d+\.\d+$
+      example: 0.1.0
+  responses:
+    BadRequest:
+      description: The request could not be parsed, or a value was structurally invalid. Problem type `invalid-request`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    Unauthorized:
+      description: No access token was presented, or it was malformed or expired. Problem type `unauthenticated`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        WWW-Authenticate:
+          description: RFC 6750 challenge.
+          schema:
+            type: string
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    Forbidden:
+      description: The token is valid but lacks the scope required for this operation, or names a campaign the consumer is not authorised for. Problem type `forbidden`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    TooManyRequests:
+      description: Rate limit exceeded. Problem type `rate-limited`. `Retry-After` is REQUIRED — without it a consumer fanning out across several insurers has no basis for a backoff and will retry into the limit.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying.
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    InternalError:
+      description: Unexpected failure. Problem type `internal-error`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    ServiceUnavailable:
+      description: A dependency of the pricing engine is unavailable. Problem type `upstream-unavailable`. Distinguished from `internal-error` so a consumer can retry this and not that.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 0
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    NotFound:
+      description: Unknown identifier. Problem type `not-found`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+    Gone:
+      description: The endpoint is permanently retired — stop delivering to it. Used on webhook receivers so a publisher has a defined way to close a dead subscription, rather than retrying into a black hole until someone notices the queue depth. Problem type `endpoint-retired`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'

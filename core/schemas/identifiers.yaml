@@ -43,6 +43,36 @@ ProductName:
   maxLength: 200
   examples: ['Protection Plus Life Cover']
 
+PolicyNumber:
+  title: PolicyNumber
+  description: >-
+    The insurer's own policy or plan number, as it appears on correspondence and in the adviser
+    portal. Stable for the life of the policy.
+
+    Shared rather than defined per contract because this is the JOIN. A policy record, an arrears
+    row and a commission line are three systems' views of the same contract, and they are matched on
+    this value and nothing else — so two contracts carrying two independently-worded rules for it
+    would eventually mean two subtly different keys and a reconciliation that half-matches.
+
+    SEND IT BARE. No surrounding whitespace, and no quoting of any kind — in particular not the
+    leading apostrophe a spreadsheet export adds to stop a number-like string being coerced. A
+    policy that arrives quoted on one run and plain on the next is two policies as far as a consumer
+    is concerned. One live extract carried 5,373 quoted rows against 46,314 plain ones, the same
+    policies under two keys, with nothing in the data to signal it.
+
+    CONSUMERS: MATCH ON THE WHOLE VALUE. Do not split it. A normalisation that keeps only the
+    leading segment of a hyphenated number is in production somewhere today and works only because
+    no insurer currently in scope issues a hyphenated policy number — the first one that does loses
+    everything after the hyphen, silently, and matches against the wrong policy or none at all.
+  type: string
+  minLength: 1
+  maxLength: 64
+  # Rejects leading/trailing whitespace and leading/trailing quote characters, which is the observed
+  # failure. Quotes INSIDE the value are permitted — the standard should not assume what characters
+  # an insurer's numbering scheme uses, only that it does not wrap them.
+  pattern: '^[^\s''"](?:.*[^\s''"])?$'
+  examples: ['P-4471902']
+
 LineId:
   title: LineId
   description: >-

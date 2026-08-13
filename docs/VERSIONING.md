@@ -1,9 +1,14 @@
 # Versioning
 
-Each contract in this repository versions independently. `quoting-v0.2.0` and `policy-v0.1.0` are
-separate release trains, so an insurer implementing quoting is never asked to care that another
+Each contract in this repository versions independently. `quoting-v0.1.0` and `commissions-v0.1.0`
+are separate release trains, so an insurer implementing quoting is never asked to care that another
 contract moved. Releases are cut by release-please from conventional commits; see
 `release-please-config.json`.
+
+Four contracts and `core` version separately, and a contract's version is written in four places —
+`domains/<name>/version.txt`, `info.version` in its `openapi.yaml`, `.release-please-manifest.json`
+and `release-please-config.json`. `npm run versions` asserts they agree, because release-please only
+keeps them in step when it runs and it is currently parked to manual dispatch.
 
 ## Semantics
 
@@ -29,23 +34,41 @@ substitution — an unrecognised value quietly priced as a default is a mis-quot
 passing it through rather than crashing, so that adding a cover type or an ownership form is a
 **minor**.
 
-> **This is not yet true of the schemas.** Each enum is one shared schema referenced from both
-> directions, so it is closed in both, and `x-extensible-enum` is applied nowhere. Adding a value
-> today breaks strict generated clients and `oasdiff` will flag it as breaking. Splitting the
-> vocabulary into request-facing closed enums and response-facing extensible twins is tracked work;
-> until it lands, treat any new enum value as **major**.
+**This is now true of the schemas, and the split is visible in their names.** Where an enum is used
+in both directions, `core/schemas/cover-vocabulary.yaml` carries a closed request-facing schema and
+an `x-extensible-enum` response-facing twin — `CoverType` against `CoverTypeResponse`, `Ownership`
+against `OwnershipResponse`. The response-only vocabularies added since (`RequirementType`,
+`CommissionType`, `PolicyStatusResponse`, `CaseStatus`) are extensible outright, because nothing
+sends them.
+
+Two consequences worth stating plainly, because they cut in opposite directions:
+
+- **Adding a value to a response-facing enum is a minor.** That is the point of the asymmetry.
+- **`oasdiff` does not know that.** `x-extensible-enum` is a vendor extension, so a diff still reports
+  a new value as a change to watch. Judge it against this rule rather than against the tool, and use
+  the `breaking-change-approved` label only when the change is genuinely breaking.
+
+A consumer that fails a whole page on an unrecognised response value is not conformant, and several
+schemas say so in as many words — an aborted snapshot walk reconciles nothing that night.
 
 Without this asymmetry every additive change to a response would be breaking, the version number
 would climb without anything useful happening, and the standard would stop being able to grow.
 
 ## Shared schemas in `core/`
 
-`core/` holds what the contracts share: money, identifiers, problem documents, the cover
-vocabulary, the occupation reference. A breaking change there is breaking for every contract that
-references it.
+`core/` holds what the contracts share: money, identifiers, problem documents, the snapshot
+envelope, distribution, the occupation reference, and the cover, requirement and commission
+vocabularies. A breaking change there is breaking for every contract that references it — and with
+four contracts, every one of them references it.
 
-A `core` release must therefore be accompanied by a release of each dependent contract. This is
-checked in CI rather than left to memory.
+A `core` release must therefore be accompanied by a release of each dependent contract.
+
+> **This is a review responsibility, not an automated gate.** An earlier version of this document
+> said it was "checked in CI"; no such check existed, which is worse than no guarantee because
+> somebody relies on it. What CI does check is that the four places a version is written agree
+> (`npm run versions`). The release-coupling rule is about releases rather than the working tree, so
+> it needs a base ref to diff against and only bites once release-please is unparked — at which
+> point it is worth automating properly.
 
 ## What a consumer should rely on
 

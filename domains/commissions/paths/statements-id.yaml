@@ -1,0 +1,49 @@
+# Open Life Data Standards (AU) — Commissions — GET /statements/{statement_id}
+
+get:
+  operationId: getCommissionStatement
+  summary: Fetch one statement header
+  description: >-
+    Return a single statement by the insurer's own identifier, headers only.
+
+    Useful mainly to re-read the reconciliation triple — `line_count`, `total_amount` and
+    `total_gst` — without re-listing a period, and to resolve a payment reference seen on a bank
+    statement back to the statement that produced it.
+
+    Immutable: the response for a given `statement_id` MUST NOT change once issued.
+
+    Returns `404` where the statement is outside the credential's scope as well as where it does not
+    exist. The two are deliberately indistinguishable — answering `403` for a statement belonging to
+    another payee would confirm its existence, and its identifier, to a caller with no right to it.
+  tags: [Commissions]
+  security:
+    - oauth2: [commissions.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/StatementIdPath'
+    - $ref: '../components/parameters.yaml#/RequestId'
+  responses:
+    '200':
+      description: The statement header.
+      headers:
+        Cache-Control:
+          description: MUST be `no-store`.
+          required: true
+          schema:
+            type: string
+            const: no-store
+        X-Request-Id:
+          $ref: '../../../core/http/headers.yaml#/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/statement.yaml#/CommissionStatement'
+    '401':
+      $ref: '../../../core/http/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../../core/http/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../../core/http/responses.yaml#/NotFound'
+    '429':
+      $ref: '../../../core/http/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../../../core/http/responses.yaml#/InternalError'

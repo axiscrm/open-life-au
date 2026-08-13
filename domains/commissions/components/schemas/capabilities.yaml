@@ -1,0 +1,129 @@
+# Open Life Data Standards (AU) — Commissions — capability declaration.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+Capabilities:
+  title: Capabilities
+  description: What this implementation of the commissions contract supports.
+  type: object
+  required: [spec_version, insurer_id]
+  additionalProperties: false
+  properties:
+    spec_version:
+      type: string
+      pattern: '^\d+\.\d+\.\d+$'
+      examples: ['0.1.0']
+    insurer_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/InsurerId'
+    brands:
+      type: array
+      items:
+        type: object
+        required: [brand_id, name]
+        additionalProperties: false
+        properties:
+          brand_id:
+            $ref: '../../../../core/schemas/identifiers.yaml#/BrandId'
+          name:
+            type: string
+            maxLength: 120
+
+    statements:
+      type: object
+      additionalProperties: false
+      properties:
+        max_page_size:
+          type: integer
+          minimum: 1
+        frequency:
+          description: >-
+            How often statements are issued. Advisory, and more useful than it looks: it is what lets
+            a consumer tell a period with no business from a period whose statement never arrived.
+            Without it, a fortnight's gap in a weekly cycle is indistinguishable from a fortnightly
+            cycle.
+          type: string
+          x-extensible-enum: [weekly, fortnightly, monthly, quarterly, irregular]
+        history_from:
+          description: >-
+            The earliest statement date this implementation will serve. A consumer backfilling needs
+            to know where the history stops, rather than discovering it as an empty response and
+            concluding no commission was paid.
+          type: string
+          format: date
+        max_period_days:
+          description: >-
+            The widest `issued_from`..`issued_to` range accepted in one query. A request wider than
+            this is a `422`, never a silently truncated period — see `StatementQuery`.
+          type: integer
+          minimum: 1
+
+    fields:
+      description: >-
+        Which optional parts of the record this insurer populates. The distinction a consumer needs
+        is between "this line has no such value" and "this insurer never reports one".
+      type: object
+      additionalProperties: false
+      properties:
+        gst_amount:
+          description: >-
+            Whether lines break GST out. `false` means a consumer cannot split GST from a total that
+            already contains it, and must not present a GST figure it has inferred.
+          type: boolean
+          default: false
+        adviser_code:
+          description: >-
+            Whether every line carries `adviser_code`. Required by the schema, so `false` here means
+            this implementation cannot be conformant on that field and a consumer should expect no
+            per-adviser view of its commission at all.
+          type: boolean
+          default: true
+        benefit_name:
+          description: Whether commission is reported per benefit as well as per policy.
+          type: boolean
+          default: false
+        basis:
+          description: >-
+            Whether lines carry the premium and rate the amount was calculated from. `false` means a
+            commission figure can be accepted or queried, but not checked.
+          type: boolean
+          default: false
+        reverses_line_id:
+          description: >-
+            Whether a reversing line names the line it reverses. `false` means a negative amount can
+            be attributed to a policy but not to the payment it undoes.
+          type: boolean
+          default: false
+        payment_reference:
+          description: >-
+            Whether statements carry the reference that appears on the payee's bank statement. This
+            is what makes a deposit match a statement exactly instead of by amount and date.
+          type: boolean
+          default: false
+        sequence:
+          description: >-
+            Whether statements are sequentially numbered per payee. `false` means a consumer cannot
+            detect a statement it never received — only ones it did.
+          type: boolean
+          default: false
+        documents:
+          description: Whether the insurer's own statement file is available by link.
+          type: boolean
+          default: false
+
+    webhooks:
+      description: >-
+        Whether this implementation pushes a notification when a statement is issued. Optional
+        throughout, and of narrower value here than elsewhere in the standard: commission is
+        reconciled on a cycle rather than acted on within hours, so polling on the issue frequency
+        above is usually sufficient.
+      type: object
+      additionalProperties: false
+      properties:
+        supported:
+          type: boolean
+          default: false
+        events:
+          type: array
+          items:
+            type: string
+            enum: [commission.statement_issued]

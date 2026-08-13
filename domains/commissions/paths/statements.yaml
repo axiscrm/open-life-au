@@ -1,0 +1,91 @@
+# Open Life Data Standards (AU) — Commissions — GET /statements
+
+get:
+  operationId: listCommissionStatements
+  summary: List commission statements for a period
+  description: >-
+    Return the statements issued to the calling credential's payees between two dates, headers only,
+    paged.
+
+    ### A ledger, not a snapshot
+
+    Statements are immutable once issued. Re-fetching a period a consumer has already seen is safe,
+    expected, and MUST return identical content — deduplicate on `statement_id`.
+
+    **Absence carries no meaning here.** A statement missing from this response has not been
+    cancelled or withdrawn; either it does not match the query, or something went wrong. A consumer
+    MUST NOT remove a payment it has already ingested because a later call did not return it. This
+    is the opposite of the policy, arrears and requirements contracts, and the difference is
+    deliberate: those describe a current state, this records events that happened.
+
+    A correction is never a restatement. It arrives as a new line on a later statement, usually with
+    a negative amount.
+
+    ### Headers only
+
+    Lines are fetched per statement from `GET /statements/{statement_id}/lines`. A payee's statement
+    can carry thousands of lines and a consumer listing a year of them wants none.
+
+    ### The period is explicit
+
+    Both `issued_from` and `issued_to` are required. A commission history grows forever, so a
+    default would be either the whole of it or a silent recent window — and a silently truncated
+    period returns a smaller total than the caller expected with nothing to indicate it. Whatever
+    was applied comes back in `query`.
+
+    ### Personal information
+
+    Statement headers carry entity names rather than individuals, but the lines behind them carry
+    client names. Servers MUST send `Cache-Control: no-store` on both.
+  tags: [Commissions]
+  security:
+    - oauth2: [commissions.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/IssuedFrom'
+    - $ref: '../components/parameters.yaml#/IssuedTo'
+    - $ref: '../components/parameters.yaml#/PayeeIds'
+    - $ref: '../components/parameters.yaml#/Cursor'
+    - $ref: '../components/parameters.yaml#/Limit'
+    - $ref: '../components/parameters.yaml#/RequestId'
+  responses:
+    '200':
+      description: >-
+        One page of statements. An empty `statements` array means none were issued in this period —
+        an ordinary answer, and not a reason to conclude anything about statements outside it.
+      headers:
+        Cache-Control:
+          description: MUST be `no-store`.
+          required: true
+          schema:
+            type: string
+            const: no-store
+        X-Request-Id:
+          $ref: '../../../core/http/headers.yaml#/XRequestId'
+        X-OpenLife-Spec-Version:
+          $ref: '../../../core/http/headers.yaml#/SpecVersion'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/pages.yaml#/StatementPage'
+    '400':
+      $ref: '../../../core/http/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../../core/http/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../../core/http/responses.yaml#/Forbidden'
+    '422':
+      description: >-
+        The requested period is wider than `capabilities.statements.max_period_days`, or otherwise
+        cannot be served. Problem type `unsupported-value`. Returned rather than a truncated period,
+        deliberately — a shorter answer to a wider question understates a book's commission and
+        nothing in the response says so.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../../../core/schemas/problems.yaml#/Problem'
+    '429':
+      $ref: '../../../core/http/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../../../core/http/responses.yaml#/InternalError'
+    '503':
+      $ref: '../../../core/http/responses.yaml#/ServiceUnavailable'

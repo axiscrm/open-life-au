@@ -26,7 +26,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import YAML from "yaml";
-import { ROOT, contracts, pathExample } from "./contracts.mjs";
+import { ROOT, contracts, paramExample } from "./contracts.mjs";
 
 /**
  * Request bodies, by operationId. Anything absent gets no body — which is every operation in the
@@ -96,11 +96,20 @@ function buildCollection(contract) {
             .map((segment) => segment.replace(/^\{(.+)\}$/, ":$1"));
         const params = parametersOf(op);
 
+        // A REQUIRED query parameter arrives enabled, so whatever value is put here is what gets
+        // sent. An empty string is not a value: it fails validation at any conformant server, so
+        // the collection would ship a request that cannot succeed — the same defect as leaving
+        // `{policy_id}` in a path. Prefer the schema's own example, then a known-good value for the
+        // name, then the default.
         const query = params
             .filter((p) => p.in === "query")
             .map((p) => ({
                 key: p.name,
-                value: p.schema?.default != null ? String(p.schema.default) : "",
+                value: p.required
+                    ? String(p.schema?.examples?.[0] ?? paramExample(p.name))
+                    : p.schema?.default != null
+                      ? String(p.schema.default)
+                      : "",
                 description: firstLine(p.description),
                 disabled: !p.required,
             }));
@@ -109,7 +118,7 @@ function buildCollection(contract) {
             .filter((p) => p.in === "path")
             .map((p) => ({
                 key: p.name,
-                value: pathExample(p.name),
+                value: p.schema?.examples?.[0] ?? paramExample(p.name),
                 description: firstLine(p.description),
             }));
 

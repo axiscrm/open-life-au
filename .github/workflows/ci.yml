@@ -32,6 +32,13 @@ jobs:
       - name: 🔎 Lint
         run: npm run lint
 
+      # Four places record a contract's version and release-please only reconciles them when it
+      # runs — which is manual dispatch today, so every contract added by hand has to get all four
+      # right unaided. A contract missing from release-please-config.json lints, bundles and
+      # generates clients perfectly well, and simply never gets released.
+      - name: 🔢 Versions agree
+        run: npm run versions
+
       - name: 📦 Bundle
         run: npm run bundle
 
@@ -181,7 +188,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        contract: [quoting, policy, requirements]
+        contract: [quoting, policy, requirements, commissions]
     steps:
       - uses: actions/checkout@v5
         with:

@@ -659,15 +659,19 @@ components:
         Counted distinct, and compared distinct, deliberately: a cursor that emits one record twice and skips another leaves the assembled COUNT correct while a live record is missing. Compare the size of the distinct set of identities assembled — not the number of items received.
       type: integer
       minimum: 0
-    PolicyId:
-      title: PolicyId
+    PolicyNumber:
+      title: PolicyNumber
       description: |-
-        The insurer's own policy or plan number, as it appears on correspondence and in the adviser portal. Stable for the life of the policy — this is the key a consumer reconciles on, so an insurer that renumbers a policy MUST surface the prior number in `previous_policy_id`.
-        Send it BARE. No surrounding whitespace, and no quoting of any kind — in particular not the leading apostrophe a spreadsheet export adds to stop a number-like string being coerced. This is the reconciliation key, so a policy that arrives quoted on one run and plain on the next is two policies as far as a consumer is concerned, and every join half-matches in silence. One live extract carried 5,373 quoted rows against 46,314 plain ones, the same policies under two keys, with nothing in the data to signal it.
+        The insurer's own policy or plan number, as it appears on correspondence and in the adviser portal. Stable for the life of the policy.
+        Shared rather than defined per contract because this is the JOIN. A policy record, an arrears row and a commission line are three systems' views of the same contract, and they are matched on this value and nothing else — so two contracts carrying two independently-worded rules for it would eventually mean two subtly different keys and a reconciliation that half-matches.
+        SEND IT BARE. No surrounding whitespace, and no quoting of any kind — in particular not the leading apostrophe a spreadsheet export adds to stop a number-like string being coerced. A policy that arrives quoted on one run and plain on the next is two policies as far as a consumer is concerned. One live extract carried 5,373 quoted rows against 46,314 plain ones, the same policies under two keys, with nothing in the data to signal it.
+        CONSUMERS: MATCH ON THE WHOLE VALUE. Do not split it. A normalisation that keeps only the leading segment of a hyphenated number is in production somewhere today and works only because no insurer currently in scope issues a hyphenated policy number — the first one that does loses everything after the hyphen, silently, and matches against the wrong policy or none at all.
       type: string
       minLength: 1
       maxLength: 64
       pattern: ^[^\s'"](?:.*[^\s'"])?$
+      examples:
+        - P-4471902
     PolicyVersion:
       title: PolicyVersion
       description: |-
@@ -1151,7 +1155,8 @@ components:
               const: in_arrears
       properties:
         policy_id:
-          $ref: '#/components/schemas/PolicyId'
+          description: The key a consumer reconciles on, so an insurer that renumbers a policy MUST surface the prior number in `previous_policy_id`. Normalisation rules on the shared schema.
+          $ref: '#/components/schemas/PolicyNumber'
         policy_version:
           $ref: '#/components/schemas/PolicyVersion'
         previous_policy_id:
@@ -1340,16 +1345,15 @@ components:
         - type: https://openlife.org.au/problems/unsupported-value
           title: Unsupported value
           status: 422
-          detail: This product does not offer a 730 day waiting period.
+          detail: This implementation does not support one of the values supplied.
           request_id: 01JQ8Z9YB4T7M2XR
           errors:
-            - pointer: /covers/1/waiting_period
-              detail: Not offered for this product.
-              value_supplied: 730d
+            - pointer: /example_field
+              detail: Not supported by this implementation.
+              value_supplied: unsupported_value
               values_supported:
-                - 30d
-                - 60d
-                - 90d
+                - supported_value_a
+                - supported_value_b
     ArrearsItem:
       title: ArrearsItem
       description: |-
@@ -1364,7 +1368,7 @@ components:
       additionalProperties: false
       properties:
         policy_id:
-          $ref: '#/components/schemas/PolicyId'
+          $ref: '#/components/schemas/PolicyNumber'
         policy_version:
           $ref: '#/components/schemas/PolicyVersion'
         insurer_id:

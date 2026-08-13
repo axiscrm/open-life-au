@@ -1,0 +1,128 @@
+# Open Life Data Standards (AU) — Commissions — the paged responses.
+#
+# THESE DELIBERATELY DO NOT USE `core/schemas/snapshot.yaml`.
+#
+# That file exists so absence can be trusted: `mode`, `snapshot_id` and `complete` are what let a
+# consumer say "this record has disappeared, therefore it is gone". Reusing them here would be
+# cheap, would look consistent, and would be wrong — because a commission statement that stops
+# appearing has not been cancelled, and a consumer that deleted an ingested payment on that basis
+# would destroy its own financial history from a response that validated perfectly.
+#
+# The other reason is that a ledger has a stronger completeness check available to it than a
+# snapshot does, and it is not at the page level. `CommissionStatement.line_count` and
+# `total_amount` let a consumer prove it received every LINE, not merely every page. Money either
+# reconciles or it does not.
+#
+# So paging here is ordinary paging: a cursor, and a total for the query. No absence semantics, and
+# no envelope pretending to offer them.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+StatementPage:
+  title: StatementPage
+  description: >-
+    One page of statements matching the query.
+
+    Statement HEADERS only — no lines. A payee's statement can carry thousands of lines and a
+    consumer listing a year of statements wants none of them, so lines are fetched per statement
+    from `GET /statements/{statement_id}/lines`.
+
+    Absence carries no meaning. A statement missing from this response has not been withdrawn; the
+    query did not match it, or something went wrong. Never remove an ingested statement because it
+    did not come back.
+  type: object
+  required: [statements, query, total_count]
+  additionalProperties: false
+  properties:
+    statements:
+      description: >-
+        Statements matching the query, most recent first. An empty array is an ordinary answer
+        meaning no statements were issued in this period.
+      type: array
+      items:
+        $ref: 'statement.yaml#/CommissionStatement'
+    total_count:
+      description: >-
+        Total statements matching the query across all pages. A consumer walking the pages compares
+        the distinct `statement_id` values it assembled against this before concluding it has the
+        whole period — the same discipline as a snapshot walk, without the absence semantics.
+      type: integer
+      minimum: 0
+    query:
+      $ref: '#/StatementQuery'
+    page:
+      description: Continuation state.
+      $ref: '../../../../core/schemas/pagination.yaml#/PageInfo'
+
+StatementQuery:
+  title: StatementQuery
+  description: >-
+    What this response actually covers, echoed back.
+
+    Echoed for a reason specific to money: a consumer asking for a quarter and silently receiving a
+    month will conclude that a quarter's commission was lower than it was. Nothing in the data shows
+    it — every statement present is correct, there are simply fewer of them — and the figure is
+    wrong in the direction nobody questions.
+  type: object
+  required: [issued_from, issued_to, payee_ids]
+  additionalProperties: false
+  properties:
+    issued_from:
+      description: First statement date included, inclusive.
+      type: string
+      format: date
+    issued_to:
+      description: Last statement date included, inclusive.
+      type: string
+      format: date
+    payee_ids:
+      description: >-
+        The payees this response covers — the effective set where the request filtered, every payee
+        the credential can see otherwise. A payee silently missing from the credential's scope
+        produces a smaller total with nothing to signal it.
+      type: array
+      items:
+        type: string
+        maxLength: 64
+
+LinePage:
+  title: LinePage
+  description: >-
+    One page of the lines on a single statement.
+
+    A consumer MUST walk every page and then verify the result against the statement header before
+    treating it as ingested: the number of distinct `line_id` values equals `line_count`, and the
+    signed sum of `amount` equals `total_amount` to the cent. A statement that fails either check
+    MUST be treated as not received rather than partially ingested — half a statement reconciles
+    against nothing, and the missing half is invisible.
+  type: object
+  required: [statement_id, lines, line_count, total_amount]
+  additionalProperties: false
+  properties:
+    statement_id:
+      description: >-
+        The statement these lines belong to. Repeated on every page so a consumer can prove the
+        pages it assembled belong to one statement, rather than trusting that the cursor it used
+        came from the request it thinks it did.
+      type: string
+      minLength: 1
+      maxLength: 128
+    lines:
+      type: array
+      items:
+        $ref: 'line.yaml#/CommissionLine'
+    line_count:
+      description: >-
+        The statement's total line count, restated here so the reconciliation check needs only this
+        response and not a second call. MUST equal `CommissionStatement.line_count` and MUST be
+        identical on every page.
+      type: integer
+      minimum: 0
+    total_amount:
+      description: >-
+        The statement's signed total, restated here for the same reason. MUST equal
+        `CommissionStatement.total_amount` and MUST be identical on every page.
+      $ref: '../../../../core/schemas/money.yaml#/Money'
+    page:
+      description: Continuation state.
+      $ref: '../../../../core/schemas/pagination.yaml#/PageInfo'

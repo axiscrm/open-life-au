@@ -1,0 +1,211 @@
+{
+  "info": {
+    "_postman_id": "3d9f40b6-7c28-4e6d-a192-5f60718c9da2",
+    "name": "Open Life Commissions API (AU)",
+    "description": "A vendor-neutral contract for retrieving Australian life insurance commission statements and their lines.\n\nSet `baseUrl` and `accessToken` in the collection variables before sending. The default `baseUrl` points at this contract's local mock — `npm run mock` serves it on port 4013. Request bodies, where an operation takes one, are the contract's own worked examples: validated against the schema and posted at a live mock in CI, so they are known to be accepted.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:4013",
+      "description": "An implementation's base URL. Defaults to this contract's local mock (`npm run mock`, port 4013) so the collection is usable before you have an insurer endpoint."
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "description": "OAuth2 client-credentials access token. The mock accepts any non-empty value."
+    }
+  ],
+  "item": [
+    {
+      "name": "Commissions",
+      "item": [
+        {
+          "name": "List commission statements for a period",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "",
+                "description": "Consumer-supplied correlation identifier. Echoed on the response.",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/statements?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "statements"
+              ],
+              "query": [
+                {
+                  "key": "issued_from",
+                  "value": "2026-07-01",
+                  "description": "First statement date to include, inclusive. REQUIRED — see `issued_to`.",
+                  "disabled": false
+                },
+                {
+                  "key": "issued_to",
+                  "value": "2026-07-31",
+                  "description": "Last statement date to include, inclusive. REQUIRED.",
+                  "disabled": false
+                },
+                {
+                  "key": "payee_id",
+                  "value": "",
+                  "description": "Restrict to these payees. Repeat the parameter for several. Omitted, the response covers every payee the credential can see.",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "description": "Continuation token from the previous page's `page.next_cursor`.",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "250",
+                  "description": "Maximum items per page. A server MAY return fewer; completion is signalled by the absence of `page.next_cursor`, never by a short page.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Return the statements issued to the calling credential's payees between two dates, headers only, paged.\n### A ledger, not a snapshot\nStatements are immutable once issued. Re-fetching a period a consumer has already seen is safe, expected, and MUST return identical content — deduplicate on `statement_id`.\n**Absence carries no meaning here.** A statement missing from this response has not been cancelled or withdrawn; either it does not match the query, or something went wrong. A consumer MUST NOT remove a payment it has already ingested because a later call did not return it. This is the opposite of the policy, arrears and requirements contracts, and the difference is deliberate: those describe a current state, this records events that happened.\nA correction is never a restatement. It arrives as a new line on a later statement, usually with a negative amount.\n### Headers only\nLines are fetched per statement from `GET /statements/{statement_id}/lines`. A payee's statement can carry thousands of lines and a consumer listing a year of them wants none.\n### The period is explicit\nBoth `issued_from` and `issued_to` are required. A commission history grows forever, so a default would be either the whole of it or a silent recent window — and a silently truncated period returns a smaller total than the caller expected with nothing to indicate it. Whatever was applied comes back in `query`.\n### Personal information\nStatement headers carry entity names rather than individuals, but the lines behind them carry client names. Servers MUST send `Cache-Control: no-store` on both."
+          },
+          "response": []
+        },
+        {
+          "name": "Fetch one statement header",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "",
+                "description": "Consumer-supplied correlation identifier. Echoed on the response.",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/statements/:statement_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "statements",
+                ":statement_id"
+              ],
+              "variable": [
+                {
+                  "key": "statement_id",
+                  "value": "STM-2026-08-0417",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "Return a single statement by the insurer's own identifier, headers only.\nUseful mainly to re-read the reconciliation triple — `line_count`, `total_amount` and `total_gst` — without re-listing a period, and to resolve a payment reference seen on a bank statement back to the statement that produced it.\nImmutable: the response for a given `statement_id` MUST NOT change once issued.\nReturns `404` where the statement is outside the credential's scope as well as where it does not exist. The two are deliberately indistinguishable — answering `403` for a statement belonging to another payee would confirm its existence, and its identifier, to a caller with no right to it."
+          },
+          "response": []
+        },
+        {
+          "name": "Fetch the lines on a statement",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "",
+                "description": "Consumer-supplied correlation identifier. Echoed on the response.",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/statements/:statement_id/lines?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "statements",
+                ":statement_id",
+                "lines"
+              ],
+              "query": [
+                {
+                  "key": "adviser_code",
+                  "value": "",
+                  "description": "OPTIONAL, on the LINES operation only. Restrict the lines returned to these adviser codes.",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "description": "Continuation token from the previous page's `page.next_cursor`.",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "250",
+                  "description": "Maximum items per page. A server MAY return fewer; completion is signalled by the absence of `page.next_cursor`, never by a short page.",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "statement_id",
+                  "value": "STM-2026-08-0417",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "Return every commission line on one statement, paged.\n### Reconcile before you ingest\nThis is the operation the whole contract is built around, and it comes with an obligation. Walk every page, then check the result against the statement header:\n- the number of distinct `line_id` values equals `line_count`; and - the signed sum of every line's `amount` equals `total_amount`, to the cent.\nIf either check fails, treat the statement as **not received** and retry. Do not ingest it partially. A statement missing two of its forty lines reconciles against nothing, balances against no bank deposit, and looks exactly like a statement that had thirty-eight lines — which is the failure this contract exists to make impossible.\nThis is a stronger guarantee than the snapshot contracts can offer. Their page checks prove a consumer walked every page; they cannot prove it received every row. Here the money does.\n### Negative amounts are ordinary\nClawbacks, reversals and advance repayments are negative lines. A consumer MUST NOT reject, discard or absolute-value them, and a whole statement may legitimately be negative in a period where clawbacks exceeded earnings.\n### Filtering breaks the check\n`adviser_code` is available for display, but a filtered response no longer sums to `total_amount`. Fetch unfiltered to ingest; filter only to show someone a subset.\n### Personal information\nLines carry client names. Servers MUST send `Cache-Control: no-store`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Discovery",
+      "item": [
+        {
+          "name": "What this implementation supports",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "",
+                "description": "Consumer-supplied correlation identifier. Echoed on the response.",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/capabilities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "capabilities"
+              ]
+            },
+            "description": "Describe which parts of a statement this insurer populates, how often statements are issued, how far back history reaches, and how wide a period may be requested.\nWorth calling before the first pull and caching thereafter. `statements.frequency` and `statements.history_from` in particular change what a consumer should conclude from an empty response: without them, a period with no statement is indistinguishable from a period before the history begins, and both look like a fortnight with no commission."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

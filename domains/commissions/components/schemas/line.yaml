@@ -1,0 +1,163 @@
+# Open Life Data Standards (AU) — Commissions — one line on a statement.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+CommissionLine:
+  title: CommissionLine
+  description: >-
+    One commission entry: one policy, one amount, one type.
+
+    Immutable, like the statement that carries it. A line is never edited — a correction is a new
+    line, on a later statement, usually with a negative `amount` and ideally naming what it reverses
+    via `reverses_line_id`.
+  type: object
+  required: [line_id, policy_number, commission_type, amount, adviser_code]
+  additionalProperties: false
+  properties:
+    line_id:
+      description: >-
+        The insurer's identifier for this line, unique within the statement and stable forever.
+
+        The deduplication key. Because statements are re-fetchable, a consumer will see the same
+        line more than once and must recognise it — and because a statement can legitimately carry
+        two identical-looking rows (the same policy, the same type, the same amount, split across
+        two advisers or two benefits), it cannot be recognised by its contents. Where an insurer has
+        no line identifier it MUST synthesise one deterministically from the statement and the row's
+        position, never randomly.
+      type: string
+      minLength: 1
+      maxLength: 128
+    policy_number:
+      description: >-
+        The policy this commission relates to — the join to the policy contract, and the field on
+        which the entire value of this feed depends. A line whose policy number does not match is a
+        payment nobody can attribute.
+      $ref: '../../../../core/schemas/identifiers.yaml#/PolicyNumber'
+    commission_type:
+      $ref: '../../../../core/schemas/commission-vocabulary.yaml#/CommissionType'
+    insurer_code:
+      description: >-
+        The insurer's own code or wording for the commission type, verbatim, where it has one.
+        Carried alongside `commission_type` rather than instead of it: the shared type is what makes
+        a book comparable across insurers, and this is what makes a query answerable back to the
+        insurer's own staff.
+      type: string
+      maxLength: 50
+    description:
+      description: >-
+        The insurer's own wording for this line. The lossless copy — `commission_type` is a
+        classification and classifications lose things, so where an insurer explains a line, that
+        explanation travels. Essential on `adjustment`, which means nothing without it.
+      type: string
+      maxLength: 500
+    amount:
+      description: >-
+        The amount for this line, SIGNED, GST-inclusive, as paid.
+
+        NEGATIVE IS A REAL AND ORDINARY VALUE. A clawback, a reversal, a lapse recovery and an
+        advance repayment are all negative lines, and a consumer MUST NOT reject, discard or
+        absolute-value them. This is the one place in the standard where the arrears contract's
+        `amount > 0` instinct is exactly wrong: there, a nil amount contradicts the record; here,
+        the sign IS the information.
+
+        GST-inclusive is a choice rather than an observation, and it is made here so nobody has to
+        guess. Statements today are inconsistent — some fold a GST column into the total, at least
+        one appears to gross up by 10% inside it, most supply a GST-inclusive figure with nothing
+        saying so — and a consumer cannot tell which it is holding. Fixing the definition and
+        breaking the component out in `gst_amount` is what makes the number reconcilable.
+      $ref: '../../../../core/schemas/money.yaml#/Money'
+    gst_amount:
+      description: >-
+        The GST component contained WITHIN `amount`, not additional to it. Same sign as `amount`.
+
+        Optional only because no insurer supplies it as its own field today. It is nonetheless the
+        single most useful thing to add to a statement: a payee reconciling against a bank deposit,
+        or preparing a BAS, currently has to reconstruct it by assumption from a total that may or
+        may not already include it.
+      $ref: '../../../../core/schemas/money.yaml#/Money'
+    adviser_code:
+      description: >-
+        The adviser or agency code this line is attributed to, as issued by this insurer. REQUIRED,
+        and it is the field most worth insisting on.
+
+        It is the rollup key: without it a line is money paid to a licensee with no way to say which
+        adviser earned it, so no per-adviser view of commission can be built at all — not
+        approximately, not with effort. Every other field on this line degrades gracefully. This one
+        does not, and one live insurer statement supplies nothing equivalent, which leaves that
+        insurer's commission permanently unattributable.
+      type: string
+      minLength: 1
+      maxLength: 32
+    adviser_name:
+      description: Human-readable label alongside the code. Not load-bearing once the code resolves.
+      type: string
+      maxLength: 255
+    client_name:
+      description: >-
+        The client the policy covers, for reconciliation and support lookups. Send it in natural
+        mixed case, not upper-cased — the same rule and the same reasoning as everywhere else in
+        this standard.
+      type: string
+      maxLength: 255
+    product_name:
+      $ref: '../../../../core/schemas/identifiers.yaml#/ProductName'
+    benefit_name:
+      description: >-
+        The specific benefit the commission relates to, where the insurer splits commission per
+        benefit rather than per policy.
+
+        A SEPARATE FIELD, not appended to `product_name`. Sources that pre-join the two are the
+        reason this is stated: if either component is blank the join silently loses it, and a
+        consumer receives "Protection Plus" where it should have received "Protection Plus — Income
+        Protection" with nothing to indicate a component went missing. Send the parts; let the
+        consumer join them.
+      type: string
+      maxLength: 200
+    effective_on:
+      description: >-
+        The date this line relates to — the transaction or premium-due date, not the date it was
+        paid. Where an insurer does not carry one, a consumer falls back to the statement's own
+        date, which is sufficient at the grain most reconciliation actually happens.
+      type: string
+      format: date
+    basis:
+      $ref: '#/CommissionBasis'
+    reverses_line_id:
+      description: >-
+        The `line_id` this line reverses, where it is a clawback or correction of a specific earlier
+        line and the insurer knows which.
+
+        Optional and very much worth supplying. Without it a consumer sees a negative amount against
+        a policy and can only guess which payment it undoes — so a clawback of a commission from
+        eighteen months ago is indistinguishable from a correction of last month's, and neither can
+        be shown against the earning it relates to.
+      type: string
+      maxLength: 128
+
+CommissionBasis:
+  title: CommissionBasis
+  description: >-
+    How the amount was arrived at. Entirely optional, and not something any statement supplies
+    today — included because it answers the question every adviser asks about a commission figure,
+    which is "why is it that number".
+
+    With it, a line is checkable: rate applied to premium over a period. Without it, a commission
+    figure can only be accepted or queried by telephone, and a systematically wrong rate is
+    invisible until someone happens to recompute one by hand.
+  type: object
+  additionalProperties: false
+  properties:
+    premium_amount:
+      description: The premium the commission was calculated on, for the period this line covers.
+      $ref: '../../../../core/schemas/money.yaml#/Money'
+    rate_percent:
+      description: >-
+        The commission rate applied, as a percentage — `'27.5'` means 27.5% of `premium_amount`.
+      $ref: '../../../../core/schemas/money.yaml#/Percentage'
+    premium_from:
+      description: First day of the premium period this line covers.
+      type: string
+      format: date
+    premium_to:
+      type: string
+      format: date

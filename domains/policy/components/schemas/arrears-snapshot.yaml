@@ -131,7 +131,7 @@ ArrearsItem:
   additionalProperties: false
   properties:
     policy_id:
-      $ref: 'policy.yaml#/PolicyId'
+      $ref: '../../../../core/schemas/identifiers.yaml#/PolicyNumber'
     policy_version:
       $ref: 'policy.yaml#/PolicyVersion'
     insurer_id:

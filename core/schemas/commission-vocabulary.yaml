@@ -1,0 +1,67 @@
+# Open Life Data Standards (AU) — commission vocabulary.
+#
+# WHAT A COMMISSION LINE IS FOR, expressed as a shared enum instead of a status string each consumer
+# pattern-matches.
+#
+# This exists because the alternative has a specific, silent failure. Across ten live insurer
+# statements the same concept — commission on new business — arrives as at least six different
+# strings: "Upfront", "NB", "New Business", "I", "NEW POLICY COMMISSION", "Indemnity Initial
+# Commission". Each is recognised by one insurer's parser, and anything unrecognised falls through to
+# a default. So when an insurer re-cases or renames its own value, that insurer's new-business
+# commission silently reclassifies: the row count does not change, the total does not change, only
+# the type does — and nothing in a reconciliation that balances on money would ever surface it.
+#
+# An enumerated type sent explicitly by the insurer removes the pattern-matching entirely.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+CommissionType:
+  title: CommissionType
+  description: >-
+    What a commission line is FOR. RESPONSE-facing and extensible: a consumer MUST pass an
+    unrecognised value through rather than failing the statement, and MUST NOT silently map it onto
+    a default — an unknown type reported as `renewal` is the exact defect this vocabulary removes.
+
+    ## The sign carries direction; the type carries purpose
+
+    Read this before adding a `clawback` value, because there deliberately is not one.
+
+    A reversal is the SAME type with a NEGATIVE `amount`. A clawback of new-business commission is
+    `new_business` with a negative amount, not a separate kind of thing. The alternative — a
+    `clawback` type — means every consumer summing new-business commission has to know to subtract a
+    second bucket, and the ones that forget report a book as more profitable than it is while every
+    individual figure looks right.
+
+    So: sum by type and the sign takes care of itself.
+
+    ## The two that are not commission at all
+
+    `advance` and `advance_repayment` are named separately for the opposite reason — they are NOT
+    commission and must not be summed as though they were. An advance is money lent against
+    commission not yet earned, and its repayment is servicing that loan rather than a reversal of
+    earnings. A consumer reporting "commission earned this period" excludes both; one that treats an
+    advance as upfront commission reports revenue that has not happened yet.
+
+    ## Values
+
+      - `new_business`       initial or upfront commission on newly written business
+      - `renewal`            ongoing, trail or servicing commission on in-force business
+      - `bonus`              volume, campaign or quality bonus paid on top of the above
+      - `adviser_fee`        a fee the client agreed to, collected by the insurer and passed on.
+                             Not commission the insurer decided to pay, and treated differently for
+                             both disclosure and tax
+      - `advance`            commission paid before it is earned. NOT earnings — see above
+      - `advance_repayment`  recovery of an advance. NOT a clawback — see above
+      - `adjustment`         a correction that cannot be attributed to one of the above, such as a
+                             rate restatement across a book. Carries the insurer's own `description`
+      - `other`              read `description` and `insurer_code`
+  type: string
+  x-extensible-enum:
+    - new_business
+    - renewal
+    - bonus
+    - adviser_fee
+    - advance
+    - advance_repayment
+    - adjustment
+    - other

@@ -24,7 +24,10 @@ Policy:
           const: in_arrears
   properties:
     policy_id:
-      $ref: '#/PolicyId'
+      description: >-
+        The key a consumer reconciles on, so an insurer that renumbers a policy MUST surface the
+        prior number in `previous_policy_id`. Normalisation rules on the shared schema.
+      $ref: '../../../../core/schemas/identifiers.yaml#/PolicyNumber'
     policy_version:
       $ref: '#/PolicyVersion'
     previous_policy_id:
@@ -91,27 +94,6 @@ Policy:
       description: Policy exclusions, in the insurer's own wording.
       type: string
       maxLength: 2000
-
-PolicyId:
-  title: PolicyId
-  description: >-
-    The insurer's own policy or plan number, as it appears on correspondence and in the adviser
-    portal. Stable for the life of the policy — this is the key a consumer reconciles on, so an
-    insurer that renumbers a policy MUST surface the prior number in `previous_policy_id`.
-
-    Send it BARE. No surrounding whitespace, and no quoting of any kind — in particular not the
-    leading apostrophe a spreadsheet export adds to stop a number-like string being coerced.
-    This is the reconciliation key, so a policy that arrives quoted on one run and plain on the
-    next is two policies as far as a consumer is concerned, and every join half-matches in
-    silence. One live extract carried 5,373 quoted rows against 46,314 plain ones, the same
-    policies under two keys, with nothing in the data to signal it.
-  type: string
-  minLength: 1
-  maxLength: 64
-  # Rejects leading/trailing whitespace and leading/trailing quote characters, which is the
-  # observed failure. Quotes INSIDE the value are permitted — the standard should not assume
-  # what characters an insurer's numbering scheme uses, only that it does not wrap them.
-  pattern: '^[^\s''"](?:.*[^\s''"])?$'
 
 PolicyVersion:
   title: PolicyVersion

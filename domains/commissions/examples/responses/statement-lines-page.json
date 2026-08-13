@@ -1,0 +1,106 @@
+{
+  "statement_id": "STM-2026-08-0417",
+  "line_count": 4,
+  "total_amount": {
+    "amount": "1234.15",
+    "currency": "AUD"
+  },
+  "lines": [
+    {
+      "line_id": "STM-2026-08-0417-1",
+      "policy_number": "P-4471902",
+      "commission_type": "new_business",
+      "insurer_code": "NB-INIT",
+      "description": "Initial commission, Protection Plus",
+      "amount": {
+        "amount": "2104.00",
+        "currency": "AUD"
+      },
+      "gst_amount": {
+        "amount": "191.27",
+        "currency": "AUD"
+      },
+      "adviser_code": "AC100",
+      "adviser_name": "Sam Rivera",
+      "client_name": "Jordan Alvarez",
+      "product_name": "Protection Plus",
+      "benefit_name": "Life Cover",
+      "effective_on": "2026-07-15",
+      "basis": {
+        "premium_amount": {
+          "amount": "2104.00",
+          "currency": "AUD"
+        },
+        "rate_percent": "100",
+        "premium_from": "2026-07-15",
+        "premium_to": "2027-07-14"
+      }
+    },
+    {
+      "line_id": "STM-2026-08-0417-2",
+      "policy_number": "P-4471903",
+      "commission_type": "renewal",
+      "insurer_code": "TRAIL",
+      "description": "Ongoing commission, Select Income Protection",
+      "amount": {
+        "amount": "231.55",
+        "currency": "AUD"
+      },
+      "gst_amount": {
+        "amount": "21.05",
+        "currency": "AUD"
+      },
+      "adviser_code": "AC104",
+      "adviser_name": "Dana Osei",
+      "client_name": "Priya Nand",
+      "product_name": "Select Income Protection",
+      "benefit_name": "Income Support",
+      "effective_on": "2026-07-15",
+      "basis": {
+        "premium_amount": {
+          "amount": "1110.00",
+          "currency": "AUD"
+        },
+        "rate_percent": "20.86",
+        "premium_from": "2026-07-15",
+        "premium_to": "2026-08-14"
+      }
+    },
+    {
+      "line_id": "STM-2026-08-0417-3",
+      "policy_number": "P-4470118",
+      "commission_type": "new_business",
+      "insurer_code": "NB-CLAW",
+      "description": "Clawback - policy cancelled within the responsibility period",
+      "amount": {
+        "amount": "-780.40",
+        "currency": "AUD"
+      },
+      "gst_amount": {
+        "amount": "-70.95",
+        "currency": "AUD"
+      },
+      "adviser_code": "AC100",
+      "adviser_name": "Sam Rivera",
+      "client_name": "Tomas de Vries",
+      "product_name": "Protection Plus",
+      "effective_on": "2026-07-28",
+      "reverses_line_id": "STM-2026-02-0311-6"
+    },
+    {
+      "line_id": "STM-2026-08-0417-4",
+      "policy_number": "P-4468840",
+      "commission_type": "advance_repayment",
+      "description": "Scheduled recovery of commission advance",
+      "amount": {
+        "amount": "-321.00",
+        "currency": "AUD"
+      },
+      "adviser_code": "AC104",
+      "adviser_name": "Dana Osei",
+      "client_name": "Anna de Vries",
+      "product_name": "Protection Plus",
+      "effective_on": "2026-07-31"
+    }
+  ]
+}
