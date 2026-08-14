@@ -136,6 +136,19 @@ CoverBase:
         Only meaningful where `ownership` resolves to a superannuation type; insurers MUST
         report it as `unsupported_ignored` rather than silently dropping it otherwise.
       $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Preference'
+    commission:
+      description: >-
+        The remuneration basis for THIS cover, replacing the policy-level block.
+
+        Per-cover because the restriction that forces it is per-cover. Insurers withdraw the upfront
+        and hybrid bases on some benefits above a given age while continuing to offer them on the
+        rest of the same policy, so an adviser writing one policy legitimately needs two bases in
+        it. Without this field the whole quote has to be re-sent on the lower basis, which reprices
+        every other benefit as well, and the comparison quietly changes underneath the adviser.
+
+        REPLACES the policy-level block entirely for this cover — it does not merge. See
+        `CommissionRequest`.
+      $ref: 'quote-request.yaml#/CommissionRequest'
     loadings:
       description: >-
         Underwriting loadings for THIS cover, overriding the policy-level map.
@@ -261,6 +274,13 @@ IncomeProtectionCover:
     A monthly benefit while the insured is disabled and unable to earn. The benefit is capped as
     a proportion of `annual_income`, so that field is required on the insured whenever this cover
     is requested.
+
+    THE AMOUNT IS DOLLARS, AND THE PERCENTAGE THAT PRODUCED IT MUST BE ROUNDED DOWN. Advisers work
+    in a replacement percentage — 70% is the usual starting point — and the conversion to a monthly
+    dollar figure happens before the request is built, where no schema can see it. Rounding that
+    conversion half-up lands the request cents above the insurer's ceiling and the benefit is
+    declined. See rule 1 on `QuoteRequest` for the worked figures and the matching obligation on the
+    server.
   unevaluatedProperties: false
   allOf:
     - $ref: '#/CoverBase'
@@ -270,7 +290,9 @@ IncomeProtectionCover:
         cover_type:
           enum: [income_protection]
         monthly_benefit:
-          description: The monthly amount sought, before any cap the insurer applies.
+          description: >-
+            The monthly amount sought, before any cap the insurer applies. Where it was derived from
+            a percentage of income, that derivation MUST be rounded DOWN — see above.
           $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
         waiting_period:
           $ref: '#/WaitingPeriod'
@@ -308,6 +330,9 @@ BusinessExpensesCover:
         cover_type:
           enum: [business_expenses]
         monthly_benefit:
+          description: >-
+            The monthly amount sought. Subject to the same round-down rule as income protection
+            wherever it is derived from a percentage — see `IncomeProtectionCover`.
           $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
         waiting_period:
           description: >-

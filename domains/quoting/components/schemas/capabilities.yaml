@@ -109,6 +109,13 @@ Capabilities:
         Distinct from the absolute bound the standard places on everyone. A benefit above 100% of
         income is impossible at every insurer and is a 422; a benefit between this figure and 100%
         is a decline here and may be priced by another insurer.
+
+        A CEILING IS TESTED AGAINST THE UNROUNDED FIGURE, on both sides. A consumer converting this
+        percentage into a monthly dollar amount MUST round DOWN, and a server MUST compare on exact
+        decimal arithmetic rather than rounding the request up first. `income x percent / 12` rarely
+        divides evenly, so half-up rounding lands cents over the cap and the benefit is declined for
+        a rounding artefact — the insurer simply goes missing from the panel. See rule 1 on
+        `QuoteRequest`.
       $ref: '../../../../core/schemas/money.yaml#/Percentage'
 
     features:
@@ -257,6 +264,30 @@ CoverCapability:
       type: integer
       minimum: 0
       maximum: 100
+    commission_bases:
+      description: >-
+        Which remuneration bases this insurer writes THIS cover on, and the age bounds on each.
+
+        Declared per cover, and separately from `supported_options`, because the restriction it
+        describes is neither policy-wide nor a flat value list: the upfront and hybrid bases are
+        commonly withdrawn on a benefit above a certain age while remaining available on the rest of
+        the same policy. Flattened into a list of permitted values that restriction is
+        undeclarable, and a consumer only meets it as a benefit that will not price.
+
+        ABSENT MEANS UNDECLARED, not "no commission bases". An insurer that has not populated this
+        says nothing either way, and a consumer MUST fall back to the runtime paths rather than
+        reading silence as a restriction — the same hint-not-contract rule that governs the rest of
+        this document.
+      type: array
+      maxItems: 10
+      items:
+        $ref: '#/CommissionBasisCapability'
+      examples:
+        - - basis: upfront
+            max_age_next_birthday: 61
+          - basis: hybrid
+            max_age_next_birthday: 61
+          - basis: level
     supported_options:
       description: >-
         Permitted values per option field, keyed by the field name as it appears in the cover
@@ -302,3 +333,45 @@ CoverCapability:
       examples:
         - - code: TRM_TERM_ILL
             name: Terminal illness benefit
+
+CommissionBasisCapability:
+  title: CommissionBasisCapability
+  description: >-
+    One remuneration basis this insurer writes a cover on, with the bounds that apply to it.
+
+    The age bounds are the point of the schema. An adviser sets a policy-wide basis and one benefit
+    in the policy falls outside the ages the insurer offers it on, so that benefit alone has to be
+    written on another basis — and until a consumer can read this, the only way to learn it is to
+    send the quote and interpret a decline. The bounds are read against
+    `insured.age_next_birthday`, the same age the cover-level `min_age_next_birthday` and
+    `max_age_next_birthday` use.
+
+    Absent bounds mean unbounded: a basis with no `max_age_next_birthday` is offered to the top of
+    the cover's own age range.
+  type: object
+  required: [basis]
+  additionalProperties: false
+  properties:
+    basis:
+      $ref: '../../../../core/schemas/commission-vocabulary.yaml#/CommissionBasis'
+    min_age_next_birthday:
+      type: integer
+      minimum: 0
+      maximum: 100
+    max_age_next_birthday:
+      description: >-
+        The oldest age next birthday at which this cover is written on this basis. Where an insurer
+        offers upfront commission only below a given age and level commission at every age, that is
+        two entries, one of them bounded here.
+      type: integer
+      minimum: 0
+      maximum: 100
+    max_dial_down_percent:
+      description: >-
+        The largest dial-down accepted on this basis. Absent means the insurer accepts any
+        dial-down up to nil commission.
+      $ref: '../../../../core/schemas/money.yaml#/SharePercentage'
+  examples:
+    - basis: upfront
+      max_age_next_birthday: 61
+    - basis: level

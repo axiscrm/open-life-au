@@ -1,6 +1,6 @@
 # Open Life Data Standards (AU) — Quoting — the response.
 #
-# Three rules here carry more weight than anything else in the standard, because each one guards
+# Four rules here carry more weight than anything else in the standard, because each one guards
 # against a failure that is SILENT — it produces a plausible number rather than an error:
 #
 #   1. All six frequencies are returned on every priced line. A monthly premium is not the annual
@@ -12,6 +12,11 @@
 #   3. Every deferred choice is reported back. An option the insurer could not honour must appear
 #      in `resolved_options` as `unsupported_ignored`, or a quote that quietly dropped a benefit
 #      is indistinguishable from one that included it.
+#   4. Every priced line declares the commission basis it was written on. Remuneration is an input
+#      to the price, and the gap between an upfront-commission premium and a level-commission one
+#      is wider than most of the product differences the adviser is weighing. Two lines on
+#      different bases sorted into one table rank on remuneration, and the numbers themselves give
+#      nothing away — so the basis is required rather than optional.
 
 $schema: https://json-schema.org/draft/2020-12/schema
 
@@ -98,14 +103,15 @@ QuoteLine:
         minItems: 1
     required: [errors]
   else:
-    # `premiums` and `rate_table_version` are declared here as well as in `properties` below. They are
-    # unconstrained restatements: the `no-required-schema-properties-undefined` lint rule inspects each
-    # `if`/`then`/`else` branch in isolation and does not see the sibling `properties`, so a bare
-    # `required` here reads to it as naming undefined members.
-    required: [premiums, rate_table_version]
+    # `premiums`, `rate_table_version` and `commission` are declared here as well as in `properties`
+    # below. They are unconstrained restatements: the `no-required-schema-properties-undefined` lint
+    # rule inspects each `if`/`then`/`else` branch in isolation and does not see the sibling
+    # `properties`, so a bare `required` here reads to it as naming undefined members.
+    required: [premiums, rate_table_version, commission]
     properties:
       premiums: {}
       rate_table_version: {}
+      commission: {}
       errors:
         maxItems: 0
   properties:
@@ -160,6 +166,21 @@ QuoteLine:
       items:
         $ref: '#/CoverLine'
       default: []
+    commission:
+      description: >-
+        The remuneration basis this line was PRICED on. REQUIRED on a line where `all_needs_met` is
+        `true` — including where the request said nothing about commission and the insurer applied
+        its own default, which is the case a consumer most needs told.
+
+        Required rather than conditional on having been asked, because the field answers a question
+        about the premium rather than about the request. A consumer receiving lines from several
+        insurers cannot otherwise tell an upfront-commission premium from a level-commission one,
+        and sorting the two together ranks the panel on remuneration.
+
+        Where the covers in this line were not all written on the same basis, this reports the basis
+        applied to the line as a whole and each cover that differs carries its own — see
+        `CoverLine.commission`.
+      $ref: '#/AppliedCommission'
 
     resolved_occupation:
       $ref: '../../../../core/schemas/occupation.yaml#/ResolvedOccupation'
@@ -278,6 +299,11 @@ ResolvedOption:
     product cannot honour at all MUST be reported as `unsupported_ignored`. An insurer that
     silently ignores an option produces a line that looks like it included a benefit it did not,
     which is the most consequential defect this standard exists to prevent.
+
+    `commission` IS THE ONE OPTION REPORTED EVEN WHEN IT WAS NEVER SENT. Every other option absent
+    from the request is absent from this array too; a commission basis the request did not name is
+    reported as `defaulted`, because the insurer chose a basis regardless and that choice moved the
+    premium. See `CommissionRequest`.
   type: object
   required: [cover_id, option, resolution]
   additionalProperties: false
@@ -300,10 +326,12 @@ ResolvedOption:
       type: string
       maxLength: 64
     option:
-      description: The field name of the option, as it appears in the request schema.
+      description: >-
+        The field name of the option, as it appears in the request schema. Use `commission` for the
+        remuneration basis, at policy level or on a named cover.
       type: string
       maxLength: 120
-      examples: [double_benefit, waiting_period, structure]
+      examples: [double_benefit, waiting_period, structure, commission]
     requested:
       description: The value the consumer asked for. Absent where the consumer did not supply one.
     applied:
@@ -340,6 +368,37 @@ ResolvedOption:
         and for `substituted` it is what lets an adviser judge whether the substitution is acceptable.
       type: string
       maxLength: 300
+
+AppliedCommission:
+  title: AppliedCommission
+  description: >-
+    The remuneration basis a premium was actually written on.
+
+    THIS IS PART OF THE PRICE, not a disclosure. It is what makes two lines comparable, so it is
+    reported whether or not the consumer asked for anything — an insurer with a single basis states
+    it as plainly as one that honoured a request.
+
+    Reporting it here does NOT discharge the `resolved_options` obligation, and the two answer
+    different questions. This says what was priced; `resolved_options` says whether that was what
+    was asked for. An insurer that could not write the requested basis must do both: report the
+    basis it used here, and report `substituted` there with the reason. A consumer comparing this
+    block against its own request to detect a substitution is doing the insurer's job, and will get
+    it wrong on the deferred cases.
+  type: object
+  required: [basis]
+  additionalProperties: false
+  properties:
+    basis:
+      $ref: '../../../../core/schemas/commission-vocabulary.yaml#/CommissionBasisResponse'
+    dial_down_percent:
+      description: >-
+        The dial-down actually applied, as the share of standard commission GIVEN UP. Absent means
+        none was applied. An insurer that capped a requested dial-down MUST report the capped figure
+        here and a `substituted` entry in `resolved_options`.
+      $ref: '../../../../core/schemas/money.yaml#/SharePercentage'
+  examples:
+    - basis: upfront
+      dial_down_percent: '0'
 
 PremiumSet:
   title: PremiumSet
@@ -534,6 +593,21 @@ CoverLine:
       $ref: '../../../../core/schemas/cover-vocabulary.yaml#/OwnershipResponse'
     structure:
       $ref: '../../../../core/schemas/cover-vocabulary.yaml#/StructureResponse'
+    commission:
+      description: >-
+        The remuneration basis THIS cover was written on. REQUIRED wherever it differs from the
+        line's — omitted, this cover is on the line's basis.
+
+        The case it exists for is an insurer that writes the requested basis on most of a policy but
+        not on one benefit, typically because that benefit is being written above the age at which
+        the basis is offered. The line is still a real offer and should still be priced; what cannot
+        happen is the difference going unreported, because the affected cover's premium is then
+        lower than the line's declared basis accounts for and the discrepancy looks like a product
+        difference.
+
+        JSON Schema cannot compare this against the parent line's value, so the requirement is
+        normative here and tested by the conformance suite.
+      $ref: '#/AppliedCommission'
     linked_to:
       description: Echoed from the request where this cover was written as an extension.
       $ref: '../../../../core/schemas/identifiers.yaml#/CoverId'

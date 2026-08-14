@@ -144,6 +144,31 @@ const CASES = [
         },
     },
     {
+        name: "an unrecognised commission basis",
+        why: "request enums are closed; a basis priced as a default is a premium on the wrong question",
+        doc: { insured, policy: { commission: { basis: "upfront_60" } }, covers: [life()] },
+    },
+    {
+        name: "a dial-down above 100 percent",
+        why: "more than all of a commission cannot be given up — the generic Percentage allows 1000",
+        doc: { insured, policy: { commission: { dial_down_percent: "120" } }, covers: [life()] },
+    },
+    {
+        name: "a dial-down sent as a JSON number",
+        why: "same reason as every other percentage here — a float drifts",
+        doc: { insured, policy: { commission: { dial_down_percent: 30 } }, covers: [life()] },
+    },
+    {
+        name: "a commission block with a misspelled key (dial_down)",
+        why: "a dial-down silently not applied prices the dearest line and looks ordinary",
+        doc: { insured, policy: { commission: { basis: "level", dial_down: "30" } }, covers: [life()] },
+    },
+    {
+        name: "a cover-level commission basis that is not a recognised value",
+        why: "the per-cover override is the age-restriction path; a typo there must fail loudly",
+        doc: { insured, covers: [life({ commission: { basis: "nil" } })] },
+    },
+    {
         name: "a percentage loading sent as a JSON number",
         why: "percentages are decimal strings for the same reason amounts are",
         doc: { insured, policy: { loadings: { percentage: { life: 25 } } }, covers: [life()] },
@@ -309,7 +334,7 @@ const LINE_CASES = [
     {
         name: "a priced line with no premiums",
         why: "rule 2's other half — `all_needs_met: true` promises a price",
-        doc: { ...lineBase, all_needs_met: true },
+        doc: { ...lineBase, all_needs_met: true, commission: { basis: "upfront" } },
     },
     {
         name: "a declined line carrying a projection",
@@ -333,6 +358,7 @@ const LINE_CASES = [
             all_needs_met: true,
             premiums,
             rate_table_version: "2026-01",
+            commission: { basis: "upfront" },
             research_scores: { feature_score: "87.5" },
         },
     },
@@ -344,6 +370,7 @@ const LINE_CASES = [
             all_needs_met: true,
             premiums,
             rate_table_version: "2026-01",
+            commission: { basis: "upfront" },
             research_scores: { provider: "Example Research", feature_score: "101" },
         },
     },
@@ -355,6 +382,7 @@ const LINE_CASES = [
             all_needs_met: true,
             premiums,
             rate_table_version: "2026-01",
+            commission: { basis: "upfront" },
             documents: [{ document_type: "pds" }],
         },
     },
@@ -366,13 +394,30 @@ const LINE_CASES = [
             all_needs_met: true,
             premiums,
             rate_table_version: "2026-01",
+            commission: { basis: "upfront" },
             documents: [{ document_type: "brochure", url: "https://example.com/x.pdf" }],
         },
     },
     {
         name: "a priced line with no rate_table_version",
         why: "rule 4 — without it the quote is unreproducible at audit",
-        doc: { ...lineBase, all_needs_met: true, premiums },
+        doc: { ...lineBase, all_needs_met: true, premiums, commission: { basis: "upfront" } },
+    },
+    {
+        name: "a priced line with no commission basis",
+        why: "rule 5 — an upfront-commission price and a level one sort into the same table",
+        doc: { ...lineBase, all_needs_met: true, premiums, rate_table_version: "2026-01" },
+    },
+    {
+        name: "a priced line whose commission basis is an unrecognised STRING, not an object",
+        why: "the basis travels with its dial-down; a bare string cannot carry one",
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            premiums,
+            rate_table_version: "2026-01",
+            commission: "upfront",
+        },
     },
 ];
 
@@ -804,6 +849,35 @@ const ACCEPTANCE_CASES = [
         why: "response enums are extensible; a new type must not fail the whole statement",
         validator: validateCommLine,
         doc: { ...commLineBase, commission_type: "renewal_bonus_tier_2" },
+    },
+    {
+        group: "quoting response",
+        name: "a line priced on an unrecognised commission basis",
+        why: "the same asymmetry — closed on the request, extensible on the way back",
+        validator: validateLine,
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            premiums,
+            rate_table_version: "2026-01",
+            commission: { basis: "level_to_65" },
+        },
+    },
+    {
+        group: "quoting response",
+        name: "a cover line on a different commission basis from its line",
+        why: "one benefit written on level inside an upfront policy is the case the field exists for",
+        validator: validateLine,
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            premiums,
+            rate_table_version: "2026-01",
+            commission: { basis: "upfront", dial_down_percent: "0" },
+            cover_lines: [
+                { cover_type: "tpd", sum_insured: money("300000.00"), premiums, commission: { basis: "level" } },
+            ],
+        },
     },
 ];
 

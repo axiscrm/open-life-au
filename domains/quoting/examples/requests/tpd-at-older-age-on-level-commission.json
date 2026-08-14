@@ -1,0 +1,49 @@
+{
+  "client_reference": "c:5d1a7c04be92f318",
+  "insured": {
+    "age_next_birthday": 62,
+    "gender": "female",
+    "smoker": false,
+    "state": "QLD",
+    "employment_status": "employee",
+    "occupation": {
+      "osca": "2211-11",
+      "description": "Accountant",
+      "qualifiers": {
+        "trade_qualified": true,
+        "manual_duties_percent": 0,
+        "hours_per_week": 38
+      }
+    }
+  },
+  "policy": {
+    "structure": "stepped",
+    "ownership": "ordinary",
+    "commission": {
+      "basis": "upfront",
+      "dial_down_percent": "0"
+    }
+  },
+  "covers": [
+    {
+      "cover_id": "life-1",
+      "cover_type": "life",
+      "sum_insured": {
+        "amount": "500000.00",
+        "currency": "AUD"
+      }
+    },
+    {
+      "cover_id": "tpd-1",
+      "cover_type": "tpd",
+      "sum_insured": {
+        "amount": "300000.00",
+        "currency": "AUD"
+      },
+      "tpd_definition": "any_occupation",
+      "commission": {
+        "basis": "level"
+      }
+    }
+  ]
+}

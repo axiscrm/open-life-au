@@ -82,6 +82,22 @@ Percentage:
   pattern: '^(1000(\.0{1,3})?|\d{1,3}(\.\d{1,3})?)$'
   examples: ['0', '25', '62.5', '12.375']
 
+SharePercentage:
+  title: SharePercentage
+  description: >-
+    A percentage that is a SHARE OF A WHOLE, and therefore cannot exceed 100 — a commission
+    dial-down, a split between advisers. Serialised exactly as `Percentage`, with a narrower range.
+
+    Separate from `Percentage` because that schema deliberately allows up to 1000: an underwriting
+    loading of 400% is a real thing an adviser is told, and the bound there exists to catch a units
+    mistake rather than to describe a share. Reuse it for a share and `'900'` validates, and there
+    is no reading of that value which is not a defect. The policy contract already shipped this
+    mistake once — a commission split inheriting the generic schema, so a 900% split passed — which
+    is why the narrower type exists rather than the bound being restated at each call site.
+  type: string
+  pattern: '^(100(\.0{1,3})?|\d{1,2}(\.\d{1,3})?)$'
+  examples: ['0', '30', '12.5', '100']
+
 RatePerThousand:
   title: RatePerThousand
   description: >-

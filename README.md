@@ -53,7 +53,7 @@ is a closed schema so there is nowhere to put them. Age next birthday is preferr
 birth. A consumer sends the same client to several insurers, so every field multiplies into several
 separate collections by several separate entities.
 
-### The four rules that matter most
+### The five rules that matter most
 
 Each guards a **silent** failure — one that produces a plausible number rather than an error.
 
@@ -68,6 +68,16 @@ Each guards a **silent** failure — one that produces a plausible number rather
    indistinguishable from one that included it.
 4. **Echo what you rated.** `resolved_occupation` and `rate_table_version` are what make a quote
    reproducible months later, which is what an adviser needs to justify a recommendation.
+5. **Say which commission basis you priced on.** Remuneration is an input to the premium, not a
+   disclosure bolted on afterwards — an upfront-commission price and a level-commission price for
+   identical cover differ by more than most product differences. Every priced line carries
+   `commission`, whether or not the request named one, so a panel is never sorted on remuneration by
+   accident.
+
+One more rule sits outside that list because it binds the **consumer** rather than the insurer:
+where a monthly benefit is derived from a percentage of income — 70% is the usual starting point —
+**round down**. Half-up rounding puts the request cents above the insurer's ceiling, the benefit is
+declined, and the insurer disappears from the panel with nothing saying why.
 
 ## Layout
 

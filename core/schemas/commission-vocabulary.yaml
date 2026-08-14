@@ -1,5 +1,16 @@
 # Open Life Data Standards (AU) — commission vocabulary.
 #
+# TWO INDEPENDENT VOCABULARIES, held together because they share a word and nothing else. Read the
+# distinction before adding to either:
+#
+#   `CommissionType`  what a commission line already PAID was for. Response-only, and only the
+#                     commissions contract sends it.
+#   `CommissionBasis` which remuneration basis a premium was PRICED on. Travels in both directions,
+#                     and it belongs to quoting rather than to statements — the basis is an INPUT to
+#                     the price, not a description of a payment.
+#
+# ---------------------------------------------------------------------------------------------
+#
 # WHAT A COMMISSION LINE IS FOR, expressed as a shared enum instead of a status string each consumer
 # pattern-matches.
 #
@@ -65,3 +76,53 @@ CommissionType:
     - advance_repayment
     - adjustment
     - other
+
+CommissionBasis:
+  title: CommissionBasis
+  description: >-
+    The remuneration basis a premium is priced on. REQUEST-facing and therefore CLOSED: an
+    unrecognised value MUST be rejected with 422 `unsupported-value`, never priced as a default.
+
+    ## This is a pricing input, not a bookkeeping detail
+
+    The same cover, for the same insured, on the same product, costs a different amount on each of
+    these. That is the whole reason it appears in a quoting contract: a consumer that omits it, or
+    an insurer that ignores it, produces a premium that is correct arithmetic on the wrong question.
+    Two lines priced on different bases are not comparable at all, and nothing about the numbers
+    themselves says so — which is why every priced line has to declare the basis it used.
+
+    ## The three bases
+
+      - `upfront`  a large initial payment in the first year, a lower rate thereafter. The dearest
+                   premium of the three
+      - `hybrid`   a smaller initial payment and a higher ongoing rate
+      - `level`    the same rate every year, initial and ongoing alike. The cheapest premium of the
+                   three, and commonly the ONLY basis available on a benefit written at an older
+                   age, where insurers withdraw the upfront and hybrid options entirely
+
+    That last clause is the case worth designing for rather than discovering. An adviser sets one
+    basis for the policy and one benefit in it falls outside what the insurer writes on that basis —
+    so the basis is settable per cover, declarable per cover, and reported per cover.
+  type: string
+  enum:
+    - upfront
+    - hybrid
+    - level
+
+CommissionBasisResponse:
+  title: CommissionBasisResponse
+  description: >-
+    `CommissionBasis` on the way back, extensible. A consumer MUST pass an unrecognised value
+    through — displaying it, and treating the line as priced on a basis it does not know rather than
+    as one of the three it does. Mapping an unknown basis onto `upfront` because it is the common
+    default is the failure this split exists to prevent: it would put a line into a comparison as
+    though its price were the upfront price.
+
+    Same values as `CommissionBasis`. The two are separate schemas for the reason set out in
+    `docs/VERSIONING.md` — request enums are closed so a typo fails, response enums are extensible
+    so the standard can grow without every consumer breaking.
+  type: string
+  x-extensible-enum:
+    - upfront
+    - hybrid
+    - level

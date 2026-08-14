@@ -35,6 +35,27 @@ Worth noticing:
 - `life_buyback` and `double_benefit` are only meaningful *because* this is an extension — both
   describe what happens to the parent life cover when the TPD benefit is paid.
 - `pay_by_rollover` is `prefer`, a deferred choice. The insurer decides and must report what it did.
+- `policy.commission` is stated rather than left out. It could be omitted — the insurer would then
+  price on its own default and report that as `defaulted` — but the premium differs by basis either
+  way, so saying nothing means accepting a price set on a basis nobody chose.
+
+### `tpd-at-older-age-on-level-commission.json`
+
+**Two commission bases in one policy**, which is the case the per-cover override exists for.
+
+The adviser wants upfront commission, and sets it once at policy level. The insured is 62, and
+insurers commonly stop offering upfront and hybrid commission on TPD above around this age while
+continuing to offer them on life cover — so the TPD benefit alone is overridden to `level`.
+
+- The cover-level `commission` **replaces** the policy block for that cover; it does not merge. The
+  TPD carries no `dial_down_percent`, so the insurer's default dial-down applies to it rather than
+  the `"0"` set above.
+- Which bases an insurer writes a cover on, and up to what age, is declarable: `commission_bases` on
+  each cover in `GET /capabilities`. A consumer that reads it can set this override while the
+  adviser is still typing, instead of learning it from a benefit that will not price.
+- Sending the whole quote again on `level` would have worked too — and would have repriced the life
+  cover as well, changing the comparison underneath the adviser for a restriction that touched one
+  benefit.
 
 ### `income-protection-90day-to-age-65.json`
 
@@ -42,6 +63,12 @@ Income protection alone, at the settings advisers reach for most often.
 
 - `annual_income` is required on the insured, because the monthly benefit is capped as a proportion
   of it.
+- **The benefit is 70% of income, rounded down**, and the digits matter. 70% of $185,000 is $129,500
+  a year — $10,791.666… a month. This file sends `10791.66`. Half-up rounding would send
+  `10791.67`, which annualises to $129,500.04: four cents above a 70% ceiling, declined, and the
+  insurer disappears from the panel with nothing explaining why. Rounding to the nearest dollar is
+  worse again. The wire carries dollars, so this arithmetic happens in the consumer where no schema
+  can catch it — which is why the contract states the rule normatively.
 - `superannuation_contribution` is an *additional* monthly amount, not part of `monthly_benefit`.
 - `benefit_quality` and `replacement_ratio` are preferences over **this insurer's own** range, so
   both come back in `resolved_options`. They are not cross-insurer rankings.
@@ -89,6 +116,12 @@ One request, two lines — the shape consumers most often get wrong.
 - The frequency loading is visible: weekly annualises to 1238.12 against an annual premium of
   1197.00. Dividing the annual figure by twelve would understate the monthly cost by about 3%, and
   nothing in the response would look wrong.
+
+**And it says what it was priced on.** `commission` is required on any line carrying a premium, so a
+consumer never has to infer the basis from the request — or, when comparing several insurers, guess
+at it. The matching `resolved_options` entry answers the other question: not what was priced, but
+whether it was what was asked for. An insurer that could only write `level` would report the same
+line with `commission.basis` of `level` **and** a `substituted` entry saying so.
 
 **Line 2 is the same insurer's other brand declining.** `all_needs_met` is `false`, `errors` says why
 in terms an adviser can act on, and there is **no `premiums` object at all**. It must not be sorted

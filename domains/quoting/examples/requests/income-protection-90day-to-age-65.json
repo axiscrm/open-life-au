@@ -7,7 +7,7 @@
     "state": "VIC",
     "employment_status": "self_employed_sole_trader",
     "annual_income": {
-      "amount": "180000.00",
+      "amount": "185000.00",
       "currency": "AUD"
     },
     "occupation": {
@@ -29,7 +29,7 @@
       "cover_id": "ip-1",
       "cover_type": "income_protection",
       "monthly_benefit": {
-        "amount": "10500.00",
+        "amount": "10791.66",
         "currency": "AUD"
       },
       "waiting_period": "90d",

@@ -24,7 +24,11 @@
   "policy": {
     "structure": "stepped",
     "ownership": "super",
-    "premium_waiver": "exclude"
+    "premium_waiver": "exclude",
+    "commission": {
+      "basis": "upfront",
+      "dial_down_percent": "0"
+    }
   },
   "covers": [
     {

@@ -4,7 +4,7 @@
     "title": "Open Life Quoting API (AU)",
     "version": "0.1.0",
     "summary": "A vendor-neutral contract for pricing Australian life risk cover.",
-    "description": "A contract an insurer implements so that adviser software can obtain quotes directly, in one\nshape, without a per-insurer integration.\n\n## What this is\n\nFour operations. An insurer prices a set of covers for one insured (`POST /quotes`), describes\nwhat it supports (`GET /capabilities`), and helps resolve an occupation to its own rating\nmanual (`GET /occupations`, `POST /occupations:match`).\n\nThe request is modelled on the questions an adviser actually answers, in the order they answer\nthem: who is being insured, the answers that apply to the whole policy, then one section per\nbenefit. It is deliberately not modelled on any existing engine's wire format.\n\n## The rules that matter most\n\nThese guard against failures that are **silent** — they produce a plausible number rather than\nan error, so nobody notices until a client complains.\n\n1. **All six payment frequencies on every priced line.** Sub-annual premiums carry a frequency\n   loading, so the monthly premium is not the annual over twelve. A consumer that divides will\n   understate the cost and nothing will look wrong.\n2. **Never price what you could not assemble.** If some requested covers cannot be written,\n   return the line with `all_needs_met: false`, populated `errors` and no premium. A partial\n   policy priced as though complete reads as the best offer on the table.\n3. **Report every option you did not apply.** An option the product cannot honour appears in\n   `resolved_options` as `unsupported_ignored`. Otherwise a quote that quietly dropped a\n   benefit is indistinguishable from one that included it, and the adviser recommends the\n   wrong product.\n4. **Echo what you rated.** `resolved_occupation` and `rate_table_version` are what make a\n   quote reproducible months later, which is what an adviser needs to justify a\n   recommendation.\n\n## Money\n\nAmounts are decimal strings with an explicit currency, never JSON numbers. Premiums are summed\nand compared to the cent, and JSON numbers are IEEE-754 doubles in JavaScript and in most\ngenerated clients.\n\n## Privacy\n\nThe request carries no name, no address, no contact details and no health data, and\n`Insured` is a closed schema so there is nowhere to put them. Age is sent as age next birthday\nrather than a date of birth wherever the insurer permits. This is a design constraint, not a\nrecommendation: a consumer sends the same client to several insurers, so every field\nmultiplies into several separate collections by several separate entities.\n\n## Conformance\n\nAn implementation need not offer every cover or every option value. Declare what you offer in\n`GET /capabilities` and the conformance suite tests you against that declaration. What is not\noptional is the four rules above.\n",
+    "description": "A contract an insurer implements so that adviser software can obtain quotes directly, in one\nshape, without a per-insurer integration.\n\n## What this is\n\nFour operations. An insurer prices a set of covers for one insured (`POST /quotes`), describes\nwhat it supports (`GET /capabilities`), and helps resolve an occupation to its own rating\nmanual (`GET /occupations`, `POST /occupations:match`).\n\nThe request is modelled on the questions an adviser actually answers, in the order they answer\nthem: who is being insured, the answers that apply to the whole policy, then one section per\nbenefit. It is deliberately not modelled on any existing engine's wire format.\n\n## The rules that matter most\n\nThese guard against failures that are **silent** — they produce a plausible number rather than\nan error, so nobody notices until a client complains.\n\n1. **All six payment frequencies on every priced line.** Sub-annual premiums carry a frequency\n   loading, so the monthly premium is not the annual over twelve. A consumer that divides will\n   understate the cost and nothing will look wrong.\n2. **Never price what you could not assemble.** If some requested covers cannot be written,\n   return the line with `all_needs_met: false`, populated `errors` and no premium. A partial\n   policy priced as though complete reads as the best offer on the table.\n3. **Report every option you did not apply.** An option the product cannot honour appears in\n   `resolved_options` as `unsupported_ignored`. Otherwise a quote that quietly dropped a\n   benefit is indistinguishable from one that included it, and the adviser recommends the\n   wrong product.\n4. **Echo what you rated.** `resolved_occupation` and `rate_table_version` are what make a\n   quote reproducible months later, which is what an adviser needs to justify a\n   recommendation.\n5. **Say which commission basis you priced on.** Remuneration is an input to the premium, and\n   the gap between an upfront-commission price and a level-commission one is wider than most\n   product differences. Every priced line carries `commission`, whether or not the request\n   named one — otherwise a comparison table sorts on remuneration and nothing in the numbers\n   says so.\n\n## Money\n\nAmounts are decimal strings with an explicit currency, never JSON numbers. Premiums are summed\nand compared to the cent, and JSON numbers are IEEE-754 doubles in JavaScript and in most\ngenerated clients.\n\n**Round a derived benefit down.** Where a consumer turns a replacement percentage into a\nmonthly benefit — 70% of income is the usual starting point — it MUST round DOWN. Half-up\nrounding lands cents above the insurer's ceiling, the benefit is declined, and the insurer\nsimply goes missing from the panel with nothing explaining why. Servers evaluate the ceiling on\nexact decimal arithmetic against the figure as sent. See rule 1 on `QuoteRequest`.\n\n## Privacy\n\nThe request carries no name, no address, no contact details and no health data, and\n`Insured` is a closed schema so there is nowhere to put them. Age is sent as age next birthday\nrather than a date of birth wherever the insurer permits. This is a design constraint, not a\nrecommendation: a consumer sends the same client to several insurers, so every field\nmultiplies into several separate collections by several separate entities.\n\n## Conformance\n\nAn implementation need not offer every cover or every option value. Declare what you offer in\n`GET /capabilities` and the conformance suite tests you against that declaration. What is not\noptional is the five rules above.\n",
     "license": {
       "name": "Apache-2.0",
       "identifier": "Apache-2.0"
@@ -783,6 +783,53 @@
           "prefer"
         ]
       },
+      "CommissionBasis": {
+        "title": "CommissionBasis",
+        "description": "The remuneration basis a premium is priced on. REQUEST-facing and therefore CLOSED: an unrecognised value MUST be rejected with 422 `unsupported-value`, never priced as a default.\n## This is a pricing input, not a bookkeeping detail\nThe same cover, for the same insured, on the same product, costs a different amount on each of these. That is the whole reason it appears in a quoting contract: a consumer that omits it, or an insurer that ignores it, produces a premium that is correct arithmetic on the wrong question. Two lines priced on different bases are not comparable at all, and nothing about the numbers themselves says so — which is why every priced line has to declare the basis it used.\n## The three bases\n\n  - `upfront`  a large initial payment in the first year, a lower rate thereafter. The dearest\n               premium of the three\n  - `hybrid`   a smaller initial payment and a higher ongoing rate\n  - `level`    the same rate every year, initial and ongoing alike. The cheapest premium of the\n               three, and commonly the ONLY basis available on a benefit written at an older\n               age, where insurers withdraw the upfront and hybrid options entirely\n\nThat last clause is the case worth designing for rather than discovering. An adviser sets one basis for the policy and one benefit in it falls outside what the insurer writes on that basis — so the basis is settable per cover, declarable per cover, and reported per cover.",
+        "type": "string",
+        "enum": [
+          "upfront",
+          "hybrid",
+          "level"
+        ]
+      },
+      "SharePercentage": {
+        "title": "SharePercentage",
+        "description": "A percentage that is a SHARE OF A WHOLE, and therefore cannot exceed 100 — a commission dial-down, a split between advisers. Serialised exactly as `Percentage`, with a narrower range.\nSeparate from `Percentage` because that schema deliberately allows up to 1000: an underwriting loading of 400% is a real thing an adviser is told, and the bound there exists to catch a units mistake rather than to describe a share. Reuse it for a share and `'900'` validates, and there is no reading of that value which is not a defect. The policy contract already shipped this mistake once — a commission split inheriting the generic schema, so a 900% split passed — which is why the narrower type exists rather than the bound being restated at each call site.",
+        "type": "string",
+        "pattern": "^(100(\\.0{1,3})?|\\d{1,2}(\\.\\d{1,3})?)$",
+        "examples": [
+          "0",
+          "30",
+          "12.5",
+          "100"
+        ]
+      },
+      "CommissionRequest": {
+        "title": "CommissionRequest",
+        "description": "The remuneration basis to price on, and how much of it the adviser is giving up.\n## Why this is in a quoting contract at all\nCommission is an INPUT TO THE PRICE. A level-commission premium and an upfront-commission premium for identical cover differ by a margin larger than most of the product differences an adviser is weighing, so a panel priced on mixed bases ranks on remuneration rather than on product. Nothing in the numbers reveals it, which puts this in the same class as the frequency rule: plausible figures, wrong comparison, no error anywhere.\nTwo failures follow, and both are addressed here rather than left to implementations:\n\n  - **Not applied.** The consumer says nothing and the insurer prices on its own default. That\n    is legitimate — but the insurer MUST report it in `resolved_options` with `option:\n    commission`, `cover_id: policy` and `defaulted`, so the basis behind the number is never\n    implicit.\n  - **Applied differently.** The insurer cannot write the requested basis for a cover — most\n    often because the benefit is being written at an age where only `level` is offered. It MUST\n    then either decline the line or price the basis it can write and report `substituted` with\n    the applied value, per `ResolvedOption`. Silently pricing another basis is forbidden.\n\n## Grain\nSet here it applies to every cover. Set on a cover it REPLACES this block for that cover entirely — it does not merge, so a cover naming only `basis` takes the insurer's default dial-down rather than inheriting the one above. Same semantics as `loadings`, and stated because the merging reading is the tempting one: a policy dial-down silently carried onto a cover the adviser had reset would change that cover's price with nothing reporting it.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "description": "The remuneration basis to price on. Absent means the insurer's product default.",
+            "$ref": "#/components/schemas/CommissionBasis"
+          },
+          "dial_down_percent": {
+            "description": "How much of the insurer's standard commission for this basis is GIVEN UP, as a percentage. `'0'` is full commission; `'100'` is nil commission and the cheapest premium the basis offers. Absent means no dial-down.\nTHE DIRECTION IS THE WHOLE FIELD, which is why it is spelled out in the name and again here. Read the other way round — as the share retained — a dial-down of `'30'` becomes a 70% giveaway, and the resulting line is cheaper than the adviser intended rather than dearer. Both readings produce a valid premium and a plausible comparison table.\nBounded at 100 rather than using the general `Percentage` type: there is no sense in which more than all of a commission can be given up.",
+            "$ref": "#/components/schemas/SharePercentage"
+          }
+        },
+        "examples": [
+          {
+            "basis": "upfront",
+            "dial_down_percent": "0"
+          },
+          {
+            "basis": "level"
+          }
+        ]
+      },
       "Percentage": {
         "title": "Percentage",
         "description": "A percentage serialised as a decimal string (not a 0-1 ratio): `'25'` means 25%. At most three fractional digits, and at most 1000.\nA string for the same reason as `Decimal` and `RatePerThousand`. This was a JSON number until 0.2.0, justified on the grounds that percentages are inputs to arithmetic rather than amounts stored to the cent, and that three decimal places are exactly representable. The second half of that is not true: `0.001` has no exact IEEE-754 representation, so a loading of `25.001` arrives as `25.000999...` in every generated client. More to the point, the reasoning proved too clever — a loading percentage IS an input to pricing, and it was the one remaining path by which a contract value reached a rating engine through a double while every amount beside it travelled as a string. The inconsistency was visible in this very file: `RatePerThousand` is the OTHER axis of the same loadings map and was always a string.\n`'0'` is a MEANINGFUL value — see the loadings schema, where an explicit zero cancels an inherited loading and is not the same as omitting the field. Implementations MUST NOT normalise `'0'` to `'0.000'` or vice versa when echoing a value back, and consumers MUST treat the two as numerically equal.",
@@ -884,6 +931,10 @@
             "$ref": "#/components/schemas/PremiumWaiver",
             "default": "exclude"
           },
+          "commission": {
+            "description": "Default remuneration basis for every cover. Absent means the insurer's own default, which it MUST then report — see `CommissionRequest`.",
+            "$ref": "#/components/schemas/CommissionRequest"
+          },
           "loadings": {
             "$ref": "#/components/schemas/Loadings"
           }
@@ -974,6 +1025,10 @@
           "pay_by_rollover": {
             "description": "Whether the premium may be funded by a rollover from another superannuation fund. Only meaningful where `ownership` resolves to a superannuation type; insurers MUST report it as `unsupported_ignored` rather than silently dropping it otherwise.",
             "$ref": "#/components/schemas/Preference"
+          },
+          "commission": {
+            "description": "The remuneration basis for THIS cover, replacing the policy-level block.\nPer-cover because the restriction that forces it is per-cover. Insurers withdraw the upfront and hybrid bases on some benefits above a given age while continuing to offer them on the rest of the same policy, so an adviser writing one policy legitimately needs two bases in it. Without this field the whole quote has to be re-sent on the lower basis, which reprices every other benefit as well, and the comparison quietly changes underneath the adviser.\nREPLACES the policy-level block entirely for this cover — it does not merge. See `CommissionRequest`.",
+            "$ref": "#/components/schemas/CommissionRequest"
           },
           "loadings": {
             "description": "Underwriting loadings for THIS cover, overriding the policy-level map.\nNeeded because the policy-level map is keyed by cover TYPE, and two covers of the same type in one request are routine — a standalone TPD alongside a linked TPD extension, or life inside super alongside life outside it. A single `{tpd: 50}` was then ambiguous: apply it to both, to the first, or to the standalone only? Three conformant implementations, three different premiums, and nothing in `resolved_options` obliged to disclose which reading was used, because from the insurer's point of view the loading WAS applied as asked.\nWhere present this replaces the policy-level entry for this cover entirely — it does not merge.",
@@ -1198,7 +1253,7 @@
       },
       "IncomeProtectionCover": {
         "title": "IncomeProtectionCover",
-        "description": "A monthly benefit while the insured is disabled and unable to earn. The benefit is capped as a proportion of `annual_income`, so that field is required on the insured whenever this cover is requested.",
+        "description": "A monthly benefit while the insured is disabled and unable to earn. The benefit is capped as a proportion of `annual_income`, so that field is required on the insured whenever this cover is requested.\nTHE AMOUNT IS DOLLARS, AND THE PERCENTAGE THAT PRODUCED IT MUST BE ROUNDED DOWN. Advisers work in a replacement percentage — 70% is the usual starting point — and the conversion to a monthly dollar figure happens before the request is built, where no schema can see it. Rounding that conversion half-up lands the request cents above the insurer's ceiling and the benefit is declined. See rule 1 on `QuoteRequest` for the worked figures and the matching obligation on the server.",
         "unevaluatedProperties": false,
         "allOf": [
           {
@@ -1217,7 +1272,7 @@
                 ]
               },
               "monthly_benefit": {
-                "description": "The monthly amount sought, before any cap the insurer applies.",
+                "description": "The monthly amount sought, before any cap the insurer applies. Where it was derived from a percentage of income, that derivation MUST be rounded DOWN — see above.",
                 "$ref": "#/components/schemas/NonNegativeMoney"
               },
               "waiting_period": {
@@ -1269,6 +1324,7 @@
                 ]
               },
               "monthly_benefit": {
+                "description": "The monthly amount sought. Subject to the same round-down rule as income protection wherever it is derived from a percentage — see `IncomeProtectionCover`.",
                 "$ref": "#/components/schemas/NonNegativeMoney"
               },
               "waiting_period": {
@@ -1522,7 +1578,7 @@
       },
       "QuoteRequest": {
         "title": "QuoteRequest",
-        "description": "A request to price one or more covers for one insured. A response to this is a set of priced lines, not a single price: an insurer may return several lines for one request where it has more than one brand, product combination or campaign variant that satisfies the covers asked for.\n## Combinations no insurer can write\nSome requests are not merely unlikely to be accepted — they cannot be issued by anyone, and the standard says so here rather than leaving every implementation to discover it and every consumer to learn it one decline at a time.\nTHE DISTINCTION THAT DECIDES WHICH IS WHICH. A request that is impossible **at every insurer**, for reasons visible in the request itself, is a `422` with `invalid-combination`. A request that THIS insurer cannot write — its own limits, its own product range, its own underwriting — is a priced-lines response carrying a declined line with `all_needs_met: false` and a reason. The first is a bug in the consumer; the second is an answer.\nServers MUST reject the following with `422` rather than declining them, and consumers SHOULD not send them:\n1. **A monthly benefit above the insured's income.** Income protection and business expenses\n   replace earnings; no product in this market insures more than 100% of them, and most cap\n   far lower. A benefit above `annual_income / 12` is therefore impossible everywhere. The\n   insurer's own ceiling — commonly 70% — is declared as\n   `max_income_replacement_percent` in its capability document, and a request between that\n   ceiling and 100% is a DECLINE, not a rejection, because another insurer may write it.\n2. **An extension larger than the cover it extends.** An extension reduces its parent when\n   paid, so a `linked_to` cover whose `sum_insured` exceeds its parent's describes a benefit\n   that cannot exist.\n3. **Income cover for someone with no income.** An income protection or business expenses\n   cover alongside an `employment_status` of `home_duties`, `retired`, `pensioner`,\n   `unemployed` or `student`. There is no earned income to replace. Engines commonly answer\n   this by pricing nothing at all, with no explanation, which is the worst of both.\n4. **A missing income when one is needed.** `annual_income` is REQUIRED whenever income\n   protection or business expenses is requested — rule 1 cannot be applied without it, and an\n   insurer that prices anyway is guessing.\n\nRules 2 and 4 are enforced by this schema. Rules 1 and 3 are stated normatively and tested by the conformance suite: JSON Schema cannot compare a benefit against an income, nor a cover against a sibling's employment status.",
+        "description": "A request to price one or more covers for one insured. A response to this is a set of priced lines, not a single price: an insurer may return several lines for one request where it has more than one brand, product combination or campaign variant that satisfies the covers asked for.\n## Combinations no insurer can write\nSome requests are not merely unlikely to be accepted — they cannot be issued by anyone, and the standard says so here rather than leaving every implementation to discover it and every consumer to learn it one decline at a time.\nTHE DISTINCTION THAT DECIDES WHICH IS WHICH. A request that is impossible **at every insurer**, for reasons visible in the request itself, is a `422` with `invalid-combination`. A request that THIS insurer cannot write — its own limits, its own product range, its own underwriting — is a priced-lines response carrying a declined line with `all_needs_met: false` and a reason. The first is a bug in the consumer; the second is an answer.\nServers MUST reject the following with `422` rather than declining them, and consumers SHOULD not send them:\n1. **A monthly benefit above the insured's income.** Income protection and business expenses\n   replace earnings; no product in this market insures more than 100% of them, and most cap\n   far lower. A benefit above `annual_income / 12` is therefore impossible everywhere. The\n   insurer's own ceiling — commonly 70% — is declared as\n   `max_income_replacement_percent` in its capability document, and a request between that\n   ceiling and 100% is a DECLINE, not a rejection, because another insurer may write it.\n\n   **ROUND A DERIVED BENEFIT DOWN — NORMATIVE.** The wire\n   carries dollars, not a percentage, so the arithmetic that turns \"70% of income\" into a\n   `monthly_benefit` happens in the consumer, unseen by the insurer and unconstrained by any\n   schema. Where a consumer derives the amount from a percentage of income it MUST round DOWN,\n   at whatever precision it sends. Half-up rounding puts the request over the ceiling by cents:\n   70% of $185,000 is $129,500 a year, or $10,791.666… a month, which half-up becomes\n   $10,791.67 — annualising to $129,500.04, four cents above the insurer's cap. The insurer\n   declines, correctly, and the adviser sees an insurer missing from the panel with no\n   explanation attached to it. Rounding to the nearest dollar makes it worse, not better.\n\n   The symmetric obligation is the server's: an insurer MUST evaluate both the 100% bound and\n   its own ceiling on exact decimal arithmetic against the unrounded figure, and MUST NOT round\n   the requested benefit up before comparing it. A request that is inside the ceiling as sent is\n   inside it, full stop.\n2. **An extension larger than the cover it extends.** An extension reduces its parent when\n   paid, so a `linked_to` cover whose `sum_insured` exceeds its parent's describes a benefit\n   that cannot exist.\n3. **Income cover for someone with no income.** An income protection or business expenses\n   cover alongside an `employment_status` of `home_duties`, `retired`, `pensioner`,\n   `unemployed` or `student`. There is no earned income to replace. Engines commonly answer\n   this by pricing nothing at all, with no explanation, which is the worst of both.\n4. **A missing income when one is needed.** `annual_income` is REQUIRED whenever income\n   protection or business expenses is requested — rule 1 cannot be applied without it, and an\n   insurer that prices anyway is guessing.\n\nRules 2 and 4 are enforced by this schema. Rules 1 and 3 are stated normatively and tested by the conformance suite: JSON Schema cannot compare a benefit against an income, nor a cover against a sibling's employment status.",
         "type": "object",
         "required": [
           "insured",
@@ -1631,7 +1687,11 @@
             "policy": {
               "structure": "stepped",
               "ownership": "super",
-              "premium_waiver": "exclude"
+              "premium_waiver": "exclude",
+              "commission": {
+                "basis": "upfront",
+                "dial_down_percent": "0"
+              }
             },
             "covers": [
               {
@@ -1831,6 +1891,40 @@
           "blended"
         ]
       },
+      "CommissionBasisResponse": {
+        "title": "CommissionBasisResponse",
+        "description": "`CommissionBasis` on the way back, extensible. A consumer MUST pass an unrecognised value through — displaying it, and treating the line as priced on a basis it does not know rather than as one of the three it does. Mapping an unknown basis onto `upfront` because it is the common default is the failure this split exists to prevent: it would put a line into a comparison as though its price were the upfront price.\nSame values as `CommissionBasis`. The two are separate schemas for the reason set out in `docs/VERSIONING.md` — request enums are closed so a typo fails, response enums are extensible so the standard can grow without every consumer breaking.",
+        "type": "string",
+        "x-extensible-enum": [
+          "upfront",
+          "hybrid",
+          "level"
+        ]
+      },
+      "AppliedCommission": {
+        "title": "AppliedCommission",
+        "description": "The remuneration basis a premium was actually written on.\nTHIS IS PART OF THE PRICE, not a disclosure. It is what makes two lines comparable, so it is reported whether or not the consumer asked for anything — an insurer with a single basis states it as plainly as one that honoured a request.\nReporting it here does NOT discharge the `resolved_options` obligation, and the two answer different questions. This says what was priced; `resolved_options` says whether that was what was asked for. An insurer that could not write the requested basis must do both: report the basis it used here, and report `substituted` there with the reason. A consumer comparing this block against its own request to detect a substitution is doing the insurer's job, and will get it wrong on the deferred cases.",
+        "type": "object",
+        "required": [
+          "basis"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "$ref": "#/components/schemas/CommissionBasisResponse"
+          },
+          "dial_down_percent": {
+            "description": "The dial-down actually applied, as the share of standard commission GIVEN UP. Absent means none was applied. An insurer that capped a requested dial-down MUST report the capped figure here and a `substituted` entry in `resolved_options`.",
+            "$ref": "#/components/schemas/SharePercentage"
+          }
+        },
+        "examples": [
+          {
+            "basis": "upfront",
+            "dial_down_percent": "0"
+          }
+        ]
+      },
       "CoverLine": {
         "title": "CoverLine",
         "description": "One priced cover within a line. `cover_id` is echoed from the request so a consumer can match a priced cover to the one it asked for without guessing from type and amount.\nTHE AMOUNT FIELD DEPENDS ON THE COVER. Income protection and business expenses are written as a MONTHLY BENEFIT and carry `monthly_benefit`; every other cover carries `sum_insured`. Before this distinction existed, `sum_insured` was the only option and an insurer had to choose how to report a $6,500-a-month benefit — as `6500.00` or annualised to `78000.00`, both conformant. A consumer comparing benefits across a panel was comparing incompatible units with nothing to disambiguate them, and a 12x discrepancy reads as a product difference rather than an error.",
@@ -1936,6 +2030,10 @@
           },
           "structure": {
             "$ref": "#/components/schemas/StructureResponse"
+          },
+          "commission": {
+            "description": "The remuneration basis THIS cover was written on. REQUIRED wherever it differs from the line's — omitted, this cover is on the line's basis.\nThe case it exists for is an insurer that writes the requested basis on most of a policy but not on one benefit, typically because that benefit is being written above the age at which the basis is offered. The line is still a real offer and should still be priced; what cannot happen is the difference going unreported, because the affected cover's premium is then lower than the line's declared basis accounts for and the discrepancy looks like a product difference.\nJSON Schema cannot compare this against the parent line's value, so the requirement is normative here and tested by the conformance suite.",
+            "$ref": "#/components/schemas/AppliedCommission"
           },
           "linked_to": {
             "description": "Echoed from the request where this cover was written as an extension.",
@@ -2090,7 +2188,7 @@
       },
       "ResolvedOption": {
         "title": "ResolvedOption",
-        "description": "What became of one requested option. An entry is REQUIRED for every option the insurer did not apply exactly as asked, and for every deferred choice (`prefer`, `prefer_include`, `prefer_exclude`, `any`) whether or not the outcome matched the leaning.\nNORMATIVE: any option present in the request but NOT reflected in this array with an `applied` value equal to the requested value MUST be reported here — and an option the product cannot honour at all MUST be reported as `unsupported_ignored`. An insurer that silently ignores an option produces a line that looks like it included a benefit it did not, which is the most consequential defect this standard exists to prevent.",
+        "description": "What became of one requested option. An entry is REQUIRED for every option the insurer did not apply exactly as asked, and for every deferred choice (`prefer`, `prefer_include`, `prefer_exclude`, `any`) whether or not the outcome matched the leaning.\nNORMATIVE: any option present in the request but NOT reflected in this array with an `applied` value equal to the requested value MUST be reported here — and an option the product cannot honour at all MUST be reported as `unsupported_ignored`. An insurer that silently ignores an option produces a line that looks like it included a benefit it did not, which is the most consequential defect this standard exists to prevent.\n`commission` IS THE ONE OPTION REPORTED EVEN WHEN IT WAS NEVER SENT. Every other option absent from the request is absent from this array too; a commission basis the request did not name is reported as `defaulted`, because the insurer chose a basis regardless and that choice moved the premium. See `CommissionRequest`.",
         "type": "object",
         "required": [
           "cover_id",
@@ -2123,13 +2221,14 @@
             "maxLength": 64
           },
           "option": {
-            "description": "The field name of the option, as it appears in the request schema.",
+            "description": "The field name of the option, as it appears in the request schema. Use `commission` for the remuneration basis, at policy level or on a named cover.",
             "type": "string",
             "maxLength": 120,
             "examples": [
               "double_benefit",
               "waiting_period",
-              "structure"
+              "structure",
+              "commission"
             ]
           },
           "requested": {
@@ -2423,11 +2522,13 @@
         "else": {
           "required": [
             "premiums",
-            "rate_table_version"
+            "rate_table_version",
+            "commission"
           ],
           "properties": {
             "premiums": {},
             "rate_table_version": {},
+            "commission": {},
             "errors": {
               "maxItems": 0
             }
@@ -2480,6 +2581,10 @@
               "$ref": "#/components/schemas/CoverLine"
             },
             "default": []
+          },
+          "commission": {
+            "description": "The remuneration basis this line was PRICED on. REQUIRED on a line where `all_needs_met` is `true` — including where the request said nothing about commission and the insurer applied its own default, which is the case a consumer most needs told.\nRequired rather than conditional on having been asked, because the field answers a question about the premium rather than about the request. A consumer receiving lines from several insurers cannot otherwise tell an upfront-commission premium from a level-commission one, and sorting the two together ranks the panel on remuneration.\nWhere the covers in this line were not all written on the same basis, this reports the basis applied to the line as a whole and each cover that differs carries its own — see `CoverLine.commission`.",
+            "$ref": "#/components/schemas/AppliedCommission"
           },
           "resolved_occupation": {
             "$ref": "#/components/schemas/ResolvedOccupation"
@@ -2691,6 +2796,44 @@
           }
         ]
       },
+      "CommissionBasisCapability": {
+        "title": "CommissionBasisCapability",
+        "description": "One remuneration basis this insurer writes a cover on, with the bounds that apply to it.\nThe age bounds are the point of the schema. An adviser sets a policy-wide basis and one benefit in the policy falls outside the ages the insurer offers it on, so that benefit alone has to be written on another basis — and until a consumer can read this, the only way to learn it is to send the quote and interpret a decline. The bounds are read against `insured.age_next_birthday`, the same age the cover-level `min_age_next_birthday` and `max_age_next_birthday` use.\nAbsent bounds mean unbounded: a basis with no `max_age_next_birthday` is offered to the top of the cover's own age range.",
+        "type": "object",
+        "required": [
+          "basis"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "$ref": "#/components/schemas/CommissionBasis"
+          },
+          "min_age_next_birthday": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "max_age_next_birthday": {
+            "description": "The oldest age next birthday at which this cover is written on this basis. Where an insurer offers upfront commission only below a given age and level commission at every age, that is two entries, one of them bounded here.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "max_dial_down_percent": {
+            "description": "The largest dial-down accepted on this basis. Absent means the insurer accepts any dial-down up to nil commission.",
+            "$ref": "#/components/schemas/SharePercentage"
+          }
+        },
+        "examples": [
+          {
+            "basis": "upfront",
+            "max_age_next_birthday": 61
+          },
+          {
+            "basis": "level"
+          }
+        ]
+      },
       "CoverCapability": {
         "title": "CoverCapability",
         "description": "What one cover type supports. `supported_options` carries VALUE SETS rather than a list of field names, so an insurer can narrow an enum — three waiting periods out of seven — without the standard needing a new version.",
@@ -2742,6 +2885,29 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 100
+          },
+          "commission_bases": {
+            "description": "Which remuneration bases this insurer writes THIS cover on, and the age bounds on each.\nDeclared per cover, and separately from `supported_options`, because the restriction it describes is neither policy-wide nor a flat value list: the upfront and hybrid bases are commonly withdrawn on a benefit above a certain age while remaining available on the rest of the same policy. Flattened into a list of permitted values that restriction is undeclarable, and a consumer only meets it as a benefit that will not price.\nABSENT MEANS UNDECLARED, not \"no commission bases\". An insurer that has not populated this says nothing either way, and a consumer MUST fall back to the runtime paths rather than reading silence as a restriction — the same hint-not-contract rule that governs the rest of this document.",
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/CommissionBasisCapability"
+            },
+            "examples": [
+              [
+                {
+                  "basis": "upfront",
+                  "max_age_next_birthday": 61
+                },
+                {
+                  "basis": "hybrid",
+                  "max_age_next_birthday": 61
+                },
+                {
+                  "basis": "level"
+                }
+              ]
+            ]
           },
           "supported_options": {
             "description": "Permitted values per option field, keyed by the field name as it appears in the cover schema. An option field ABSENT from this map is not supported at all for this cover and MUST be reported as `unsupported_ignored` if sent.",
@@ -2908,7 +3074,7 @@
             }
           },
           "max_income_replacement_percent": {
-            "description": "The largest share of the insured's income this insurer will replace across all income-based covers combined, as a percentage. Commonly 70.\nDeclared so a consumer can keep an adviser inside what is actually issuable while they are still typing, rather than discovering it as a declined line after a pricing call. It is a CEILING, not a promise: the amount finally offered also depends on occupation, product and underwriting, so a request within this figure may still be declined.\nDistinct from the absolute bound the standard places on everyone. A benefit above 100% of income is impossible at every insurer and is a 422; a benefit between this figure and 100% is a decline here and may be priced by another insurer.",
+            "description": "The largest share of the insured's income this insurer will replace across all income-based covers combined, as a percentage. Commonly 70.\nDeclared so a consumer can keep an adviser inside what is actually issuable while they are still typing, rather than discovering it as a declined line after a pricing call. It is a CEILING, not a promise: the amount finally offered also depends on occupation, product and underwriting, so a request within this figure may still be declined.\nDistinct from the absolute bound the standard places on everyone. A benefit above 100% of income is impossible at every insurer and is a 422; a benefit between this figure and 100% is a decline here and may be priced by another insurer.\nA CEILING IS TESTED AGAINST THE UNROUNDED FIGURE, on both sides. A consumer converting this percentage into a monthly dollar amount MUST round DOWN, and a server MUST compare on exact decimal arithmetic rather than rounding the request up first. `income x percent / 12` rarely divides evenly, so half-up rounding lands cents over the cap and the benefit is declined for a rounding artefact — the insurer simply goes missing from the panel. See rule 1 on `QuoteRequest`.",
             "$ref": "#/components/schemas/Percentage"
           },
           "features": {

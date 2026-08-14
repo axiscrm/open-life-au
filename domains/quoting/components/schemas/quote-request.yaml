@@ -36,6 +36,21 @@ QuoteRequest:
        insurer's own ceiling — commonly 70% — is declared as
        `max_income_replacement_percent` in its capability document, and a request between that
        ceiling and 100% is a DECLINE, not a rejection, because another insurer may write it.
+
+       **ROUND A DERIVED BENEFIT DOWN — NORMATIVE.** The wire
+       carries dollars, not a percentage, so the arithmetic that turns "70% of income" into a
+       `monthly_benefit` happens in the consumer, unseen by the insurer and unconstrained by any
+       schema. Where a consumer derives the amount from a percentage of income it MUST round DOWN,
+       at whatever precision it sends. Half-up rounding puts the request over the ceiling by cents:
+       70% of $185,000 is $129,500 a year, or $10,791.666… a month, which half-up becomes
+       $10,791.67 — annualising to $129,500.04, four cents above the insurer's cap. The insurer
+       declines, correctly, and the adviser sees an insurer missing from the panel with no
+       explanation attached to it. Rounding to the nearest dollar makes it worse, not better.
+
+       The symmetric obligation is the server's: an insurer MUST evaluate both the 100% bound and
+       its own ceiling on exact decimal arithmetic against the unrounded figure, and MUST NOT round
+       the requested benefit up before comparing it. A request that is inside the ceiling as sent is
+       inside it, full stop.
     2. **An extension larger than the cover it extends.** An extension reduces its parent when
        paid, so a `linked_to` cover whose `sum_insured` exceeds its parent's describes a benefit
        that cannot exist.
@@ -135,6 +150,7 @@ QuoteRequest:
         structure: stepped
         ownership: super
         premium_waiver: exclude
+        commission: { basis: upfront, dial_down_percent: '0' }
       covers:
         - cover_id: life-1
           cover_type: life
@@ -174,8 +190,70 @@ PolicyDefaults:
       description: Default waiver-of-premium answer for every cover. Defaults to `exclude`.
       $ref: '../../../../core/schemas/cover-vocabulary.yaml#/PremiumWaiver'
       default: exclude
+    commission:
+      description: >-
+        Default remuneration basis for every cover. Absent means the insurer's own default, which it
+        MUST then report — see `CommissionRequest`.
+      $ref: '#/CommissionRequest'
     loadings:
       $ref: '#/Loadings'
+
+CommissionRequest:
+  title: CommissionRequest
+  description: >-
+    The remuneration basis to price on, and how much of it the adviser is giving up.
+
+    ## Why this is in a quoting contract at all
+
+    Commission is an INPUT TO THE PRICE. A level-commission premium and an upfront-commission
+    premium for identical cover differ by a margin larger than most of the product differences an
+    adviser is weighing, so a panel priced on mixed bases ranks on remuneration rather than on
+    product. Nothing in the numbers reveals it, which puts this in the same class as the frequency
+    rule: plausible figures, wrong comparison, no error anywhere.
+
+    Two failures follow, and both are addressed here rather than left to implementations:
+
+      - **Not applied.** The consumer says nothing and the insurer prices on its own default. That
+        is legitimate — but the insurer MUST report it in `resolved_options` with `option:
+        commission`, `cover_id: policy` and `defaulted`, so the basis behind the number is never
+        implicit.
+      - **Applied differently.** The insurer cannot write the requested basis for a cover — most
+        often because the benefit is being written at an age where only `level` is offered. It MUST
+        then either decline the line or price the basis it can write and report `substituted` with
+        the applied value, per `ResolvedOption`. Silently pricing another basis is forbidden.
+
+    ## Grain
+
+    Set here it applies to every cover. Set on a cover it REPLACES this block for that cover
+    entirely — it does not merge, so a cover naming only `basis` takes the insurer's default
+    dial-down rather than inheriting the one above. Same semantics as `loadings`, and stated because
+    the merging reading is the tempting one: a policy dial-down silently carried onto a cover the
+    adviser had reset would change that cover's price with nothing reporting it.
+  type: object
+  additionalProperties: false
+  properties:
+    basis:
+      description: >-
+        The remuneration basis to price on. Absent means the insurer's product default.
+      $ref: '../../../../core/schemas/commission-vocabulary.yaml#/CommissionBasis'
+    dial_down_percent:
+      description: >-
+        How much of the insurer's standard commission for this basis is GIVEN UP, as a percentage.
+        `'0'` is full commission; `'100'` is nil commission and the cheapest premium the basis
+        offers. Absent means no dial-down.
+
+        THE DIRECTION IS THE WHOLE FIELD, which is why it is spelled out in the name and again here.
+        Read the other way round — as the share retained — a dial-down of `'30'` becomes a 70%
+        giveaway, and the resulting line is cheaper than the adviser intended rather than dearer.
+        Both readings produce a valid premium and a plausible comparison table.
+
+        Bounded at 100 rather than using the general `Percentage` type: there is no sense in which
+        more than all of a commission can be given up.
+      $ref: '../../../../core/schemas/money.yaml#/SharePercentage'
+  examples:
+    - basis: upfront
+      dial_down_percent: '0'
+    - basis: level
 
 CoverLoadings:
   title: CoverLoadings

@@ -37,12 +37,23 @@ info:
     4. **Echo what you rated.** `resolved_occupation` and `rate_table_version` are what make a
        quote reproducible months later, which is what an adviser needs to justify a
        recommendation.
+    5. **Say which commission basis you priced on.** Remuneration is an input to the premium, and
+       the gap between an upfront-commission price and a level-commission one is wider than most
+       product differences. Every priced line carries `commission`, whether or not the request
+       named one — otherwise a comparison table sorts on remuneration and nothing in the numbers
+       says so.
 
     ## Money
 
     Amounts are decimal strings with an explicit currency, never JSON numbers. Premiums are summed
     and compared to the cent, and JSON numbers are IEEE-754 doubles in JavaScript and in most
     generated clients.
+
+    **Round a derived benefit down.** Where a consumer turns a replacement percentage into a
+    monthly benefit — 70% of income is the usual starting point — it MUST round DOWN. Half-up
+    rounding lands cents above the insurer's ceiling, the benefit is declined, and the insurer
+    simply goes missing from the panel with nothing explaining why. Servers evaluate the ceiling on
+    exact decimal arithmetic against the figure as sent. See rule 1 on `QuoteRequest`.
 
     ## Privacy
 
@@ -56,7 +67,7 @@ info:
 
     An implementation need not offer every cover or every option value. Declare what you offer in
     `GET /capabilities` and the conformance suite tests you against that declaration. What is not
-    optional is the four rules above.
+    optional is the five rules above.
 
   license:
     name: Apache-2.0

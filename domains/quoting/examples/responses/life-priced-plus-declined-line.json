@@ -15,6 +15,10 @@
       "rate_table_version": "2026-07-01",
       "all_needs_met": true,
       "errors": [],
+      "commission": {
+        "basis": "upfront",
+        "dial_down_percent": "0"
+      },
       "premiums": {
         "weekly": {
           "total": {
@@ -502,6 +506,13 @@
         }
       },
       "resolved_options": [
+        {
+          "cover_id": "policy",
+          "option": "commission",
+          "requested": "upfront",
+          "applied": "upfront",
+          "resolution": "as_requested"
+        },
         {
           "cover_id": "life-1",
           "option": "pay_by_rollover",
