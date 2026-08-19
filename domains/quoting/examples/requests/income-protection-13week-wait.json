@@ -1,0 +1,44 @@
+{
+  "client_reference": "c:5c1d9e4a70b28f36",
+  "insured": {
+    "age_next_birthday": 44,
+    "gender": "male",
+    "smoker": false,
+    "state": "QLD",
+    "employment_status": "employee",
+    "annual_income": {
+      "amount": "142000.00",
+      "currency": "AUD"
+    },
+    "occupation": {
+      "osca": "2211-11",
+      "description": "Accountant",
+      "qualifiers": {
+        "trade_qualified": true,
+        "manual_duties_percent": 0,
+        "hours_per_week": 40
+      }
+    }
+  },
+  "policy": {
+    "structure": "stepped",
+    "ownership": "ordinary",
+    "commission": {
+      "basis": "level",
+      "dial_down_percent": "0"
+    }
+  },
+  "covers": [
+    {
+      "cover_id": "ip-1",
+      "cover_type": "income_protection",
+      "monthly_benefit": {
+        "amount": "8283.33",
+        "currency": "AUD"
+      },
+      "waiting_period": "13w",
+      "benefit_period": "age_65",
+      "replacement_ratio": "70_to_75"
+    }
+  ]
+}

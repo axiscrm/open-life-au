@@ -3,9 +3,13 @@
 # Four rules here carry more weight than anything else in the standard, because each one guards
 # against a failure that is SILENT — it produces a plausible number rather than an error:
 #
-#   1. All six frequencies are returned on every priced line. A monthly premium is not the annual
-#      premium over twelve; insurers apply a frequency loading. Anyone who divides will understate
-#      the cost, and nothing in the response will look wrong.
+#   1. A frequency is priced or it is declared unavailable — it is never derived. A monthly premium
+#      is not the annual premium over twelve; insurers apply a frequency loading, so anyone who
+#      divides understates the cost and nothing in the response looks wrong. `monthly` and `annual`
+#      are required on every priced line; the other four are returned where the insurer quotes them
+#      and named in `not_quoted` where it does not. An insurer that does not sell a weekly premium
+#      must say so rather than invent one, because a divided figure carrying the authority of a
+#      quote is worse than the same arithmetic done by the consumer.
 #   2. A line that could not be assembled is flagged, never priced. An insurer that can meet some
 #      of the requested covers but not all of them must say so, because a partial policy shown at
 #      its lower premium reads as a better offer than a complete one.
@@ -155,8 +159,12 @@ QuoteLine:
 
     premiums:
       description: >-
-        The price of this line at every payment frequency. REQUIRED on a line where
+        The price of this line at each payment frequency the insurer quotes. REQUIRED on a line where
         `all_needs_met` is `true`; MUST be absent otherwise.
+
+        Which frequencies that is varies by insurer, and the ones it does not quote are named in
+        `PremiumSet.not_quoted`. A consumer comparing lines across a panel therefore compares on
+        `annual` or `monthly`, the two every line carries.
       $ref: '#/PremiumSet'
     cover_lines:
       description: >-
@@ -422,13 +430,29 @@ AppliedCommission:
 PremiumSet:
   title: PremiumSet
   description: >-
-    The same line priced at all six payment frequencies. ALL SIX ARE REQUIRED.
+    The same line priced at each payment frequency the insurer quotes. `monthly` and `annual` are
+    REQUIRED. The other four are present where the insurer quotes them and named in `not_quoted`
+    where it does not.
 
-    An insurer must not return only the frequency it was asked for, because there is no way to
-    derive the others: sub-annual premiums carry a frequency loading, so
+    WHY NOT ALL SIX, WHICH THIS SCHEMA USED TO REQUIRE. The reasoning for requiring six was that a
+    consumer given one frequency cannot derive the others, and that reasoning is sound — it is the
+    ordering rule below and it still binds. The conclusion did not follow. An insurer that does not
+    sell a weekly premium has no weekly premium to return, and requiring one obliges it to invent a
+    figure by dividing: the very arithmetic this schema forbids the consumer, made worse by arriving
+    with the authority of a quote. Sub-monthly billing in particular is not universal in this market,
+    and a standard that cannot express its absence forces every insurer without it to fabricate.
+
+    The two that remain required are the two that are not substitutable. `monthly` is what most
+    policies are actually billed at and what an adviser presents. `annual` is what comparison,
+    annualisation and projection totals are computed from. An insurer that can price a product at all
+    can price it at both.
+
+    A CONSUMER MUST NOT DERIVE AN ABSENT FREQUENCY, and this is the rule the whole schema is shaped
+    around. Sub-annual premiums carry a frequency loading, so
     `weekly x 52 >= fortnightly x 26 >= monthly x 12 >= quarterly x 4 >= half_yearly x 2 >= annual`.
-    Returning all six also means a consumer can let an adviser switch frequency without
-    re-pricing, which removes a whole class of billable round-trips.
+    A frequency absent here is not purchasable at any price, so dividing `annual` produces a number
+    that is both wrong and unbuyable while looking entirely normal. Offer the frequencies that are
+    present; offer no control for the ones that are not.
 
     ROUNDING. The ordering holds on the UNROUNDED amounts. Once each frequency is rounded to the cent
     the products can cross by up to one cent per period — a $1,000 annual premium at zero loading gives
@@ -436,10 +460,10 @@ PremiumSet:
     quarterly. A consumer checking the ordering MUST therefore allow a tolerance of
     `periods x $0.01`; a conformance test without it fails every honest zero-loading insurer.
 
-    An insurer that levies no frequency loading returns six sets whose annualised totals are equal
-    within that tolerance; that is valid.
+    An insurer that levies no frequency loading returns sets whose annualised totals are equal within
+    that tolerance; that is valid.
   type: object
-  required: [weekly, fortnightly, monthly, quarterly, half_yearly, annual]
+  required: [monthly, annual]
   additionalProperties: false
   properties:
     weekly: { $ref: '#/PremiumBreakdown' }
@@ -448,6 +472,61 @@ PremiumSet:
     quarterly: { $ref: '#/PremiumBreakdown' }
     half_yearly: { $ref: '#/PremiumBreakdown' }
     annual: { $ref: '#/PremiumBreakdown' }
+    not_quoted:
+      description: >-
+        Which of the optional frequencies this insurer does not quote for this line, and therefore
+        why they are absent above.
+
+        STATED RATHER THAN LEFT TO INFERENCE, because absence on its own is ambiguous in exactly the
+        way this standard exists to remove. A consumer cannot otherwise tell a frequency the insurer
+        does not sell from one an implementation omitted by mistake, and the two call for opposite
+        responses: the first is a product fact to reflect in the UI, the second is a defect to
+        report. It also makes the difference between two lines in one comparison legible — an insurer
+        that bills weekly and one that does not are offering different things, and an adviser should
+        be able to see which.
+
+        MUST NOT name a frequency that is present above. That is a contradiction and the schema
+        rejects it.
+
+        SHOULD name every optional frequency absent above. It is not required to, and the asymmetry
+        is deliberate: `premiums` itself remains the sole authority on what was quoted, so a consumer
+        MUST treat any absent frequency as unquoted whether or not it appears here. Were this list
+        authoritative instead, an implementation that forgot to populate it would turn an absent
+        premium into an apparently derivable one, which is the failure the field was added to
+        prevent.
+
+        `monthly` and `annual` cannot appear here, because they are always present.
+
+        An empty array is the ordinary case for an insurer that quotes every frequency.
+      type: array
+      uniqueItems: true
+      maxItems: 4
+      items:
+        description: >-
+          One optional frequency. Spelled out rather than referencing `Frequency` and narrowing it:
+          the two required frequencies are not expressible here at all, so a narrowed copy is the
+          honest type, and composing it would also hit the generator problem described at the top of
+          `covers.yaml`.
+        type: string
+        enum: [weekly, fortnightly, quarterly, half_yearly]
+      default: []
+  dependentSchemas:
+    # A frequency cannot be both priced and declared unquoted. Expressed with `dependentSchemas`
+    # because it fires only when the frequency is actually present, which is precisely the
+    # contradiction; the reverse direction — absent and unlisted — is left to the SHOULD above, since
+    # enforcing it would make `not_quoted` authoritative over `premiums`.
+    weekly:
+      properties:
+        not_quoted: { not: { contains: { const: weekly } } }
+    fortnightly:
+      properties:
+        not_quoted: { not: { contains: { const: fortnightly } } }
+    quarterly:
+      properties:
+        not_quoted: { not: { contains: { const: quarterly } } }
+    half_yearly:
+      properties:
+        not_quoted: { not: { contains: { const: half_yearly } } }
 
 PremiumBreakdown:
   title: PremiumBreakdown
@@ -637,10 +716,14 @@ CoverLine:
       $ref: '../../../../core/schemas/identifiers.yaml#/CoverId'
     premiums:
       description: >-
-        This cover's contribution to the line's premium, at all six frequencies. The same
-        arithmetic invariant applies per cover. Summing `cover_lines[].premiums[f].total` will
-        NOT reach the line total wherever a policy fee applies — read the line total, do not
-        derive it.
+        This cover's contribution to the line's premium. The same arithmetic invariant applies per
+        cover, and so does the frequency rule: a cover line carries the frequencies the insurer
+        quotes, which are the SAME ones the enclosing line carries. Frequency availability is a
+        property of how the insurer bills a policy, not of an individual benefit, so a cover line
+        quoting a frequency its line does not — or omitting one its line has — is a defect.
+
+        Summing `cover_lines[].premiums[f].total` will NOT reach the line total wherever a policy fee
+        applies — read the line total, do not derive it.
       $ref: '#/PremiumSet'
 
 Projection:

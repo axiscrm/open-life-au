@@ -94,9 +94,13 @@ Because this is runtime rather than compile-time, nothing catches a wrong option
 built. Validate before sending — the models raise on unknown enum values, which is your equivalent of
 the compile error other languages get.
 
-**Read the frequency you need; never divide.** `premiums` carries all six, and sub-annual premiums
-include a frequency loading, so annual ÷ 12 is not the monthly premium. It will be noticeably low and
-nothing will look wrong.
+**Read the frequency you need; never divide.** Sub-annual premiums include a frequency loading, so
+annual ÷ 12 is not the monthly premium. It will be noticeably low and nothing will look wrong.
+
+`premiums` carries `monthly` and `annual` always; the other four are `nil` where the insurer does not
+quote that frequency, and those are listed in `premiums.not_quoted`. `nil` means the frequency cannot
+be bought at any price, so dividing produces a figure that is both wrong and unpurchasable — disable
+the control instead.
 
 **A line with `all_needs_met == false` is not an offer.** `premiums` is nil. Filter before sorting by
 price, or a failed line sorts to the top as though it were free.

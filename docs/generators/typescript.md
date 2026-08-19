@@ -238,9 +238,13 @@ work in integer cents:
 const cents = (m: components["schemas"]["Money"]) => Math.round(Number(m.amount) * 100);
 ```
 
-**Read the frequency you need; never divide.** `line.premiums` carries all six, and sub-annual
-premiums include a frequency loading, so `annual / 12` is not the monthly premium. It will be
-noticeably low and nothing will look wrong.
+**Read the frequency you need; never divide.** Sub-annual premiums include a frequency loading, so
+`annual / 12` is not the monthly premium. It will be noticeably low and nothing will look wrong.
+
+`line.premiums` carries `monthly` and `annual` always; the other four are optional and absent where
+the insurer does not quote that frequency, and those are listed in `line.premiums.not_quoted`. Absent
+means the frequency cannot be bought at any price, so dividing produces a figure that is both wrong
+and unpurchasable — disable the control instead.
 
 **A line with `all_needs_met: false` is not an offer.** It has no `premiums` at all. Filter those
 before sorting by price, or a failed line will sort to the top as though it were free.

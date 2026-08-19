@@ -54,8 +54,52 @@ WaitingPeriod:
     periods cost materially more. Not every product offers every value; an insurer declares the
     values it supports in its capability document and rejects the rest with 422
     `unsupported-value`.
+
+    STATED IN THE UNIT THE PRODUCT IS SOLD IN — days, weeks, months or years. Insurers in this
+    market do not agree on a unit: some publish deferral periods in days, some in weeks, some in
+    months. An earlier version of this enum offered days and years only, which obliged anyone
+    whose product is sold in weeks to pick the nearest day figure, and that substitution is not
+    lossless.
+
+    THE VALUES ARE NOT INTERCHANGEABLE, and this is the whole reason the units coexist rather than
+    being normalised to one. `13w` is 91 days and `90d` is 90; `4w` is 28 days and `30d` is 30. The
+    industry says "90 day wait" and "13 week wait" as though they were the same thing, and for
+    conversational purposes they are — but they are different terms of contract, they price
+    differently, and a claim admitted on the 91st day is not covered by a 90-day policy. So:
+
+    - A consumer MUST NOT treat two values as equal because they are within a few days of each
+      other, and MUST NOT convert between units when comparing insurers. Compare `90d` against
+      `90d`; show `13w` as `13w`.
+    - An insurer asked for a value it does not write MUST NOT silently price the nearest one it
+      does. Either reject with 422 `unsupported-value`, or price the nearest and report it in
+      `resolved_options` as `substituted` — the choice is the insurer's, and the reporting is not.
+      A substitution nobody is told about is a quote for a different product at a plausible price.
+
+    The set is drawn from the deferral periods actually published in this market. The year values
+    are genuine but uncommon, appearing on high-income and own-occupation products rather than on a
+    typical retail benefit. Adding a value is a minor release, so an insurer whose product uses a
+    duration absent here should ask rather than round to fit.
   type: string
-  enum: ['14d', '30d', '60d', '90d', '180d', '1y', '2y']
+  enum:
+    # Days — the unit the standard started with, and still the commonest in published material.
+    - '14d'
+    - '30d'
+    - '60d'
+    - '90d'
+    - '180d'
+    # Weeks. Note that none of these equals the day value nearest to it.
+    - '2w'
+    - '4w'
+    - '8w'
+    - '13w'
+    - '26w'
+    # Months.
+    - '1m'
+    - '3m'
+    - '6m'
+    # Years. Genuine but uncommon — high-income and own-occupation products rather than retail.
+    - '1y'
+    - '2y'
 
 BenefitPeriod:
   title: BenefitPeriod
@@ -324,9 +368,10 @@ BusinessExpensesCover:
         waiting_period:
           description: >-
             A subset of `WaitingPeriod` — the long deferral periods are not offered on this
-            benefit.
+            benefit. Carries the short durations in every unit `WaitingPeriod` uses, since which
+            unit a product is sold in is a property of the insurer rather than of the benefit.
           type: string
-          enum: ['14d', '30d', '60d', '90d']
+          enum: ['14d', '30d', '60d', '90d', '2w', '4w', '8w', '13w', '1m', '3m']
         benefit_period:
           description: >-
             A subset of `BenefitPeriod` — cover for business overheads is short by nature.

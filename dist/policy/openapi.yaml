@@ -952,7 +952,9 @@ components:
           minimum: 0
     Frequency:
       title: Frequency
-      description: 'How often the premium is paid. A premium at a sub-annual frequency is NOT the annual premium divided by the number of periods: insurers apply a frequency loading, so `monthly x 12 >= annual`. Every priced product therefore carries all six frequencies — see `PremiumSet` — and consumers MUST read the frequency they need rather than deriving it.'
+      description: |-
+        How often the premium is paid. A premium at a sub-annual frequency is NOT the annual premium divided by the number of periods: insurers apply a frequency loading, so `monthly x 12 >= annual`. Consumers MUST therefore read the frequency they need rather than deriving it.
+        Not every insurer sells every frequency. A priced line carries `monthly` and `annual` always and the other four only where the insurer quotes them — see `PremiumSet`, which also says how an insurer declares the ones it does not. A frequency this enum can name is not thereby a frequency any given product can be billed at.
       type: string
       enum:
         - weekly

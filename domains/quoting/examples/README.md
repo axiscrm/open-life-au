@@ -87,6 +87,28 @@ Income protection alone, at the settings advisers reach for most often.
 - `benefit_quality` and `replacement_ratio` are preferences over **this insurer's own** range, so
   both come back in `resolved_options`. They are not cross-insurer rankings.
 
+### `income-protection-13week-wait.json`
+
+The same benefit as above, from an insurer that publishes its deferral periods in **weeks**.
+
+Set the two requests side by side, because the contrast is the point:
+
+| | `income-protection-90day-to-age-65.json` | this one |
+|---|---|---|
+| `waiting_period` | `90d` | `13w` |
+| Days before the benefit accrues | 90 | 91 |
+
+**Those are different terms of contract, not the same one written two ways.** The industry says "90
+day wait" and "13 week wait" interchangeably in conversation, and a claim admitted on the 91st day is
+covered by one and not the other. So a consumer MUST NOT convert between the units to compare two
+insurers, and MUST NOT show them as the same option — and an insurer asked for a value it does not
+write either rejects it or reports a `substituted` entry, never both prices silently.
+
+The other thing worth noticing is `monthly_benefit`. 70% of $142,000 over twelve months is
+$8,283.33recurring, and it is rounded **down** to `8283.33`. Rounded half-up it would be `8283.34`,
+which is a third of a cent above the insurer's ceiling — the benefit is declined, the insurer drops
+off the panel, and nothing says why.
+
 ### `loadings-with-explicit-zero.json`
 
 The sparse-map case, and the reason the loadings semantics are stated normatively in prose rather
@@ -148,3 +170,40 @@ been asked.
 Also note `resolved_occupation` differs between the two lines — different insurer occupation ids,
 different wording, and **rating classes in entirely different notations** (`2`/`3` against `B`/`C`).
 That is why rating classes must never be compared across insurers.
+
+### `monthly-and-annual-only.json`
+
+An insurer that bills monthly or yearly and nothing else. It answers
+`income-protection-13week-wait.json`.
+
+**`premiums` carries two frequencies, not six**, and the four it does not quote are named in
+`not_quoted`:
+
+```json
+"premiums": {
+  "monthly":  { "total": { "amount": "109.20", "currency": "AUD" }, "...": "..." },
+  "annual":   { "total": { "amount": "1260.00", "currency": "AUD" }, "...": "..." },
+  "not_quoted": ["weekly", "fortnightly", "quarterly", "half_yearly"]
+}
+```
+
+This is what an earlier version of the standard could not express. It required all six frequencies,
+so this insurer had two options: divide its annual premium by 52 and return the result, or fail
+conformance. The first is the arithmetic the standard forbids the *consumer* from doing, made worse by
+arriving with the authority of a quote — so the requirement was reduced to `monthly` and `annual`,
+which are the two that are not substitutable for one another.
+
+**`not_quoted` says why the four are missing, and it is not the authority on the fact that they
+are.** `premiums` alone governs: a consumer MUST treat any absent frequency as unquoted whether or not
+it appears in the list. Were the list authoritative, an implementation that forgot to populate it
+would turn an absent premium back into an apparently derivable one — the exact failure the field
+exists to prevent. What the list adds is the ability to tell a product fact from a bug, which is
+otherwise unknowable from absence alone.
+
+A frequency that appeared in both `premiums` and `not_quoted` is a contradiction, and the schema
+rejects it — `PremiumSet` carries a `dependentSchemas` block for each of the four.
+
+The frequency loading is still visible in what *is* quoted: monthly annualises to 1310.40 against an
+annual premium of 1260.00, so dividing the annual figure by twelve would understate the monthly cost
+by about 4%. That rule did not change. What changed is that an insurer is no longer required to break
+it on the standard's behalf.

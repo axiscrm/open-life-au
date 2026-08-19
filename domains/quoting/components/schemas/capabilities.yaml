@@ -64,10 +64,20 @@ Capabilities:
 
     frequencies:
       description: >-
-        Which payment frequencies the insurer's own billing supports. Note this does NOT narrow
-        the response: `PremiumSet` requires all six regardless, because a consumer compares and
-        annualises across insurers. This field says which ones a policy can actually be BILLED
-        at.
+        Which payment frequencies this insurer quotes and bills at. `monthly` and `annual` are
+        always among them, because `PremiumSet` requires both on every priced line.
+
+        THIS NOW MATCHES THE RESPONSE, where an earlier version of this standard said it did not.
+        `PremiumSet` used to require all six frequencies whatever an insurer actually sold, so this
+        field described billing while the response described something else — and an insurer with no
+        weekly product had to return a weekly premium anyway. The response now carries the
+        frequencies the insurer quotes and names the rest in `PremiumSet.not_quoted`, so the two
+        agree and this field is the pre-quote form of the same fact.
+
+        Read it the way the rest of this document is read: a hint that lets a consumer build the
+        frequency control before the first pricing call, not an authority. `PremiumSet` on the line
+        is what actually governs, and a consumer MUST NOT derive a frequency it finds here but not
+        there.
       type: array
       items:
         $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Frequency'
@@ -314,9 +324,15 @@ CoverCapability:
         type: array
         items: {}
       examples:
+        # An insurer whose product is published in days.
         - waiting_period: ['30d', '60d', '90d']
           benefit_period: ['2y', 'age_65']
           tpd_definition: [own_occupation, any_occupation, prefer]
+        # And one whose product is published in weeks. The two are declaring different terms of
+        # contract, not the same ones in different units — see `WaitingPeriod`.
+        - waiting_period: ['4w', '8w', '13w', '26w']
+          benefit_period: ['2y', '5y', 'age_65']
+          tpd_definition: [own_occupation, any_occupation]
     features:
       description: >-
         Named product features that may be required for this cover via `required_features`.

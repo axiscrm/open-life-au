@@ -323,6 +323,16 @@ const breakdown = {
 const premiums = Object.fromEntries(
     ["weekly", "fortnightly", "monthly", "quarterly", "half_yearly", "annual"].map((f) => [f, breakdown]),
 );
+
+/**
+ * A premium set carrying only the frequencies named, plus the required two.
+ *
+ * `monthly` and `annual` are always in: an insurer that can price a product at all can price it at
+ * both, which is why those two are the ones the schema requires.
+ */
+const premiumsFor = (...frequencies) => ({
+    ...Object.fromEntries(["monthly", "annual", ...frequencies].map((f) => [f, breakdown])),
+});
 const lineBase = {
     line_id: "ln_1",
     insurer_id: "example-life",
@@ -428,6 +438,64 @@ const LINE_CASES = [
             premiums,
             rate_table_version: "2026-01",
             commission: "upfront",
+        },
+    },
+
+    // ── The frequency rules. `PremiumSet` no longer requires all six, so what it DOES require and
+    // what it forbids are the only things standing between a consumer and a divided premium.
+    {
+        name: "a priced line with no monthly premium",
+        why: "rule 1 — monthly is what a policy is billed at and what an adviser presents",
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            rate_table_version: "2026-01",
+            commission: { basis: "upfront" },
+            premiums: { annual: breakdown },
+        },
+    },
+    {
+        name: "a priced line with no annual premium",
+        why: "rule 1 — annual is what comparison, annualisation and projection totals rest on",
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            rate_table_version: "2026-01",
+            commission: { basis: "upfront" },
+            premiums: { monthly: breakdown },
+        },
+    },
+    {
+        name: "a premium set that both prices weekly and declares weekly not quoted",
+        why: "a contradiction — the consumer cannot tell which half to believe",
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            rate_table_version: "2026-01",
+            commission: { basis: "upfront" },
+            premiums: { ...premiumsFor("weekly"), not_quoted: ["weekly"] },
+        },
+    },
+    {
+        name: "a premium set declaring monthly not quoted",
+        why: "monthly is required, so it can never be absent; the narrowed enum makes this unsayable",
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            rate_table_version: "2026-01",
+            commission: { basis: "upfront" },
+            premiums: { ...premiumsFor(), not_quoted: ["monthly"] },
+        },
+    },
+    {
+        name: "a premium set naming the same unquoted frequency twice",
+        why: "a duplicate suggests the list was assembled per cover and concatenated",
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            rate_table_version: "2026-01",
+            commission: { basis: "upfront" },
+            premiums: { ...premiumsFor(), not_quoted: ["weekly", "weekly"] },
         },
     },
 ];
@@ -918,6 +986,88 @@ const ACCEPTANCE_CASES = [
             commission: { basis: "upfront", dial_down_percent: "0" },
             cover_lines: [
                 { cover_type: "tpd", sum_insured: money("300000.00"), premiums, commission: { basis: "level" } },
+            ],
+        },
+    },
+
+    // ── An insurer that does not sell every frequency. These are the reason the all-six rule went:
+    // each one used to be invalid, which obliged such an insurer to divide its annual premium and
+    // return the result as a quote.
+    {
+        group: "quoting response",
+        name: "a line quoting only monthly and annual",
+        why: "an insurer with no sub-monthly or split billing has nothing else to return",
+        validator: validateLine,
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            premiums: premiumsFor(),
+            rate_table_version: "2026-01",
+            commission: { basis: "level" },
+        },
+    },
+    {
+        group: "quoting response",
+        name: "a line naming the frequencies it does not quote",
+        why: "absence alone cannot distinguish a product fact from an implementation that forgot",
+        validator: validateLine,
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            premiums: {
+                ...premiumsFor("quarterly", "half_yearly"),
+                not_quoted: ["weekly", "fortnightly"],
+            },
+            rate_table_version: "2026-01",
+            commission: { basis: "level" },
+        },
+    },
+    {
+        group: "quoting response",
+        name: "a line omitting frequencies WITHOUT naming them",
+        why: "`not_quoted` is a diagnostic aid; `premiums` alone remains the authority on absence",
+        validator: validateLine,
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            premiums: premiumsFor("quarterly"),
+            rate_table_version: "2026-01",
+            commission: { basis: "level" },
+        },
+    },
+    {
+        group: "quoting request",
+        name: "an income protection waiting period stated in weeks",
+        why: "insurers publish deferral periods in days, weeks or months; 13w is not 90d",
+        validator: validateRequest,
+        doc: {
+            insured: { ...insured, annual_income: money("180000.00") },
+            covers: [
+                {
+                    cover_id: "ip-1",
+                    cover_type: "income_protection",
+                    monthly_benefit: money("8000.00"),
+                    waiting_period: "13w",
+                    benefit_period: "age_65",
+                },
+            ],
+        },
+    },
+    {
+        group: "quoting request",
+        name: "an income protection waiting period stated in months",
+        why: "the same reason — the unit belongs to the product, not to the standard",
+        validator: validateRequest,
+        doc: {
+            insured: { ...insured, annual_income: money("180000.00") },
+            covers: [
+                {
+                    cover_id: "ip-1",
+                    cover_type: "income_protection",
+                    monthly_benefit: money("8000.00"),
+                    waiting_period: "3m",
+                    benefit_period: "5y",
+                },
             ],
         },
     },

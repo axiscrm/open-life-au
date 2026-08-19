@@ -1,0 +1,178 @@
+{
+  "quote_id": "q_01JQ9C2M7X4E8H6TB1WD",
+  "quoted_at": "2026-08-19T11:15:42+10:00",
+  "valid_until": "2026-09-18T11:15:42+10:00",
+  "client_reference": "c:5c1d9e4a70b28f36",
+  "lines": [
+    {
+      "line_id": "ln_1",
+      "insurer_id": "example-mutual",
+      "brand_id": "example-mutual",
+      "product_name": "Income Secure",
+      "component_products": [
+        "Income Secure"
+      ],
+      "rate_table_version": "2026-04-01",
+      "all_needs_met": true,
+      "errors": [],
+      "commission": {
+        "basis": "level",
+        "dial_down_percent": "0"
+      },
+      "premiums": {
+        "monthly": {
+          "total": {
+            "amount": "109.20",
+            "currency": "AUD"
+          },
+          "premium_super": {
+            "amount": "0.00",
+            "currency": "AUD"
+          },
+          "premium_non_super": {
+            "amount": "104.00",
+            "currency": "AUD"
+          },
+          "stamp_duty_super": {
+            "amount": "0.00",
+            "currency": "AUD"
+          },
+          "stamp_duty_non_super": {
+            "amount": "5.20",
+            "currency": "AUD"
+          }
+        },
+        "annual": {
+          "total": {
+            "amount": "1260.00",
+            "currency": "AUD"
+          },
+          "premium_super": {
+            "amount": "0.00",
+            "currency": "AUD"
+          },
+          "premium_non_super": {
+            "amount": "1200.00",
+            "currency": "AUD"
+          },
+          "stamp_duty_super": {
+            "amount": "0.00",
+            "currency": "AUD"
+          },
+          "stamp_duty_non_super": {
+            "amount": "60.00",
+            "currency": "AUD"
+          }
+        },
+        "not_quoted": [
+          "weekly",
+          "fortnightly",
+          "quarterly",
+          "half_yearly"
+        ]
+      },
+      "cover_lines": [
+        {
+          "cover_id": "ip-1",
+          "cover_type": "income_protection",
+          "description": "Income Secure \u2014 13 week wait, to age 65",
+          "monthly_benefit": {
+            "amount": "8283.33",
+            "currency": "AUD"
+          },
+          "waiting_period": "13w",
+          "benefit_period": "age_65",
+          "ownership": "ordinary",
+          "structure": "stepped",
+          "premiums": {
+            "monthly": {
+              "total": {
+                "amount": "109.20",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "0.00",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "104.00",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "0.00",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "5.20",
+                "currency": "AUD"
+              }
+            },
+            "annual": {
+              "total": {
+                "amount": "1260.00",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "0.00",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "1200.00",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "0.00",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "60.00",
+                "currency": "AUD"
+              }
+            },
+            "not_quoted": [
+              "weekly",
+              "fortnightly",
+              "quarterly",
+              "half_yearly"
+            ]
+          }
+        }
+      ],
+      "resolved_occupation": {
+        "insurer_occupation_id": "OCC-2211",
+        "description": "Accountant \u2014 professional, no manual duties",
+        "match_confidence": "exact",
+        "ratings": {
+          "life": {
+            "supported": true,
+            "rating_class": "1",
+            "rating_class_label": "Professional"
+          },
+          "income_protection": {
+            "supported": true,
+            "rating_class": "1"
+          },
+          "business_expenses": {
+            "supported": false
+          }
+        }
+      },
+      "resolved_options": [
+        {
+          "cover_id": "policy",
+          "option": "commission",
+          "requested": "level",
+          "applied": "level",
+          "resolution": "as_requested"
+        },
+        {
+          "cover_id": "ip-1",
+          "option": "waiting_period",
+          "requested": "13w",
+          "applied": "13w",
+          "resolution": "as_requested"
+        }
+      ]
+    }
+  ]
+}

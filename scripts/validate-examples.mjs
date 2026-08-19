@@ -88,6 +88,12 @@ const PERIODS_PER_YEAR = {
 };
 /** Descending annualised order: a shorter period costs more once the frequency loading applies. */
 const FREQUENCY_ORDER = ["weekly", "fortnightly", "monthly", "quarterly", "half_yearly", "annual"];
+/**
+ * The two frequencies every priced line must carry. The other four are present only where the
+ * insurer quotes them — an insurer with no weekly product has no weekly premium, and requiring one
+ * obliged it to divide its annual figure and return the result as a quote. See `PremiumSet`.
+ */
+const REQUIRED_FREQUENCIES = ["monthly", "annual"];
 
 const cents = (money) => Math.round(Number(money.amount) * 100);
 
@@ -121,13 +127,31 @@ function checkInvariants(response, where) {
         for (const [set, setAt] of sets) {
             if (!set) continue;
 
+            for (const freq of REQUIRED_FREQUENCIES) {
+                if (!set[freq]) {
+                    problems.push(`${setAt}.${freq}: missing — monthly and annual are required`);
+                }
+            }
+
+            // `not_quoted` must not contradict what is actually priced. The schema enforces this too
+            // (`dependentSchemas` on PremiumSet); it is repeated here because an example is what an
+            // implementer copies, and a contradictory one would teach a consumer to trust the wrong
+            // half.
+            for (const freq of set.not_quoted ?? []) {
+                if (set[freq]) {
+                    problems.push(
+                        `${setAt}: ${freq} is priced but also listed in not_quoted — a consumer ` +
+                            "cannot tell which half to believe",
+                    );
+                }
+            }
+
             // total == premium_super + stamp_duty_super + premium_non_super + stamp_duty_non_super
             for (const freq of FREQUENCY_ORDER) {
                 const b = set[freq];
-                if (!b) {
-                    problems.push(`${setAt}.${freq}: missing — all six frequencies are required`);
-                    continue;
-                }
+                // Absent is legitimate for the four optional frequencies; the loop above covers the
+                // two that are not.
+                if (!b) continue;
                 const parts =
                     cents(b.premium_super) +
                     cents(b.stamp_duty_super) +

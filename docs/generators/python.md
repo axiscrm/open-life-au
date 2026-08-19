@@ -169,9 +169,13 @@ Pydantic, since the two do not compose.
 **Money is a string, deliberately.** Convert with `Decimal(...)`, never `float(...)`. Premiums are
 summed and compared to the cent, and float drift in a comparison table is a compliance problem.
 
-**Read the frequency you need; never divide.** `line.premiums` carries all six, and sub-annual
-premiums include a frequency loading, so `annual / 12` is not the monthly premium. It will be
-noticeably low and nothing will look wrong.
+**Read the frequency you need; never divide.** Sub-annual premiums include a frequency loading, so
+`annual / 12` is not the monthly premium. It will be noticeably low and nothing will look wrong.
+
+`line.premiums` carries `monthly` and `annual` always; the other four are `None` where the insurer
+does not quote that frequency, and those are listed in `line.premiums.not_quoted`. `None` means the
+frequency cannot be bought at any price, so dividing produces a figure that is both wrong and
+unpurchasable — disable the control instead.
 
 **A line with `all_needs_met=False` is not an offer.** `premiums` is absent entirely, so a
 price-ordered sort must filter those out first or a failed line sorts to the top as though free.

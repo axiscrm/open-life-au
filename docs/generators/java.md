@@ -160,9 +160,13 @@ for (CoverRequest cover : request.getCovers()) {
 }
 ```
 
-**Read the frequency you need; never divide.** `getPremiums()` carries all six, and sub-annual
-premiums include a frequency loading, so annual ÷ 12 is not the monthly premium. It will be
-noticeably low and nothing will look wrong.
+**Read the frequency you need; never divide.** Sub-annual premiums include a frequency loading, so
+annual ÷ 12 is not the monthly premium. It will be noticeably low and nothing will look wrong.
+
+`getPremiums()` carries `getMonthly()` and `getAnnual()` always; the other four return null where the
+insurer does not quote that frequency, and those are listed in `getPremiums().getNotQuoted()`. Null
+means the frequency cannot be bought at any price, so dividing produces a figure that is both wrong
+and unpurchasable — disable the control instead.
 
 **A line with `allNeedsMet == false` is not an offer.** `getPremiums()` returns null. Filter before
 sorting by price, or a failed line sorts to the top as though it were free.

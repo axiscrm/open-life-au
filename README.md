@@ -57,9 +57,11 @@ separate collections by several separate entities.
 
 Each guards a **silent** failure — one that produces a plausible number rather than an error.
 
-1. **All six payment frequencies on every priced line.** Sub-annual premiums carry a frequency
-   loading, so monthly is not annual ÷ 12. A consumer that divides understates the cost and nothing
-   looks wrong.
+1. **A frequency is priced, or it is declared unavailable — never derived.** Sub-annual premiums
+   carry a frequency loading, so monthly is not annual ÷ 12. A consumer that divides understates the
+   cost and nothing looks wrong. `monthly` and `annual` are required on every priced line; the other
+   four appear where the insurer quotes them and are named in `premiums.not_quoted` where it does
+   not, so an insurer with no weekly product says so instead of inventing one.
 2. **Never price what you could not assemble.** If some requested covers cannot be written, return
    the line with `all_needs_met: false`, populated `errors`, and no premium. A partial policy priced
    as though complete reads as the best offer on the table.

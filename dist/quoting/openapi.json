@@ -54,7 +54,7 @@
       "post": {
         "operationId": "createQuote",
         "summary": "Price a set of covers",
-        "description": "Price the requested covers for one insured and return every line the insurer can offer, plus the lines it had to decline.\n### What a response means\nOne request yields MANY lines. An insurer with two brands and a campaign on one of them may answer a single life-cover request with three lines. Consumers must treat the response as a set of comparable offers, never as \"the price\".\n### Three things a consumer must not do\n- **Do not derive a frequency.** Every line carries all six. `annual / 12` is not the monthly\n  premium, because sub-annual premiums carry a frequency loading.\n- **Do not price a failed line.** A line with `all_needs_met: false` carries no `premiums` and\n  is not an offer. It exists so the adviser can see that this insurer was asked and could not\n  write the combination.\n- **Do not assume an option was applied.** Check `resolved_options`. An option the product\n  cannot honour appears there as `unsupported_ignored`, and the premium does not include it.\n\n### Caching\nQuote responses carry personal information about the insured and MUST NOT be cached by intermediaries. Servers MUST send `Cache-Control: no-store`.",
+        "description": "Price the requested covers for one insured and return every line the insurer can offer, plus the lines it had to decline.\n### What a response means\nOne request yields MANY lines. An insurer with two brands and a campaign on one of them may answer a single life-cover request with three lines. Consumers must treat the response as a set of comparable offers, never as \"the price\".\n### Three things a consumer must not do\n- **Do not derive a frequency.** `annual / 12` is not the monthly premium, because sub-annual\n  premiums carry a frequency loading. Every line carries `monthly` and `annual`; the other four\n  appear only where the insurer quotes them, and the ones it does not are named in\n  `premiums.not_quoted`. An absent frequency cannot be bought at any price, so a derived figure\n  is both wrong and unpurchasable.\n- **Do not price a failed line.** A line with `all_needs_met: false` carries no `premiums` and\n  is not an offer. It exists so the adviser can see that this insurer was asked and could not\n  write the combination.\n- **Do not assume an option was applied.** Check `resolved_options`. An option the product\n  cannot honour appears there as `unsupported_ignored`, and the premium does not include it.\n\n### Caching\nQuote responses carry personal information about the insured and MUST NOT be cached by intermediaries. Servers MUST send `Cache-Control: no-store`.",
         "tags": [
           "Quotes"
         ],
@@ -1217,7 +1217,7 @@
       },
       "WaitingPeriod": {
         "title": "WaitingPeriod",
-        "description": "How long the insured must be disabled before a monthly benefit starts to accrue. Shorter periods cost materially more. Not every product offers every value; an insurer declares the values it supports in its capability document and rejects the rest with 422 `unsupported-value`.",
+        "description": "How long the insured must be disabled before a monthly benefit starts to accrue. Shorter periods cost materially more. Not every product offers every value; an insurer declares the values it supports in its capability document and rejects the rest with 422 `unsupported-value`.\nSTATED IN THE UNIT THE PRODUCT IS SOLD IN — days, weeks, months or years. Insurers in this market do not agree on a unit: some publish deferral periods in days, some in weeks, some in months. An earlier version of this enum offered days and years only, which obliged anyone whose product is sold in weeks to pick the nearest day figure, and that substitution is not lossless.\nTHE VALUES ARE NOT INTERCHANGEABLE, and this is the whole reason the units coexist rather than being normalised to one. `13w` is 91 days and `90d` is 90; `4w` is 28 days and `30d` is 30. The industry says \"90 day wait\" and \"13 week wait\" as though they were the same thing, and for conversational purposes they are — but they are different terms of contract, they price differently, and a claim admitted on the 91st day is not covered by a 90-day policy. So:\n- A consumer MUST NOT treat two values as equal because they are within a few days of each\n  other, and MUST NOT convert between units when comparing insurers. Compare `90d` against\n  `90d`; show `13w` as `13w`.\n- An insurer asked for a value it does not write MUST NOT silently price the nearest one it\n  does. Either reject with 422 `unsupported-value`, or price the nearest and report it in\n  `resolved_options` as `substituted` — the choice is the insurer's, and the reporting is not.\n  A substitution nobody is told about is a quote for a different product at a plausible price.\n\nThe set is drawn from the deferral periods actually published in this market. The year values are genuine but uncommon, appearing on high-income and own-occupation products rather than on a typical retail benefit. Adding a value is a minor release, so an insurer whose product uses a duration absent here should ask rather than round to fit.",
         "type": "string",
         "enum": [
           "14d",
@@ -1225,6 +1225,14 @@
           "60d",
           "90d",
           "180d",
+          "2w",
+          "4w",
+          "8w",
+          "13w",
+          "26w",
+          "1m",
+          "3m",
+          "6m",
           "1y",
           "2y"
         ]
@@ -1333,13 +1341,19 @@
                 "$ref": "#/components/schemas/NonNegativeMoney"
               },
               "waiting_period": {
-                "description": "A subset of `WaitingPeriod` — the long deferral periods are not offered on this benefit.",
+                "description": "A subset of `WaitingPeriod` — the long deferral periods are not offered on this benefit. Carries the short durations in every unit `WaitingPeriod` uses, since which unit a product is sold in is a property of the insurer rather than of the benefit.",
                 "type": "string",
                 "enum": [
                   "14d",
                   "30d",
                   "60d",
-                  "90d"
+                  "90d",
+                  "2w",
+                  "4w",
+                  "8w",
+                  "13w",
+                  "1m",
+                  "3m"
                 ]
               },
               "benefit_period": {
@@ -1827,14 +1841,10 @@
       },
       "PremiumSet": {
         "title": "PremiumSet",
-        "description": "The same line priced at all six payment frequencies. ALL SIX ARE REQUIRED.\nAn insurer must not return only the frequency it was asked for, because there is no way to derive the others: sub-annual premiums carry a frequency loading, so `weekly x 52 >= fortnightly x 26 >= monthly x 12 >= quarterly x 4 >= half_yearly x 2 >= annual`. Returning all six also means a consumer can let an adviser switch frequency without re-pricing, which removes a whole class of billable round-trips.\nROUNDING. The ordering holds on the UNROUNDED amounts. Once each frequency is rounded to the cent the products can cross by up to one cent per period — a $1,000 annual premium at zero loading gives monthly 83.33 (annualising to 999.96) and quarterly 250.00 (1,000.00), so monthly annualises BELOW quarterly. A consumer checking the ordering MUST therefore allow a tolerance of `periods x $0.01`; a conformance test without it fails every honest zero-loading insurer.\nAn insurer that levies no frequency loading returns six sets whose annualised totals are equal within that tolerance; that is valid.",
+        "description": "The same line priced at each payment frequency the insurer quotes. `monthly` and `annual` are REQUIRED. The other four are present where the insurer quotes them and named in `not_quoted` where it does not.\nWHY NOT ALL SIX, WHICH THIS SCHEMA USED TO REQUIRE. The reasoning for requiring six was that a consumer given one frequency cannot derive the others, and that reasoning is sound — it is the ordering rule below and it still binds. The conclusion did not follow. An insurer that does not sell a weekly premium has no weekly premium to return, and requiring one obliges it to invent a figure by dividing: the very arithmetic this schema forbids the consumer, made worse by arriving with the authority of a quote. Sub-monthly billing in particular is not universal in this market, and a standard that cannot express its absence forces every insurer without it to fabricate.\nThe two that remain required are the two that are not substitutable. `monthly` is what most policies are actually billed at and what an adviser presents. `annual` is what comparison, annualisation and projection totals are computed from. An insurer that can price a product at all can price it at both.\nA CONSUMER MUST NOT DERIVE AN ABSENT FREQUENCY, and this is the rule the whole schema is shaped around. Sub-annual premiums carry a frequency loading, so `weekly x 52 >= fortnightly x 26 >= monthly x 12 >= quarterly x 4 >= half_yearly x 2 >= annual`. A frequency absent here is not purchasable at any price, so dividing `annual` produces a number that is both wrong and unbuyable while looking entirely normal. Offer the frequencies that are present; offer no control for the ones that are not.\nROUNDING. The ordering holds on the UNROUNDED amounts. Once each frequency is rounded to the cent the products can cross by up to one cent per period — a $1,000 annual premium at zero loading gives monthly 83.33 (annualising to 999.96) and quarterly 250.00 (1,000.00), so monthly annualises BELOW quarterly. A consumer checking the ordering MUST therefore allow a tolerance of `periods x $0.01`; a conformance test without it fails every honest zero-loading insurer.\nAn insurer that levies no frequency loading returns sets whose annualised totals are equal within that tolerance; that is valid.",
         "type": "object",
         "required": [
-          "weekly",
-          "fortnightly",
           "monthly",
-          "quarterly",
-          "half_yearly",
           "annual"
         ],
         "additionalProperties": false,
@@ -1856,6 +1866,69 @@
           },
           "annual": {
             "$ref": "#/components/schemas/PremiumBreakdown"
+          },
+          "not_quoted": {
+            "description": "Which of the optional frequencies this insurer does not quote for this line, and therefore why they are absent above.\nSTATED RATHER THAN LEFT TO INFERENCE, because absence on its own is ambiguous in exactly the way this standard exists to remove. A consumer cannot otherwise tell a frequency the insurer does not sell from one an implementation omitted by mistake, and the two call for opposite responses: the first is a product fact to reflect in the UI, the second is a defect to report. It also makes the difference between two lines in one comparison legible — an insurer that bills weekly and one that does not are offering different things, and an adviser should be able to see which.\nMUST NOT name a frequency that is present above. That is a contradiction and the schema rejects it.\nSHOULD name every optional frequency absent above. It is not required to, and the asymmetry is deliberate: `premiums` itself remains the sole authority on what was quoted, so a consumer MUST treat any absent frequency as unquoted whether or not it appears here. Were this list authoritative instead, an implementation that forgot to populate it would turn an absent premium into an apparently derivable one, which is the failure the field was added to prevent.\n`monthly` and `annual` cannot appear here, because they are always present.\nAn empty array is the ordinary case for an insurer that quotes every frequency.",
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 4,
+            "items": {
+              "description": "One optional frequency. Spelled out rather than referencing `Frequency` and narrowing it: the two required frequencies are not expressible here at all, so a narrowed copy is the honest type, and composing it would also hit the generator problem described at the top of `covers.yaml`.",
+              "type": "string",
+              "enum": [
+                "weekly",
+                "fortnightly",
+                "quarterly",
+                "half_yearly"
+              ]
+            },
+            "default": []
+          }
+        },
+        "dependentSchemas": {
+          "weekly": {
+            "properties": {
+              "not_quoted": {
+                "not": {
+                  "contains": {
+                    "const": "weekly"
+                  }
+                }
+              }
+            }
+          },
+          "fortnightly": {
+            "properties": {
+              "not_quoted": {
+                "not": {
+                  "contains": {
+                    "const": "fortnightly"
+                  }
+                }
+              }
+            }
+          },
+          "quarterly": {
+            "properties": {
+              "not_quoted": {
+                "not": {
+                  "contains": {
+                    "const": "quarterly"
+                  }
+                }
+              }
+            }
+          },
+          "half_yearly": {
+            "properties": {
+              "not_quoted": {
+                "not": {
+                  "contains": {
+                    "const": "half_yearly"
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -2052,7 +2125,7 @@
             "$ref": "#/components/schemas/CoverId"
           },
           "premiums": {
-            "description": "This cover's contribution to the line's premium, at all six frequencies. The same arithmetic invariant applies per cover. Summing `cover_lines[].premiums[f].total` will NOT reach the line total wherever a policy fee applies — read the line total, do not derive it.",
+            "description": "This cover's contribution to the line's premium. The same arithmetic invariant applies per cover, and so does the frequency rule: a cover line carries the frequencies the insurer quotes, which are the SAME ones the enclosing line carries. Frequency availability is a property of how the insurer bills a policy, not of an individual benefit, so a cover line quoting a frequency its line does not — or omitting one its line has — is a defect.\nSumming `cover_lines[].premiums[f].total` will NOT reach the line total wherever a policy fee applies — read the line total, do not derive it.",
             "$ref": "#/components/schemas/PremiumSet"
           }
         }
@@ -2583,7 +2656,7 @@
             "default": []
           },
           "premiums": {
-            "description": "The price of this line at every payment frequency. REQUIRED on a line where `all_needs_met` is `true`; MUST be absent otherwise.",
+            "description": "The price of this line at each payment frequency the insurer quotes. REQUIRED on a line where `all_needs_met` is `true`; MUST be absent otherwise.\nWhich frequencies that is varies by insurer, and the ones it does not quote are named in `PremiumSet.not_quoted`. A consumer comparing lines across a panel therefore compares on `annual` or `monthly`, the two every line carries.",
             "$ref": "#/components/schemas/PremiumSet"
           },
           "cover_lines": {
@@ -2989,6 +3062,23 @@
                   "any_occupation",
                   "prefer"
                 ]
+              },
+              {
+                "waiting_period": [
+                  "4w",
+                  "8w",
+                  "13w",
+                  "26w"
+                ],
+                "benefit_period": [
+                  "2y",
+                  "5y",
+                  "age_65"
+                ],
+                "tpd_definition": [
+                  "own_occupation",
+                  "any_occupation"
+                ]
               }
             ]
           },
@@ -3032,7 +3122,7 @@
       },
       "Frequency": {
         "title": "Frequency",
-        "description": "How often the premium is paid. A premium at a sub-annual frequency is NOT the annual premium divided by the number of periods: insurers apply a frequency loading, so `monthly x 12 >= annual`. Every priced product therefore carries all six frequencies — see `PremiumSet` — and consumers MUST read the frequency they need rather than deriving it.",
+        "description": "How often the premium is paid. A premium at a sub-annual frequency is NOT the annual premium divided by the number of periods: insurers apply a frequency loading, so `monthly x 12 >= annual`. Consumers MUST therefore read the frequency they need rather than deriving it.\nNot every insurer sells every frequency. A priced line carries `monthly` and `annual` always and the other four only where the insurer quotes them — see `PremiumSet`, which also says how an insurer declares the ones it does not. A frequency this enum can name is not thereby a frequency any given product can be billed at.",
         "type": "string",
         "enum": [
           "weekly",
@@ -3097,7 +3187,7 @@
             }
           },
           "frequencies": {
-            "description": "Which payment frequencies the insurer's own billing supports. Note this does NOT narrow the response: `PremiumSet` requires all six regardless, because a consumer compares and annualises across insurers. This field says which ones a policy can actually be BILLED at.",
+            "description": "Which payment frequencies this insurer quotes and bills at. `monthly` and `annual` are always among them, because `PremiumSet` requires both on every priced line.\nTHIS NOW MATCHES THE RESPONSE, where an earlier version of this standard said it did not. `PremiumSet` used to require all six frequencies whatever an insurer actually sold, so this field described billing while the response described something else — and an insurer with no weekly product had to return a weekly premium anyway. The response now carries the frequencies the insurer quotes and names the rest in `PremiumSet.not_quoted`, so the two agree and this field is the pre-quote form of the same fact.\nRead it the way the rest of this document is read: a hint that lets a consumer build the frequency control before the first pricing call, not an authority. `PremiumSet` on the line is what actually governs, and a consumer MUST NOT derive a frequency it finds here but not there.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Frequency"
