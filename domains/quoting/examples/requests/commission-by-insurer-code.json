@@ -20,8 +20,7 @@
     "structure": "stepped",
     "ownership": "ordinary",
     "commission": {
-      "basis": "upfront",
-      "dial_down_percent": "0"
+      "insurer_commission_id": "UF-0-22"
     }
   },
   "covers": [
@@ -40,10 +39,7 @@
         "amount": "300000.00",
         "currency": "AUD"
       },
-      "tpd_definition": "any_occupation",
-      "commission": {
-        "basis": "level"
-      }
+      "tpd_definition": "any_occupation"
     }
   ]
 }

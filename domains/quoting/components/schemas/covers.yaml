@@ -136,19 +136,6 @@ CoverBase:
         Only meaningful where `ownership` resolves to a superannuation type; insurers MUST
         report it as `unsupported_ignored` rather than silently dropping it otherwise.
       $ref: '../../../../core/schemas/cover-vocabulary.yaml#/Preference'
-    commission:
-      description: >-
-        The remuneration basis for THIS cover, replacing the policy-level block.
-
-        Per-cover because the restriction that forces it is per-cover. Insurers withdraw the upfront
-        and hybrid bases on some benefits above a given age while continuing to offer them on the
-        rest of the same policy, so an adviser writing one policy legitimately needs two bases in
-        it. Without this field the whole quote has to be re-sent on the lower basis, which reprices
-        every other benefit as well, and the comparison quietly changes underneath the adviser.
-
-        REPLACES the policy-level block entirely for this cover — it does not merge. See
-        `CommissionRequest`.
-      $ref: 'quote-request.yaml#/CommissionRequest'
     loadings:
       description: >-
         Underwriting loadings for THIS cover, overriding the policy-level map.

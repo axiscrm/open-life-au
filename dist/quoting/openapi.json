@@ -785,7 +785,7 @@
       },
       "CommissionBasis": {
         "title": "CommissionBasis",
-        "description": "The remuneration basis a premium is priced on. REQUEST-facing and therefore CLOSED: an unrecognised value MUST be rejected with 422 `unsupported-value`, never priced as a default.\n## This is a pricing input, not a bookkeeping detail\nThe same cover, for the same insured, on the same product, costs a different amount on each of these. That is the whole reason it appears in a quoting contract: a consumer that omits it, or an insurer that ignores it, produces a premium that is correct arithmetic on the wrong question. Two lines priced on different bases are not comparable at all, and nothing about the numbers themselves says so — which is why every priced line has to declare the basis it used.\n## The three bases\n\n  - `upfront`  a large initial payment in the first year, a lower rate thereafter. The dearest\n               premium of the three\n  - `hybrid`   a smaller initial payment and a higher ongoing rate\n  - `level`    the same rate every year, initial and ongoing alike. The cheapest premium of the\n               three, and commonly the ONLY basis available on a benefit written at an older\n               age, where insurers withdraw the upfront and hybrid options entirely\n\nThat last clause is the case worth designing for rather than discovering. An adviser sets one basis for the policy and one benefit in it falls outside what the insurer writes on that basis — so the basis is settable per cover, declarable per cover, and reported per cover.",
+        "description": "The remuneration basis a premium is priced on. REQUEST-facing and therefore CLOSED: an unrecognised value MUST be rejected with 422 `unsupported-value`, never priced as a default.\n## This is a pricing input, not a bookkeeping detail\nThe same cover, for the same insured, on the same product, costs a different amount on each of these. That is the whole reason it appears in a quoting contract: a consumer that omits it, or an insurer that ignores it, produces a premium that is correct arithmetic on the wrong question. Two lines priced on different bases are not comparable at all, and nothing about the numbers themselves says so — which is why every priced line has to declare the basis it used.\n## The three bases\n\n  - `upfront`  a large initial payment in the first year, a lower rate thereafter. The dearest\n               premium of the three\n  - `hybrid`   a smaller initial payment and a higher ongoing rate\n  - `level`    the same rate every year, initial and ongoing alike. The cheapest premium of the\n               three, and commonly the ONLY basis available on a benefit written at an older\n               age, where insurers withdraw the upfront and hybrid options entirely\n\nThat last clause is the case worth designing for rather than discovering. An adviser sets one basis for the policy and one benefit in it falls outside what the insurer writes on that basis. That case is handled by the INSURER rather than by the request: the basis is requested once for the policy, declarable per cover in `GET /capabilities`, and REPORTED per cover on the way back via `CoverLine.commission`. A consumer does not pick the exception; it learns which benefit fell outside and on what basis the insurer wrote it instead.",
         "type": "string",
         "enum": [
           "upfront",
@@ -807,7 +807,7 @@
       },
       "CommissionRequest": {
         "title": "CommissionRequest",
-        "description": "The remuneration basis to price on, and how much of it the adviser is giving up.\n## Why this is in a quoting contract at all\nCommission is an INPUT TO THE PRICE. A level-commission premium and an upfront-commission premium for identical cover differ by a margin larger than most of the product differences an adviser is weighing, so a panel priced on mixed bases ranks on remuneration rather than on product. Nothing in the numbers reveals it, which puts this in the same class as the frequency rule: plausible figures, wrong comparison, no error anywhere.\nTwo failures follow, and both are addressed here rather than left to implementations:\n\n  - **Not applied.** The consumer says nothing and the insurer prices on its own default. That\n    is legitimate — but the insurer MUST report it in `resolved_options` with `option:\n    commission`, `cover_id: policy` and `defaulted`, so the basis behind the number is never\n    implicit.\n  - **Applied differently.** The insurer cannot write the requested basis for a cover — most\n    often because the benefit is being written at an age where only `level` is offered. It MUST\n    then either decline the line or price the basis it can write and report `substituted` with\n    the applied value, per `ResolvedOption`. Silently pricing another basis is forbidden.\n\n## Grain\nSet here it applies to every cover. Set on a cover it REPLACES this block for that cover entirely — it does not merge, so a cover naming only `basis` takes the insurer's default dial-down rather than inheriting the one above. Same semantics as `loadings`, and stated because the merging reading is the tempting one: a policy dial-down silently carried onto a cover the adviser had reset would change that cover's price with nothing reporting it.",
+        "description": "The remuneration basis to price on, and how much of it the adviser is giving up.\n## Why this is in a quoting contract at all\nCommission is an INPUT TO THE PRICE. A level-commission premium and an upfront-commission premium for identical cover differ by a margin larger than most of the product differences an adviser is weighing, so a panel priced on mixed bases ranks on remuneration rather than on product. Nothing in the numbers reveals it, which puts this in the same class as the frequency rule: plausible figures, wrong comparison, no error anywhere.\nTwo failures follow, and both are addressed here rather than left to implementations:\n\n  - **Not applied.** The consumer says nothing and the insurer prices on its own default. That\n    is legitimate — but the insurer MUST report it in `resolved_options` with `option:\n    commission`, `cover_id: policy` and `defaulted`, so the basis behind the number is never\n    implicit.\n  - **Applied differently.** The insurer cannot write the requested basis for a cover — most\n    often because the benefit is being written at an age where only `level` is offered. It MUST\n    then either decline the line or price the basis it can write and report `substituted` with\n    the applied value, per `ResolvedOption`. Silently pricing another basis is forbidden.\n\n## Grain: one basis for the policy, and no per-cover override\nThis block sits at policy level and applies to every cover. **There is deliberately no per-cover equivalent**, and the reason is worth stating because the per-cover case is real.\nInsurers do withdraw the upfront and hybrid bases on a benefit above a given age while continuing to offer them on the rest of the same policy. An earlier draft of this contract let a consumer name a different basis per cover for exactly that. It was removed on the evidence of the first implementation: rating engines apply remuneration per POLICY or per PRODUCT, never per benefit, and a product does not correspond to a cover — a life cover and the TPD extension attached to it are commonly one product, chosen by the engine while it prices. Worse, where a per-product override could be forced through, the engine went on reporting the policy-level basis, so the line would have been priced on one basis and reported on another. That is the precise failure every other rule here exists to prevent, and a field that invites it is worse than its absence.\nSo the exception is the INSURER's to report, not the consumer's to request:\n\n  - `commission_bases` per cover in `GET /capabilities` says which bases a cover is written on,\n    with the age bounds, BEFORE the pricing call.\n  - a line whose covers were not all written on one basis reports the line's basis in\n    `commission` and each exception in `CoverLine.commission`.\n  - the substitution is reported in `resolved_options`, as it would be for any option the\n    insurer could not honour as asked.\n\nA consumer that genuinely needs two bases priced against each other sends two quote requests, which is also the only way to compare them.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -815,8 +815,14 @@
             "description": "The remuneration basis to price on. Absent means the insurer's product default.",
             "$ref": "#/components/schemas/CommissionBasis"
           },
+          "insurer_commission_id": {
+            "description": "An identifier from this insurer's own commission list, as published in `commission_bases[].options` in `GET /capabilities`. Opaque; scoped to the insurer.\n## Why an opaque id exists alongside a basis and a percentage\nThe portable form — `basis` plus `dial_down_percent` — covers the ordinary case and is what a consumer should send. It cannot express everything a real remuneration schedule contains. Three arrangements taken from one engine's published lists, none of which is a basis plus a share:\n\n  - upfront with no initial payment and the full ongoing rate\n  - upfront paid in the first year only\n  - a level rate ABOVE the insurer's own standard, which is an uplift rather than a dial-down\n\nThis field is the escape hatch for those, and it plays the same role `insurer_occupation_id` plays for occupations: the authoritative form, resolved from the insurer's own published list.\n## Normative\nWHEN PRESENT THIS IS AUTHORITATIVE. The insurer MUST price on exactly this option and MUST NOT re-derive it from `basis` or `dial_down_percent`. Where those are also present and disagree with it, the insurer MUST price on the id and report `substituted`.\nAN UNPUBLISHED ID MUST BE REJECTED with 422 `unsupported-value`. It MUST NOT be ignored, and the request MUST NOT fall back to a default basis. This is stated because the failure was observed rather than imagined: an engine handed a commission code it did not recognise — and, separately, another insurer's code — priced its own default in both cases and returned no error, differing from the intended premium by 25%. A consumer cannot detect that from the response, so silence here is not a lenient reading of the request; it is a wrong price.\nWhether an implementation accepts this form at all is declared in `commission_resolution`.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
           "dial_down_percent": {
-            "description": "How much of the insurer's standard commission for this basis is GIVEN UP, as a percentage. `'0'` is full commission; `'100'` is nil commission and the cheapest premium the basis offers. Absent means no dial-down.\nTHE DIRECTION IS THE WHOLE FIELD, which is why it is spelled out in the name and again here. Read the other way round — as the share retained — a dial-down of `'30'` becomes a 70% giveaway, and the resulting line is cheaper than the adviser intended rather than dearer. Both readings produce a valid premium and a plausible comparison table.\nBounded at 100 rather than using the general `Percentage` type: there is no sense in which more than all of a commission can be given up.",
+            "description": "How much of the insurer's standard commission for this basis is GIVEN UP, as a percentage. `'0'` is full commission; `'100'` is nil commission and the cheapest premium the basis offers. Absent means no dial-down.\nTHE DIRECTION IS THE WHOLE FIELD, which is why it is spelled out in the name and again here. Read the other way round — as the share retained — a dial-down of `'30'` becomes a 70% giveaway, and the resulting line is cheaper than the adviser intended rather than dearer. Both readings produce a valid premium and a plausible comparison table.\nBounded at 100 rather than using the general `Percentage` type: there is no sense in which more than all of a commission can be given up.\n## A value between two of the insurer's steps rounds DOWN\nInsurers do not accept a continuous dial-down. They publish a ladder — steps of 20%, or of 25%, or a handful of named rates — and a requested 30% off a ladder of 20s is not writable as asked. Where that happens the insurer MUST apply the largest step at or BELOW the requested figure, report the applied value in `commission.dial_down_percent`, and report `substituted`.\nThe direction is normative because both are defensible and they are not equally safe. Rounding down gives up less commission than asked and prices HIGHER; rounding up prices lower and wins a comparison the basis does not support. Left unstated, two conformant insurers answer the same request with different premiums and a consumer cannot tell which did what.\nThe steps themselves are discoverable: `commission_bases[].options` in `GET /capabilities`. A consumer that reads them can send a figure the insurer writes exactly.",
             "$ref": "#/components/schemas/SharePercentage"
           }
         },
@@ -827,6 +833,9 @@
           },
           {
             "basis": "level"
+          },
+          {
+            "insurer_commission_id": "UF-0-22"
           }
         ]
       },
@@ -1025,10 +1034,6 @@
           "pay_by_rollover": {
             "description": "Whether the premium may be funded by a rollover from another superannuation fund. Only meaningful where `ownership` resolves to a superannuation type; insurers MUST report it as `unsupported_ignored` rather than silently dropping it otherwise.",
             "$ref": "#/components/schemas/Preference"
-          },
-          "commission": {
-            "description": "The remuneration basis for THIS cover, replacing the policy-level block.\nPer-cover because the restriction that forces it is per-cover. Insurers withdraw the upfront and hybrid bases on some benefits above a given age while continuing to offer them on the rest of the same policy, so an adviser writing one policy legitimately needs two bases in it. Without this field the whole quote has to be re-sent on the lower basis, which reprices every other benefit as well, and the comparison quietly changes underneath the adviser.\nREPLACES the policy-level block entirely for this cover — it does not merge. See `CommissionRequest`.",
-            "$ref": "#/components/schemas/CommissionRequest"
           },
           "loadings": {
             "description": "Underwriting loadings for THIS cover, overriding the policy-level map.\nNeeded because the policy-level map is keyed by cover TYPE, and two covers of the same type in one request are routine — a standalone TPD alongside a linked TPD extension, or life inside super alongside life outside it. A single `{tpd: 50}` was then ambiguous: apply it to both, to the first, or to the standalone only? Three conformant implementations, three different premiums, and nothing in `resolved_options` obliged to disclose which reading was used, because from the insurer's point of view the loading WAS applied as asked.\nWhere present this replaces the policy-level entry for this cover entirely — it does not merge.",
@@ -1914,14 +1919,21 @@
             "$ref": "#/components/schemas/CommissionBasisResponse"
           },
           "dial_down_percent": {
-            "description": "The dial-down actually applied, as the share of standard commission GIVEN UP. Absent means none was applied. An insurer that capped a requested dial-down MUST report the capped figure here and a `substituted` entry in `resolved_options`.",
+            "description": "The dial-down actually applied, as the share of standard commission GIVEN UP. Absent means none was applied, OR that the option applied is not expressible as a share of the standard — see `InsurerCommissionOption.dial_down_percent`. Where the two need telling apart, the `insurer_commission_id` beside this field is what does it.\nAn insurer that rounded a requested dial-down to one of its own steps, or capped it, MUST report the applied figure here and a `substituted` entry in `resolved_options`.",
             "$ref": "#/components/schemas/SharePercentage"
+          },
+          "insurer_commission_id": {
+            "description": "The insurer's own identifier for the option this was priced on, from `commission_bases[].options`.\nRECOMMENDED on every priced line, and the same argument as `ResolvedOccupation`: a premium whose remuneration cannot be reproduced cannot be audited, and `basis` plus a percentage does not always identify one option — an insurer with two options at the same nominal dial-down, or one whose option is not a dial-down at all, is otherwise indistinguishable from itself months later. REQUIRED where the request named an `insurer_commission_id`, so a consumer can confirm the id it sent is the id that priced.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
           }
         },
         "examples": [
           {
             "basis": "upfront",
-            "dial_down_percent": "0"
+            "dial_down_percent": "0",
+            "insurer_commission_id": "UF-100"
           }
         ]
       },
@@ -2032,7 +2044,7 @@
             "$ref": "#/components/schemas/StructureResponse"
           },
           "commission": {
-            "description": "The remuneration basis THIS cover was written on. REQUIRED wherever it differs from the line's — omitted, this cover is on the line's basis.\nThe case it exists for is an insurer that writes the requested basis on most of a policy but not on one benefit, typically because that benefit is being written above the age at which the basis is offered. The line is still a real offer and should still be priced; what cannot happen is the difference going unreported, because the affected cover's premium is then lower than the line's declared basis accounts for and the discrepancy looks like a product difference.\nJSON Schema cannot compare this against the parent line's value, so the requirement is normative here and tested by the conformance suite.",
+            "description": "The remuneration basis THIS cover was written on. REQUIRED wherever it differs from the line's — omitted, this cover is on the line's basis.\nThe case it exists for is an insurer that writes the requested basis on most of a policy but not on one benefit, typically because that benefit is being written above the age at which the basis is offered. The line is still a real offer and should still be priced; what cannot happen is the difference going unreported, because the affected cover's premium is then lower than the line's declared basis accounts for and the discrepancy looks like a product difference.\nTHIS IS THE ONLY PER-COVER COMMISSION CHANNEL IN THE CONTRACT, and deliberately one-way: the insurer reports the exception, the consumer cannot request it. `CommissionRequest` sets out why — no engine examined applies remuneration per benefit, and the one that could be forced to went on reporting the policy basis regardless.\nJSON Schema cannot compare this against the parent line's value, so the requirement is normative here and tested by the conformance suite.",
             "$ref": "#/components/schemas/AppliedCommission"
           },
           "linked_to": {
@@ -2796,6 +2808,43 @@
           }
         ]
       },
+      "InsurerCommissionOption": {
+        "title": "InsurerCommissionOption",
+        "description": "One commission option on an insurer's own list, addressable by `insurer_commission_id`.\nThe same shape of thing as an `InsurerOccupation` row: the insurer's identifier, the insurer's own label, and what this standard can say about it in portable terms. Where the portable terms do not reach — the arrangements described on `options` — the id is the only way to name it, and the `name` is what an adviser has to be shown instead of a percentage.",
+        "type": "object",
+        "required": [
+          "insurer_commission_id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "insurer_commission_id": {
+            "description": "The insurer's own identifier for this option, to send in `CommissionRequest`. Opaque, and scoped to this insurer — the same string may name a different option at another insurer, so a consumer MUST NOT carry one across a panel.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "name": {
+            "description": "The insurer's own label, for display. NON-NORMATIVE: a consumer MUST NOT parse it. Real labels include `Upfront (66/22)`, `Hybrid: 75%` and `P90 Upfront`, which are three unrelated conventions — the first names the two rates, the second the share retained, the third a premium factor. Anything derived from that string is a guess.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "dial_down_percent": {
+            "description": "What this option is in portable terms: the share of the insurer's standard commission for this basis that is GIVEN UP.\nABSENT IS MEANINGFUL. It says this option is not a dial-down of the standard at all, and therefore cannot be requested as `basis` plus a percentage — only by id. An insurer MUST NOT approximate one here to fill the field in, because a consumer reading it would then send that approximation and be priced on something else.",
+            "$ref": "#/components/schemas/SharePercentage"
+          }
+        },
+        "examples": [
+          {
+            "insurer_commission_id": "UF-100",
+            "name": "Upfront (66/22)",
+            "dial_down_percent": "0"
+          },
+          {
+            "insurer_commission_id": "UF-0-22",
+            "name": "Upfront (0/22)"
+          }
+        ]
+      },
       "CommissionBasisCapability": {
         "title": "CommissionBasisCapability",
         "description": "One remuneration basis this insurer writes a cover on, with the bounds that apply to it.\nThe age bounds are the point of the schema. An adviser sets a policy-wide basis and one benefit in the policy falls outside the ages the insurer offers it on, so that benefit alone has to be written on another basis — and until a consumer can read this, the only way to learn it is to send the quote and interpret a decline. The bounds are read against `insured.age_next_birthday`, the same age the cover-level `min_age_next_birthday` and `max_age_next_birthday` use.\nAbsent bounds mean unbounded: a basis with no `max_age_next_birthday` is offered to the top of the cover's own age range.",
@@ -2820,8 +2869,16 @@
             "maximum": 100
           },
           "max_dial_down_percent": {
-            "description": "The largest dial-down accepted on this basis. Absent means the insurer accepts any dial-down up to nil commission.",
+            "description": "The largest dial-down accepted on this basis. Absent means the insurer accepts any dial-down up to nil commission.\nA summary for an insurer that does not enumerate `options`. Where it does, this is derivable from them and may be omitted.",
             "$ref": "#/components/schemas/SharePercentage"
+          },
+          "options": {
+            "description": "The individual commission options this insurer writes on this basis — its own ladder, published so a consumer can stop guessing at it.\n## What this is for, in two quite different ways\n**Rounding.** A dial-down is only writable at the steps the insurer publishes, and a request between two of them rounds down (see `CommissionRequest.dial_down_percent`). Reading the steps from here lets a consumer send a figure that needs no rounding at all, which is the difference between a premium an adviser can explain and one they have to be told about afterwards.\n**Exactness.** An option whose `dial_down_percent` is ABSENT cannot be expressed as a basis plus a share at all — an upfront rate with no initial payment, an upfront paid in the first year only, a level rate above the insurer's standard. Those are real published options, and the only way to ask for one is `insurer_commission_id`.\nABSENT MEANS UNENUMERATED, not \"no options\". An insurer that publishes nothing here is not saying it has a single option; it is saying a consumer must use the portable form and be ready for a `substituted` dial-down. The same hint-not-contract rule governs this as the rest of the document.\nA LADDER IS SMALL. Every insurer examined publishes between five and fifteen options in total, which is why they sit in this document rather than behind an endpoint of their own the way occupations do — there, per-insurer lists run to a thousand rows and a consumer must search them.",
+            "type": "array",
+            "maxItems": 40,
+            "items": {
+              "$ref": "#/components/schemas/InsurerCommissionOption"
+            }
           }
         },
         "examples": [
@@ -3064,6 +3121,20 @@
             },
             "default": [
               "insurer_occupation_id"
+            ]
+          },
+          "commission_resolution": {
+            "description": "Which forms of `CommissionRequest` this implementation accepts. `basis` MUST always be supported — it is the portable form and the one a consumer can send without reading anything first. `insurer_commission_id` is optional, and an implementation that accepts it MUST publish the ids in `commission_bases[].options` on the covers it writes: an id space a consumer cannot enumerate is one it cannot use.\nDeclared for the same reason `occupation_resolution` is: a consumer sending a form the insurer does not take gets a 422 rather than a quote, and finding that out from the capability document is cheaper than finding it out from the pricing call.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "basis",
+                "insurer_commission_id"
+              ]
+            },
+            "default": [
+              "basis"
             ]
           },
           "occupation_qualifiers_used": {

@@ -101,8 +101,11 @@ CommissionBasis:
                    age, where insurers withdraw the upfront and hybrid options entirely
 
     That last clause is the case worth designing for rather than discovering. An adviser sets one
-    basis for the policy and one benefit in it falls outside what the insurer writes on that basis —
-    so the basis is settable per cover, declarable per cover, and reported per cover.
+    basis for the policy and one benefit in it falls outside what the insurer writes on that basis.
+    That case is handled by the INSURER rather than by the request: the basis is requested once for
+    the policy, declarable per cover in `GET /capabilities`, and REPORTED per cover on the way back
+    via `CoverLine.commission`. A consumer does not pick the exception; it learns which benefit fell
+    outside and on what basis the insurer wrote it instead.
   type: string
   enum:
     - upfront

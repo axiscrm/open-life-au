@@ -79,6 +79,13 @@ where a monthly benefit is derived from a percentage of income — 70% is the us
 **round down**. Half-up rounding puts the request cents above the insurer's ceiling, the benefit is
 declined, and the insurer disappears from the panel with nothing saying why.
 
+Rounding down is also the insurer's obligation on the one figure it may not be able to honour
+exactly. A commission dial-down is only writable at the steps an insurer publishes, so a requested
+30% off a ladder of 20s has to move — and it moves to the step at or **below** what was asked, which
+gives up less commission and prices higher. The other direction wins a comparison the basis does not
+support. The steps are published in `commission_bases[].options`, so a consumer that reads them need
+not be rounded at all.
+
 ## Layout
 
 ```

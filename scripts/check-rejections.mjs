@@ -164,9 +164,20 @@ const CASES = [
         doc: { insured, policy: { commission: { basis: "level", dial_down: "30" } }, covers: [life()] },
     },
     {
-        name: "a cover-level commission basis that is not a recognised value",
-        why: "the per-cover override is the age-restriction path; a typo there must fail loudly",
-        doc: { insured, covers: [life({ commission: { basis: "nil" } })] },
+        name: "a commission block on a cover",
+        why: "there is no per-cover basis: no engine applies remuneration per benefit, and the one that "
+            + "could be forced to reported the policy basis anyway — so it must fail, not be ignored",
+        doc: { insured, covers: [life({ commission: { basis: "level" } })] },
+    },
+    {
+        name: "an insurer_commission_id sent as a number",
+        why: "it is an opaque insurer identifier; a numeric one loses leading zeros silently",
+        doc: { insured, policy: { commission: { insurer_commission_id: 66022 } }, covers: [life()] },
+    },
+    {
+        name: "an empty insurer_commission_id",
+        why: "an empty id is not a request for the default — it is a request the insurer must refuse",
+        doc: { insured, policy: { commission: { insurer_commission_id: "" } }, covers: [life()] },
     },
     {
         name: "a percentage loading sent as a JSON number",
@@ -849,6 +860,37 @@ const ACCEPTANCE_CASES = [
         why: "response enums are extensible; a new type must not fail the whole statement",
         validator: validateCommLine,
         doc: { ...commLineBase, commission_type: "renewal_bonus_tier_2" },
+    },
+    {
+        group: "quoting request",
+        name: "an insurer commission id on its own, with no basis",
+        why: "the authoritative form; an id names one published option and needs nothing beside it",
+        validator: validateRequest,
+        doc: { insured, policy: { commission: { insurer_commission_id: "UF-0-22" } },
+               covers: [life()] },
+    },
+    {
+        group: "quoting request",
+        name: "an insurer commission id alongside a basis and a dial-down",
+        why: "both MAY be sent; the id wins and the insurer reports substituted if they disagree",
+        validator: validateRequest,
+        doc: { insured, covers: [life()],
+               policy: { commission: { basis: "level", dial_down_percent: "25",
+                                       insurer_commission_id: "LV-100" } } },
+    },
+    {
+        group: "quoting response",
+        name: "an applied commission with an id but no dial-down",
+        why: "an option that is not a share of the standard cannot report one — 'upfront (0/22)' is "
+            + "real, and approximating a percentage there would be priced on something else",
+        validator: validateLine,
+        doc: {
+            ...lineBase,
+            all_needs_met: true,
+            premiums,
+            rate_table_version: "2026-01",
+            commission: { basis: "upfront", insurer_commission_id: "UF-0-22" },
+        },
     },
     {
         group: "quoting response",

@@ -39,23 +39,37 @@ Worth noticing:
   price on its own default and report that as `defaulted` — but the premium differs by basis either
   way, so saying nothing means accepting a price set on a basis nobody chose.
 
-### `tpd-at-older-age-on-level-commission.json`
+### `commission-by-insurer-code.json`
 
-**Two commission bases in one policy**, which is the case the per-cover override exists for.
+**A remuneration arrangement the portable form cannot name**, requested by the insurer's own code.
 
-The adviser wants upfront commission, and sets it once at policy level. The insured is 62, and
-insurers commonly stop offering upfront and hybrid commission on TPD above around this age while
-continuing to offer them on life cover — so the TPD benefit alone is overridden to `level`.
+`basis` plus `dial_down_percent` describes most of what advisers ask for, and it is what a consumer
+should send. It does not reach everything a real schedule contains: upfront with no initial payment
+and the full ongoing rate, upfront paid in the first year only, a level rate above the insurer's own
+standard. Those are published options at insurers examined for this contract, and none of them is a
+basis with a share given up.
 
-- The cover-level `commission` **replaces** the policy block for that cover; it does not merge. The
-  TPD carries no `dial_down_percent`, so the insurer's default dial-down applies to it rather than
-  the `"0"` set above.
-- Which bases an insurer writes a cover on, and up to what age, is declarable: `commission_bases` on
-  each cover in `GET /capabilities`. A consumer that reads it can set this override while the
-  adviser is still typing, instead of learning it from a benefit that will not price.
-- Sending the whole quote again on `level` would have worked too — and would have repriced the life
-  cover as well, changing the comparison underneath the adviser for a restriction that touched one
-  benefit.
+- `insurer_commission_id` is the escape hatch, and the same shape of thing as
+  `insurer_occupation_id`: the authoritative form, resolved from a list the insurer publishes. The
+  ids live in `commission_bases[].options` in `GET /capabilities` — a ladder is five to fifteen rows,
+  so it sits in the capability document rather than behind an endpoint of its own the way occupations
+  do.
+- An id the insurer does not publish MUST be **rejected**, not ignored. That obligation is written
+  down because the failure was observed: an engine handed an unrecognised commission code — and,
+  separately, another insurer's code — priced its own default both times and returned no error, 25%
+  away from the intended premium.
+- Whether an insurer accepts this form at all is declared in `commission_resolution`. `basis` is
+  always accepted; the id is optional.
+
+**Note what this example no longer does.** The insured is 62, and insurers commonly stop offering
+upfront and hybrid commission on TPD above around this age while continuing to offer them on life
+cover — so this policy will likely come back with its TPD benefit on a different basis. That is
+reported by the insurer in `CoverLine.commission`, with a `substituted` entry in `resolved_options`.
+It cannot be requested: an earlier draft let a consumer name a basis per cover, and the first
+implementation showed why that was wrong — engines apply remuneration per policy or per product,
+never per benefit, a product routinely spans several covers, and the one engine that could be forced
+to override per product went on reporting the policy-level basis regardless. A field that invites a
+line to be priced on one basis and reported on another is worse than its absence.
 
 ### `income-protection-90day-to-age-65.json`
 

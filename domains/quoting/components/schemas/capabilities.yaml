@@ -88,6 +88,22 @@ Capabilities:
         type: string
         enum: [insurer_occupation_id, osca, anzsco]
       default: [insurer_occupation_id]
+    commission_resolution:
+      description: >-
+        Which forms of `CommissionRequest` this implementation accepts. `basis` MUST always be
+        supported — it is the portable form and the one a consumer can send without reading anything
+        first. `insurer_commission_id` is optional, and an implementation that accepts it MUST publish
+        the ids in `commission_bases[].options` on the covers it writes: an id space a consumer cannot
+        enumerate is one it cannot use.
+
+        Declared for the same reason `occupation_resolution` is: a consumer sending a form the insurer
+        does not take gets a 422 rather than a quote, and finding that out from the capability document
+        is cheaper than finding it out from the pricing call.
+      type: array
+      items:
+        type: string
+        enum: [basis, insurer_commission_id]
+      default: [basis]
     occupation_qualifiers_used:
       description: >-
         Which `OccupationQualifiers` fields actually affect this insurer's rating. Lets a consumer
@@ -334,6 +350,52 @@ CoverCapability:
         - - code: TRM_TERM_ILL
             name: Terminal illness benefit
 
+InsurerCommissionOption:
+  title: InsurerCommissionOption
+  description: >-
+    One commission option on an insurer's own list, addressable by `insurer_commission_id`.
+
+    The same shape of thing as an `InsurerOccupation` row: the insurer's identifier, the insurer's own
+    label, and what this standard can say about it in portable terms. Where the portable terms do not
+    reach — the arrangements described on `options` — the id is the only way to name it, and the
+    `name` is what an adviser has to be shown instead of a percentage.
+  type: object
+  required: [insurer_commission_id]
+  additionalProperties: false
+  properties:
+    insurer_commission_id:
+      description: >-
+        The insurer's own identifier for this option, to send in `CommissionRequest`. Opaque, and
+        scoped to this insurer — the same string may name a different option at another insurer, so a
+        consumer MUST NOT carry one across a panel.
+      type: string
+      minLength: 1
+      maxLength: 128
+    name:
+      description: >-
+        The insurer's own label, for display. NON-NORMATIVE: a consumer MUST NOT parse it. Real labels
+        include `Upfront (66/22)`, `Hybrid: 75%` and `P90 Upfront`, which are three unrelated
+        conventions — the first names the two rates, the second the share retained, the third a
+        premium factor. Anything derived from that string is a guess.
+      type: string
+      maxLength: 200
+    dial_down_percent:
+      description: >-
+        What this option is in portable terms: the share of the insurer's standard commission for this
+        basis that is GIVEN UP.
+
+        ABSENT IS MEANINGFUL. It says this option is not a dial-down of the standard at all, and
+        therefore cannot be requested as `basis` plus a percentage — only by id. An insurer MUST NOT
+        approximate one here to fill the field in, because a consumer reading it would then send that
+        approximation and be priced on something else.
+      $ref: '../../../../core/schemas/money.yaml#/SharePercentage'
+  examples:
+    - insurer_commission_id: UF-100
+      name: Upfront (66/22)
+      dial_down_percent: '0'
+    - insurer_commission_id: UF-0-22
+      name: Upfront (0/22)
+
 CommissionBasisCapability:
   title: CommissionBasisCapability
   description: >-
@@ -370,7 +432,40 @@ CommissionBasisCapability:
       description: >-
         The largest dial-down accepted on this basis. Absent means the insurer accepts any
         dial-down up to nil commission.
+
+        A summary for an insurer that does not enumerate `options`. Where it does, this is derivable
+        from them and may be omitted.
       $ref: '../../../../core/schemas/money.yaml#/SharePercentage'
+    options:
+      description: >-
+        The individual commission options this insurer writes on this basis — its own ladder,
+        published so a consumer can stop guessing at it.
+
+        ## What this is for, in two quite different ways
+
+        **Rounding.** A dial-down is only writable at the steps the insurer publishes, and a request
+        between two of them rounds down (see `CommissionRequest.dial_down_percent`). Reading the steps
+        from here lets a consumer send a figure that needs no rounding at all, which is the difference
+        between a premium an adviser can explain and one they have to be told about afterwards.
+
+        **Exactness.** An option whose `dial_down_percent` is ABSENT cannot be expressed as a basis
+        plus a share at all — an upfront rate with no initial payment, an upfront paid in the first
+        year only, a level rate above the insurer's standard. Those are real published options, and
+        the only way to ask for one is `insurer_commission_id`.
+
+        ABSENT MEANS UNENUMERATED, not "no options". An insurer that publishes nothing here is not
+        saying it has a single option; it is saying a consumer must use the portable form and be
+        ready for a `substituted` dial-down. The same hint-not-contract rule governs this as the rest
+        of the document.
+
+        A LADDER IS SMALL. Every insurer examined publishes between five and fifteen options in
+        total, which is why they sit in this document rather than behind an endpoint of their own the
+        way occupations do — there, per-insurer lists run to a thousand rows and a consumer must
+        search them.
+      type: array
+      maxItems: 40
+      items:
+        $ref: '#/InsurerCommissionOption'
   examples:
     - basis: upfront
       max_age_next_birthday: 61

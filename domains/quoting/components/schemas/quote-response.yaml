@@ -393,12 +393,31 @@ AppliedCommission:
     dial_down_percent:
       description: >-
         The dial-down actually applied, as the share of standard commission GIVEN UP. Absent means
-        none was applied. An insurer that capped a requested dial-down MUST report the capped figure
-        here and a `substituted` entry in `resolved_options`.
+        none was applied, OR that the option applied is not expressible as a share of the standard —
+        see `InsurerCommissionOption.dial_down_percent`. Where the two need telling apart, the
+        `insurer_commission_id` beside this field is what does it.
+
+        An insurer that rounded a requested dial-down to one of its own steps, or capped it, MUST
+        report the applied figure here and a `substituted` entry in `resolved_options`.
       $ref: '../../../../core/schemas/money.yaml#/SharePercentage'
+    insurer_commission_id:
+      description: >-
+        The insurer's own identifier for the option this was priced on, from
+        `commission_bases[].options`.
+
+        RECOMMENDED on every priced line, and the same argument as `ResolvedOccupation`: a premium
+        whose remuneration cannot be reproduced cannot be audited, and `basis` plus a percentage does
+        not always identify one option — an insurer with two options at the same nominal dial-down, or
+        one whose option is not a dial-down at all, is otherwise indistinguishable from itself months
+        later. REQUIRED where the request named an `insurer_commission_id`, so a consumer can confirm
+        the id it sent is the id that priced.
+      type: string
+      minLength: 1
+      maxLength: 128
   examples:
     - basis: upfront
       dial_down_percent: '0'
+      insurer_commission_id: UF-100
 
 PremiumSet:
   title: PremiumSet
@@ -604,6 +623,11 @@ CoverLine:
         happen is the difference going unreported, because the affected cover's premium is then
         lower than the line's declared basis accounts for and the discrepancy looks like a product
         difference.
+
+        THIS IS THE ONLY PER-COVER COMMISSION CHANNEL IN THE CONTRACT, and deliberately one-way: the
+        insurer reports the exception, the consumer cannot request it. `CommissionRequest` sets out
+        why — no engine examined applies remuneration per benefit, and the one that could be forced
+        to went on reporting the policy basis regardless.
 
         JSON Schema cannot compare this against the parent line's value, so the requirement is
         normative here and tested by the conformance suite.
