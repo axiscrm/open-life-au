@@ -409,19 +409,57 @@ RequiredFeatures:
     and a populated `errors`, not a cheaper line quietly written without the feature. An insurer
     MUST NOT satisfy a required feature by ignoring it.
 
-    Keys are `CoverType` values, and the codes under each are the insurer's own, discoverable from
-    `features` on that cover in the capability document. A code that is unknown to the insurer, or
-    that is not scoped to the benefit it appears under, MUST be rejected with 422
-    `unsupported-value` rather than ignored — an adviser filtering on "must include terminal
-    illness" and silently getting products without it is the failure this exists to prevent.
+    ## Two vocabularies, and a consumer may mix them
+
+    Keys are `CoverType` values, plus `policy` for features that describe the policy rather than one
+    benefit. The codes under each key are EITHER:
+
+      * a **standard feature**, from `taxonomy/features.yaml` — portable, and the same code means
+        the same thing at every insurer; or
+      * the **insurer's own code**, discoverable from `features` on that cover in the capability
+        document.
+
+    A consumer that can only use one form should use the standard one: it is the only form that
+    lets a single request be sent to a panel. Insurer codes remain first-class for the long tail no
+    shared vocabulary reaches. Which forms an implementation accepts is declared in
+    `feature_resolution`; every implementation MUST accept `standard`.
+
+    A standard code and an insurer code naming the same feature are the same filter, not two, and
+    an insurer MUST NOT require both.
+
+    ## Scoping, and what happens to a code the insurer cannot use
+
+    A code is scoped to the key it appears under: the same code under a different cover is a
+    different filter, and a policy-level feature belongs under `policy`, not repeated per cover.
+
+    Every code MUST be answered in `resolved_features` on each line, and the two failure modes are
+    reported DISTINCTLY:
+
+      * `unrecognised` — the insurer does not know this code, or does not offer it on this benefit.
+        That is a fault in the request, and an adviser needs to see it as one.
+      * `not_offered` — the insurer knows the feature and no product of its own has it. That is an
+        answer about the market.
+
+    Both decline the line. Collapsing them would report a mistyped code as "no product offers
+    this", which reads as a fact about the panel and is not one.
+
+    THIS IS REPORTED PER LINE, NOT AS A 422. An earlier version of this standard rejected the whole
+    request on an unknown code. That is defensible against a single insurer and wrong against a
+    panel: one insurer's ignorance of one code would deny the consumer ten other insurers' answers.
+    A 422 is still correct for a structurally invalid request — a key that is not a cover type or
+    `policy`, a value that is not an array of strings.
+
+    What an insurer MUST NOT do is silently ignore a code it cannot honour. An adviser filtering on
+    "must include terminal illness" and getting products without it is the failure this exists to
+    prevent, and it is the reason the reporting obligation is unconditional.
 
     Absent or empty means no filter, which is the overwhelmingly common case.
   type: object
   additionalProperties: false
   propertyNames:
-    enum: [life, tpd, trauma, income_protection, business_expenses, needle_stick, child_trauma]
+    enum: [policy, life, tpd, trauma, income_protection, business_expenses, needle_stick, child_trauma]
   patternProperties:
-    '^(life|tpd|trauma|income_protection|business_expenses|needle_stick|child_trauma)$':
+    '^(policy|life|tpd|trauma|income_protection|business_expenses|needle_stick|child_trauma)$':
       type: array
       minItems: 1
       maxItems: 20
@@ -429,8 +467,12 @@ RequiredFeatures:
         type: string
         maxLength: 64
   examples:
-    - trauma: ['TRM_TERM_ILL']
-      income_protection: ['INC_DAY1_ACCIDENT']
+    # Standard codes throughout: one request, sendable to every insurer on a panel.
+    - policy: ['guaranteed_renewable', 'benefit_indexation']
+      trauma: ['cancer', 'heart_attack']
+      income_protection: ['agreed_value']
+    # Mixing the two forms, for a benefit no standard code reaches.
+    - life: ['terminal_illness_benefit', 'NEO_FUNERAL_ADV']
 
 ProjectionRequest:
   title: ProjectionRequest

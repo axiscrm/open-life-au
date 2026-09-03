@@ -1497,11 +1497,12 @@
       },
       "RequiredFeatures": {
         "title": "RequiredFeatures",
-        "description": "Product features the insured requires, as a filter on which products may be used. A product that does not offer every feature named for a benefit MUST NOT be used to write that benefit.\nTHIS IS A FILTER, NOT AN OPTION. The difference matters: an option asks the insurer to add something and is answered in `resolved_options`; a filter narrows the product set BEFORE pricing, so the honest answer to \"no product has this\" is a line with `all_needs_met: false` and a populated `errors`, not a cheaper line quietly written without the feature. An insurer MUST NOT satisfy a required feature by ignoring it.\nKeys are `CoverType` values, and the codes under each are the insurer's own, discoverable from `features` on that cover in the capability document. A code that is unknown to the insurer, or that is not scoped to the benefit it appears under, MUST be rejected with 422 `unsupported-value` rather than ignored — an adviser filtering on \"must include terminal illness\" and silently getting products without it is the failure this exists to prevent.\nAbsent or empty means no filter, which is the overwhelmingly common case.",
+        "description": "Product features the insured requires, as a filter on which products may be used. A product that does not offer every feature named for a benefit MUST NOT be used to write that benefit.\nTHIS IS A FILTER, NOT AN OPTION. The difference matters: an option asks the insurer to add something and is answered in `resolved_options`; a filter narrows the product set BEFORE pricing, so the honest answer to \"no product has this\" is a line with `all_needs_met: false` and a populated `errors`, not a cheaper line quietly written without the feature. An insurer MUST NOT satisfy a required feature by ignoring it.\n## Two vocabularies, and a consumer may mix them\nKeys are `CoverType` values, plus `policy` for features that describe the policy rather than one benefit. The codes under each key are EITHER:\n\n  * a **standard feature**, from `taxonomy/features.yaml` — portable, and the same code means\n    the same thing at every insurer; or\n  * the **insurer's own code**, discoverable from `features` on that cover in the capability\n    document.\n\nA consumer that can only use one form should use the standard one: it is the only form that lets a single request be sent to a panel. Insurer codes remain first-class for the long tail no shared vocabulary reaches. Which forms an implementation accepts is declared in `feature_resolution`; every implementation MUST accept `standard`.\nA standard code and an insurer code naming the same feature are the same filter, not two, and an insurer MUST NOT require both.\n## Scoping, and what happens to a code the insurer cannot use\nA code is scoped to the key it appears under: the same code under a different cover is a different filter, and a policy-level feature belongs under `policy`, not repeated per cover.\nEvery code MUST be answered in `resolved_features` on each line, and the two failure modes are reported DISTINCTLY:\n\n  * `unrecognised` — the insurer does not know this code, or does not offer it on this benefit.\n    That is a fault in the request, and an adviser needs to see it as one.\n  * `not_offered` — the insurer knows the feature and no product of its own has it. That is an\n    answer about the market.\n\nBoth decline the line. Collapsing them would report a mistyped code as \"no product offers this\", which reads as a fact about the panel and is not one.\nTHIS IS REPORTED PER LINE, NOT AS A 422. An earlier version of this standard rejected the whole request on an unknown code. That is defensible against a single insurer and wrong against a panel: one insurer's ignorance of one code would deny the consumer ten other insurers' answers. A 422 is still correct for a structurally invalid request — a key that is not a cover type or `policy`, a value that is not an array of strings.\nWhat an insurer MUST NOT do is silently ignore a code it cannot honour. An adviser filtering on \"must include terminal illness\" and getting products without it is the failure this exists to prevent, and it is the reason the reporting obligation is unconditional.\nAbsent or empty means no filter, which is the overwhelmingly common case.",
         "type": "object",
         "additionalProperties": false,
         "propertyNames": {
           "enum": [
+            "policy",
             "life",
             "tpd",
             "trauma",
@@ -1512,7 +1513,7 @@
           ]
         },
         "patternProperties": {
-          "^(life|tpd|trauma|income_protection|business_expenses|needle_stick|child_trauma)$": {
+          "^(policy|life|tpd|trauma|income_protection|business_expenses|needle_stick|child_trauma)$": {
             "type": "array",
             "minItems": 1,
             "maxItems": 20,
@@ -1524,11 +1525,22 @@
         },
         "examples": [
           {
+            "policy": [
+              "guaranteed_renewable",
+              "benefit_indexation"
+            ],
             "trauma": [
-              "TRM_TERM_ILL"
+              "cancer",
+              "heart_attack"
             ],
             "income_protection": [
-              "INC_DAY1_ACCIDENT"
+              "agreed_value"
+            ]
+          },
+          {
+            "life": [
+              "terminal_illness_benefit",
+              "NEO_FUNERAL_ADV"
             ]
           }
         ]
@@ -2339,6 +2351,67 @@
           }
         }
       },
+      "ResolvedFeature": {
+        "title": "ResolvedFeature",
+        "description": "What one required feature did to this line.\nA REQUIRED FEATURE IS A FILTER, so unlike `ResolvedOption` there is no \"applied differently\" outcome — either a product carrying the feature was used, or the benefit could not be written. The value of this array is that it says WHICH feature failed, on a line whose `errors` would otherwise say only that the need could not be met.\nTHE TWO FAILURES ARE DIFFERENT ANSWERS AND MUST NOT BE COLLAPSED. `unrecognised` is a fault in the request — a code the insurer has never heard of, or one sent under a benefit it does not scope it to — and an adviser needs to correct it. `not_offered` is a fact about the insurer's range. Reporting a mistyped code as `not_offered` tells an adviser that no product in the market offers something, which is a claim about the market and is not one this insurer made.\nA consumer sending only standard codes and getting `unrecognised` back has found an implementation that has not published a mapping for it, not a typo — which is why `feature_resolution` requires every implementation to accept `standard`.",
+        "type": "object",
+        "required": [
+          "feature",
+          "scope",
+          "resolution"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "feature": {
+            "description": "The code as the consumer sent it, echoed verbatim in whichever vocabulary it used.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "standard_feature": {
+            "description": "The portable code this resolves to, where the insurer can say. Populated when the consumer sent an insurer code that maps to one, so a consumer holding a mixed request can key its display off one vocabulary.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "scope": {
+            "description": "The key this feature was requested under — a cover type, or `policy`.",
+            "type": "string",
+            "maxLength": 40,
+            "examples": [
+              "policy",
+              "life",
+              "trauma",
+              "income_protection"
+            ]
+          },
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "available",
+              "not_offered",
+              "unrecognised"
+            ]
+          },
+          "detail": {
+            "description": "Why, in adviser-facing terms. RECOMMENDED on `not_offered` and `unrecognised`; on the latter it is the only thing that distinguishes \"never heard of it\" from \"not on this cover\", which is what an adviser needs to fix the request.",
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "examples": [
+          {
+            "feature": "agreed_value",
+            "scope": "income_protection",
+            "resolution": "not_offered",
+            "detail": "No income protection product in this range is written on an agreed-value basis."
+          },
+          {
+            "feature": "TRM_TERM_ILL",
+            "standard_feature": "terminal_illness_benefit",
+            "scope": "life",
+            "resolution": "available"
+          }
+        ]
+      },
       "InclusionGroup": {
         "title": "InclusionGroup",
         "description": "One grouping of as-priced settings — typically one per cover written.",
@@ -2679,6 +2752,14 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ResolvedOption"
+            },
+            "default": []
+          },
+          "resolved_features": {
+            "description": "What happened to every code in `required_features`. REQUIRED whenever the request carried any, on priced and declined lines alike — a declined line is precisely the case a consumer needs the reason for. See `ResolvedFeature`.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResolvedFeature"
             },
             "default": []
           },
@@ -3083,18 +3164,33 @@
             ]
           },
           "features": {
-            "description": "Named product features that may be required for this cover via `required_features`.\nDISTINCT FROM `supported_options`, and the distinction is the whole point. An option is something the consumer asks the insurer to APPLY, and the insurer answers it in `resolved_options`. A feature is something the consumer FILTERS on, and the insurer answers it by using only products that have it — or by declining the benefit. So the same underlying product capability may legitimately appear in both, and they are not interchangeable.\nCodes are the insurer's own and scoped to this cover: the same code under a different cover is a different feature, and a code used under the wrong cover MUST be rejected.",
+            "description": "Named product features that may be required for this cover via `required_features`.\nDISTINCT FROM `supported_options`, and the distinction is the whole point. An option is something the consumer asks the insurer to APPLY, and the insurer answers it in `resolved_options`. A feature is something the consumer FILTERS on, and the insurer answers it by using only products that have it — or by declining the benefit. So the same underlying product capability may legitimately appear in both, and they are not interchangeable.\n`code` is the insurer's own and is scoped to this cover. `standard_feature` is the portable equivalent from `taxonomy/features.yaml` where one exists, and publishing it is what lets a consumer send ONE request to a whole panel instead of translating per insurer. Publish it wherever the mapping is honest; omit it where the insurer's benefit genuinely is not the standard one, because a wrong mapping here is worse than none — it produces a filter that silently selects the wrong products.\nFeatures with no `code`, only a `standard_feature`, are permitted: an insurer with no identifiers of its own can declare purely in the standard's terms.\nPOLICY-LEVEL FEATURES DO NOT BELONG HERE. `guaranteed_renewable` describes the policy, not one benefit inside it; declare those in `policy_features` on the document rather than repeating them under every cover.",
             "type": "array",
             "maxItems": 200,
             "items": {
               "type": "object",
-              "required": [
-                "code",
-                "name"
+              "anyOf": [
+                {
+                  "required": [
+                    "code",
+                    "name"
+                  ]
+                },
+                {
+                  "required": [
+                    "standard_feature"
+                  ]
+                }
               ],
               "additionalProperties": false,
               "properties": {
                 "code": {
+                  "description": "The insurer's own identifier for this feature, scoped to this cover.",
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "standard_feature": {
+                  "description": "The portable code from `taxonomy/features.yaml` this feature corresponds to, where it corresponds to one. It MUST be a code that file lists for this cover.",
                   "type": "string",
                   "maxLength": 64
                 },
@@ -3113,7 +3209,12 @@
               [
                 {
                   "code": "TRM_TERM_ILL",
+                  "standard_feature": "terminal_illness_benefit",
                   "name": "Terminal illness benefit"
+                },
+                {
+                  "code": "NEO_FUNERAL_ADV",
+                  "name": "Funeral advancement"
                 }
               ]
             ]
@@ -3225,6 +3326,70 @@
             },
             "default": [
               "basis"
+            ]
+          },
+          "feature_resolution": {
+            "description": "Which forms of feature code this implementation accepts in `required_features`. `standard` MUST always be supported — it is the portable form, and the only one a consumer can send to a panel without first reading each insurer's own declarations.\n`insurer_code` is optional, and an implementation that accepts it MUST publish those codes in `features` on the covers it writes, and in `policy_features`: an identifier space a consumer cannot enumerate is one it cannot use.\nDeclared for the same reason `occupation_resolution` and `commission_resolution` are — finding out from the capability document costs nothing, and finding out from a declined line costs a pricing call and an adviser's confusion.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "standard",
+                "insurer_code"
+              ]
+            },
+            "default": [
+              "standard"
+            ]
+          },
+          "policy_features": {
+            "description": "Features that describe the POLICY rather than one benefit within it, requestable under the `policy` key of `required_features`.\nSeparate from `covers[].features` because these are not cover-scoped: a policy either is guaranteed renewable or it is not, and declaring it under each of seven covers would make one fact seven filters that must all be ticked together. A policy-level fact is declared once.",
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "anyOf": [
+                {
+                  "required": [
+                    "code",
+                    "name"
+                  ]
+                },
+                {
+                  "required": [
+                    "standard_feature"
+                  ]
+                }
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "standard_feature": {
+                  "description": "The portable code from `taxonomy/features.yaml`, which MUST be one listed under `policy` in that file.",
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 1000
+                }
+              }
+            },
+            "examples": [
+              [
+                {
+                  "code": "GTD_RENEW",
+                  "standard_feature": "guaranteed_renewable",
+                  "name": "Guaranteed renewable"
+                }
+              ]
             ]
           },
           "occupation_qualifiers_used": {
