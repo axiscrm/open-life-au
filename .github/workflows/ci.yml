@@ -214,18 +214,22 @@ jobs:
           grep " $asset\$" checksums.txt | sha256sum -c -
           tar xzf "$asset" oasdiff
           sudo install -m 0755 oasdiff /usr/local/bin/oasdiff
+          # The tarball extracts the binary to /tmp/oasdiff, so the working directory the diff
+          # steps use is deliberately NOT that path — `mkdir -p` fails on a path that exists as a
+          # file, which took out every contract's breaking-change job.
+          rm -f /tmp/oasdiff
           oasdiff --version
 
       - name: Extract the base contract
         run: |
-          mkdir -p /tmp/oasdiff
+          mkdir -p /tmp/oasdiff-work
           # A brand-new contract has no base to compare against; an empty document makes every
           # change additive, which is correct for the first PR that introduces one.
           git show "origin/${{ github.base_ref }}:dist/${{ matrix.contract }}/openapi.yaml" \
-            > /tmp/oasdiff/base.yaml 2>/dev/null \
+            > /tmp/oasdiff-work/base.yaml 2>/dev/null \
             || printf 'openapi: 3.1.0\ninfo: {title: none, version: 0.0.0}\npaths: {}\n' \
-               > /tmp/oasdiff/base.yaml
-          cp dist/${{ matrix.contract }}/openapi.yaml /tmp/oasdiff/head.yaml
+               > /tmp/oasdiff-work/base.yaml
+          cp dist/${{ matrix.contract }}/openapi.yaml /tmp/oasdiff-work/head.yaml
 
       # A breaking change is not forbidden — it is a decision that has to be taken deliberately,
       # with a migration note, rather than discovered by an insurer after they have shipped. Apply
@@ -233,7 +237,7 @@ jobs:
       - name: Detect breaking changes
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'breaking-change-approved') }}
         run: |
-          oasdiff breaking /tmp/oasdiff/base.yaml /tmp/oasdiff/head.yaml \
+          oasdiff breaking /tmp/oasdiff-work/base.yaml /tmp/oasdiff-work/head.yaml \
             --fail-on ERR --format githubactions
 
       # Always publish the human-readable changelog, breaking or not. "What changed in quoting
@@ -242,13 +246,13 @@ jobs:
       # into the same step summary.
       - name: Changelog for the PR
         run: |
-          oasdiff changelog /tmp/oasdiff/base.yaml /tmp/oasdiff/head.yaml \
-            > /tmp/oasdiff/changelog.txt || true
-          if [ -s /tmp/oasdiff/changelog.txt ]; then
+          oasdiff changelog /tmp/oasdiff-work/base.yaml /tmp/oasdiff-work/head.yaml \
+            > /tmp/oasdiff-work/changelog.txt || true
+          if [ -s /tmp/oasdiff-work/changelog.txt ]; then
             {
               echo '## API changes — ${{ matrix.contract }}'
               echo '```'
-              cat /tmp/oasdiff/changelog.txt
+              cat /tmp/oasdiff-work/changelog.txt
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           else
