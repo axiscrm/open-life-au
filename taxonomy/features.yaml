@@ -208,12 +208,6 @@ covers:
       Cover on the insured's children is included at no additional premium.
     covers: [life, tpd, trauma, income_protection]
 
-  loyalty_benefit:
-    name: Loyalty benefit
-    summary: >-
-      An increase in cover, or a reduction in premium, earned by holding the policy for a stated
-      period.
-    covers: [life, tpd, trauma, income_protection, business_expenses]
 
   premium_and_cover_suspension:
     name: Premium and cover suspension
@@ -230,12 +224,6 @@ covers:
       underwriting.
     covers: [life, tpd, trauma]
 
-  crisis_benefit:
-    name: Crisis benefit
-    summary: >-
-      A lump sum payable on a defined critical illness event, in addition to the cover's normal
-      benefit.
-    covers: [income_protection, business_expenses]
 
   elective_surgery_benefit:
     name: Elective surgery benefit
@@ -251,11 +239,6 @@ covers:
       period.
     covers: [income_protection, business_expenses]
 
-  transportation_benefit:
-    name: Transportation benefit
-    summary: >-
-      The insurer contributes to the cost of transporting the insured for treatment.
-    covers: [income_protection, business_expenses]
 
   no_claim_discount:
     name: No claim discount or bonus
@@ -404,12 +387,6 @@ covers:
       As `total_disability_worst_occupation_definition`, for partial disability.
     covers: [income_protection]
 
-  severe_disability_benefit:
-    name: Severe disability benefit
-    summary: >-
-      An increased monthly benefit while the insured meets a severe-disability test, above the
-      ordinary total-disability benefit.
-    covers: [income_protection]
 
   booster_benefit:
     name: Booster benefit
@@ -436,11 +413,6 @@ covers:
       The insurer contributes to home help or nursing care while the insured is disabled.
     covers: [income_protection]
 
-  child_care_benefit:
-    name: Child care benefit
-    summary: >-
-      The insurer contributes to child care costs while the insured is disabled.
-    covers: [income_protection]
 
   rehabilitation_benefits:
     name: Rehabilitation benefits
@@ -502,12 +474,6 @@ covers:
       disabled.
     covers: [business_expenses]
 
-  benefit_extension:
-    name: Benefit extension
-    summary: >-
-      The benefit period may be extended where the full monthly benefit was not drawn each month,
-      spreading the unused amount over further months.
-    covers: [business_expenses]
 
   # ── Needle stick ────────────────────────────────────────────────────────────
   occupational_hiv_or_hepatitis_cover:
@@ -544,12 +510,6 @@ covers:
       The insurer contributes to grief counselling for the family following a child claim.
     covers: [child_trauma]
 
-  child_trauma_indexation:
-    name: Child trauma indexation
-    summary: >-
-      The child's sum insured is indexed annually. Separate from policy-level `benefit_indexation`,
-      which several products apply to the adult covers only.
-    covers: [child_trauma]
 
   child_trauma_cover_increases:
     name: Child trauma cover increases
@@ -563,164 +523,238 @@ covers:
       A proportion of the sum insured is payable on stated less-severe conditions.
     covers: [child_trauma]
 
-# ── Trauma conditions ─────────────────────────────────────────────────────────
+# ── Critical illness conditions ───────────────────────────────────────────────
 #
 # READ THIS BEFORE USING ANY OF IT.
 #
 # These entries NAME a condition. With three exceptions they do NOT define it, and this standard
 # does not intend to: an insurer's condition definitions — the severity thresholds, the exclusions
 # for early-stage disease, which events pay in full and which pay a proportion — are the substance
-# of a trauma product and the principal axis on which trauma products compete. Two products both
-# listing `cancer` are NOT thereby equivalent.
+# of a critical illness product and the principal axis on which such products compete. Two products
+# both listing `cancer` are NOT thereby equivalent.
 #
 # So a consumer MUST NOT present a condition match as a like-for-like comparison, in the same way
 # and for the same reason it must not compare `rating_class` across insurers. What a condition
 # filter honestly supports is "narrow the panel to products that pay something on this condition,
 # then read the definitions". That is genuinely useful and it is all it is.
 #
-# THE THREE EXCEPTIONS carry `baseline: cali_licp`. The Life Insurance Code of Practice sets
-# minimum standard definitions for cancer, severe heart attack and stroke — the conditions behind
-# the majority of trauma claims — binding subscribing insurers for new policies. For those three a
-# match means more than "pays something", because there is a floor beneath it. It is still a floor:
-# an insurer may define more broadly than the minimum, so a comparison remains a comparison of
-# definitions, not of ticks.
-
+# TWO TIERS, BECAUSE PRODUCTS HAVE TWO. `full` conditions pay the sum insured; `partial` conditions
+# pay a stated proportion of it and generally reduce the remaining cover. Flattening the two would
+# be the most misleading thing this file could do — an early-stage cancer paying 25% is not the
+# same answer as a cancer paying 100%, and a consumer filtering on "cancer" must not be shown a
+# product that only reaches the partial tier.
+#
+# GROUPED BY BODY SYSTEM, which is how the underlying products present them, and which keeps
+# related conditions together in a picker.
+#
+# WHICH DOCUMENTS EACH ENTRY CAME FROM is recorded in `FEATURES-PROVENANCE.md`, not here. It
+# lives there because naming insurers is exactly what this file must not do — see
+# `docs/PROVENANCE-RULES.md` — and because the evidence is about how the vocabulary was built
+# rather than about what a code means to someone reading it.
+#
+# THE THREE EXCEPTIONS carry `baseline: cali_licp`, and the baseline note above records what that
+# Code actually does and, importantly, what it does not.
 conditions:
-  alzheimers_and_dementia:
-    name: Alzheimer's disease and dementias
-  aortic_surgery:
-    name: Aortic surgery
-  aplastic_anaemia:
-    name: Aplastic anaemia
-  benign_brain_tumour:
-    name: Benign brain tumour
-  cancer:
-    name: Cancer
-    baseline: cali_licp
-    # Titled "Cancer - excluding specified early stage cancers" in the Code. Deliberately NOT
-    # summarised here: the definition turns on histological classification and on staging
-    # thresholds stated per site — Gleason scores for prostate, TNM classifications for thyroid,
-    # bladder and melanoma, Rai staging for chronic lymphocytic leukaemia. A one-line paraphrase
-    # of that is a paraphrase someone will rely on. Read the appendix.
-  cancer_leukaemia:
-    name: Cancer — leukaemia
-  cancer_melanoma:
-    name: Cancer — melanoma
-  cancer_prostate:
-    name: Cancer — prostate
-  carcinoma_in_situ_breast:
-    name: Carcinoma in situ — breast
-  carcinoma_in_situ_cervix:
-    name: Carcinoma in situ — cervix
-  carcinoma_in_situ_fallopian_tube:
-    name: Carcinoma in situ — fallopian tube
-  carcinoma_in_situ_ovary:
-    name: Carcinoma in situ — ovary
-  carcinoma_in_situ_penis:
-    name: Carcinoma in situ — penis
-  carcinoma_in_situ_perineum:
-    name: Carcinoma in situ — perineum
-  carcinoma_in_situ_testicle:
-    name: Carcinoma in situ — testicle
-  carcinoma_in_situ_uterus:
-    name: Carcinoma in situ — uterus
-  carcinoma_in_situ_vagina:
-    name: Carcinoma in situ — vagina
-  carcinoma_in_situ_vulva:
-    name: Carcinoma in situ — vulva
-  ulcerative_colitis:
-    name: Severe ulcerative colitis
-  colostomy_or_ileostomy:
-    name: Colostomy and/or ileostomy
-  coma:
-    name: Coma
-  crohns_disease:
-    name: Severe Crohn's disease
-  diabetes_type_1:
-    name: Diabetes type 1
-  encephalitis_or_meningitis:
-    name: Encephalitis / meningitis
-  endometriosis:
-    name: Endometriosis
-  facial_reconstruction:
-    name: Facial reconstruction
-  cardiomyopathy:
-    name: Cardiomyopathy
-  coronary_artery_angioplasty:
-    name: Coronary artery angioplasty
-  coronary_artery_angioplasty_triple_vessel:
-    name: Coronary artery angioplasty — triple vessel
-  coronary_artery_bypass:
-    name: Coronary artery by-pass
-  heart_attack:
-    name: Heart attack
-    baseline: cali_licp
-    # Titled "Heart attack - with evidence of severe heart muscle damage" in the Code. Not
-    # summarised, for the same reason as cancer: the definition turns on cardiac biomarker values
-    # against the 99th percentile upper reference limit together with stated clinical and ECG
-    # findings, with a left ventricular ejection fraction fallback. Read the appendix.
-  heart_valve_surgery:
-    name: Heart valve surgery
-  open_heart_surgery:
-    name: Open heart surgery
-  out_of_hospital_cardiac_arrest:
-    name: Out of hospital cardiac arrest
-  hiv_medically_acquired:
-    name: HIV medically acquired
-  hydatidiform_mole:
-    name: Hydatidiform mole
-  hydrocephalus:
-    name: Hydrocephalus
-  kidney_failure:
-    name: Kidney failure
-  liver_disease:
-    name: Liver disease
-  loss_of_hearing:
-    name: Loss of hearing
-  loss_of_independence:
-    name: Loss of independence
-  loss_of_limbs:
-    name: Loss of limbs
-  loss_of_sight:
-    name: Loss of sight
-  loss_of_speech:
-    name: Loss of speech
-  lung_disease:
-    name: Lung disease
-  lupus:
-    name: Lupus
-  major_head_trauma:
-    name: Major head trauma
-  major_organ_transplant:
-    name: Major organ transplant
-  motor_neurone_disease:
-    name: Motor neurone disease
-  multiple_sclerosis:
-    name: Multiple sclerosis
-  muscular_dystrophy:
-    name: Muscular dystrophy
-  osteoporosis:
-    name: Severe osteoporosis
-  paralysis:
-    name: Paralysis
-  parkinsons_disease:
-    name: Parkinson's disease
-  peripheral_neuropathy:
-    name: Peripheral neuropathy
-  pneumonectomy:
-    name: Pneumonectomy
-  pregnancy_complications:
-    name: Pregnancy complications
-  pulmonary_hypertension:
-    name: Pulmonary hypertension
-  rheumatoid_arthritis:
-    name: Rheumatoid arthritis
-  severe_burns:
-    name: Severe burns
-  severe_diabetes:
-    name: Severe diabetes
-  stroke:
-    name: Stroke
-    baseline: cali_licp
-    # Titled "Stroke - in the brain resulting in specified permanent neurological deficit" in the
-    # Code. Not summarised. Read the appendix.
+  full:
+    # ── Cardiovascular ──────────────────────────────────────────────────────
+    angioplasty:
+      name: Coronary artery angioplasty
+      group: cardiovascular
+    angioplasty_triple_vessel:
+      name: Triple vessel angioplasty
+      group: cardiovascular
+    aortic_surgery:
+      name: Aortic surgery
+      group: cardiovascular
+    cardiomyopathy:
+      name: Cardiomyopathy
+      group: cardiovascular
+    coronary_artery_bypass:
+      name: Coronary artery bypass surgery
+      group: cardiovascular
+    heart_attack:
+      name: Heart attack
+      group: cardiovascular
+      baseline: cali_licp
+      # Titled "Heart attack - with evidence of severe heart muscle damage" in the Code.
+      # Deliberately NOT paraphrased: the definition turns on cardiac biomarker values against the
+      # 99th percentile upper reference limit together with stated clinical and ECG findings, with
+      # a left ventricular ejection fraction fallback. A one-line summary of that is a summary
+      # someone will rely on.
+    heart_valve_surgery:
+      name: Heart valve surgery
+      group: cardiovascular
+    open_heart_surgery:
+      name: Open heart surgery
+      group: cardiovascular
+    out_of_hospital_cardiac_arrest:
+      name: Out of hospital cardiac arrest
+      group: cardiovascular
+    pulmonary_arterial_hypertension:
+      name: Pulmonary arterial hypertension
+      group: cardiovascular
+
+    # ── Neurological ────────────────────────────────────────────────────────
+    coma:
+      name: Coma
+      group: neurological
+    dementia_including_alzheimers:
+      name: Dementia including Alzheimer's disease
+      group: neurological
+    encephalitis:
+      name: Encephalitis
+      group: neurological
+      # Separated from meningitis because one source lists them as two conditions and the other as
+      # one ("encephalitis and meningitis"). Two codes is the safe direction: an insurer writing
+      # them together can declare both, where an insurer writing only one cannot honestly declare
+      # a combined code.
+    meningitis:
+      name: Meningitis
+      group: neurological
+    meningococcal_disease:
+      name: Meningococcal disease
+      group: neurological
+    major_head_trauma:
+      name: Major head trauma
+      group: neurological
+    motor_neurone_disease:
+      name: Progressive and debilitating motor neurone disease
+      group: neurological
+    multiple_sclerosis:
+      name: Multiple sclerosis
+      group: neurological
+    muscular_dystrophy:
+      name: Muscular dystrophy
+      group: neurological
+    paralysis:
+      name: Paralysis
+      group: neurological
+    parkinsons_disease:
+      name: Parkinson's disease
+      group: neurological
+    stroke:
+      name: Stroke
+      group: neurological
+      baseline: cali_licp
+      # Titled "Stroke - in the brain resulting in specified permanent neurological deficit" in the
+      # Code. Not paraphrased, for the same reason as heart attack.
+
+    # ── Sensory and functional loss ─────────────────────────────────────────
+    blindness:
+      name: Blindness
+      group: sensory_and_functional_loss
+    loss_of_hearing:
+      name: Loss of hearing
+      group: sensory_and_functional_loss
+      # One source calls this deafness. The same benefit under two names, so one code.
+    loss_of_independent_existence:
+      name: Loss of independent existence
+      group: sensory_and_functional_loss
+    loss_of_use_of_limbs:
+      name: Loss of use of limbs
+      group: sensory_and_functional_loss
+    loss_of_speech:
+      name: Loss of speech
+      group: sensory_and_functional_loss
+    prolonged_intensive_care:
+      name: Prolonged intensive care
+      group: sensory_and_functional_loss
+
+    # ── Organ ───────────────────────────────────────────────────────────────
+    chronic_kidney_failure:
+      name: Chronic kidney failure
+      group: organ
+    chronic_liver_failure:
+      name: Chronic liver failure
+      group: organ
+    chronic_lung_failure:
+      name: Chronic lung failure
+      group: organ
+    major_organ_transplant:
+      name: Major organ transplant
+      group: organ
+    pneumonectomy:
+      name: Pneumonectomy
+      group: organ
+    severe_burns:
+      name: Severe burns
+      group: organ
+    severe_rheumatoid_arthritis:
+      name: Severe rheumatoid arthritis
+      group: organ
+
+    # ── Blood and metabolic ─────────────────────────────────────────────────
+    aplastic_anaemia:
+      name: Aplastic anaemia
+      group: blood_and_metabolic
+    medically_acquired_hiv:
+      name: Medically-acquired HIV
+      group: blood_and_metabolic
+    occupationally_acquired_hiv:
+      name: Occupationally-acquired HIV
+      group: blood_and_metabolic
+    occupationally_acquired_hepatitis:
+      name: Occupationally-acquired hepatitis B or C
+      group: blood_and_metabolic
+    severe_diabetes:
+      name: Severe diabetes
+      group: blood_and_metabolic
+
+    # ── Cancer ──────────────────────────────────────────────────────────────
+    cancer:
+      name: Cancer
+      group: cancer
+      baseline: cali_licp
+      # Titled "Cancer - excluding specified early stage cancers" in the Code. Deliberately NOT
+      # paraphrased: the definition turns on histological classification and on staging thresholds
+      # stated per site — Gleason scores for prostate, TNM classifications for thyroid, bladder and
+      # melanoma, Rai staging for chronic lymphocytic leukaemia.
+      #
+      # NOTE the relationship to the partial tier below. The early-stage cancers this definition
+      # excludes are frequently written as PARTIAL conditions instead. A product may therefore pay
+      # nothing under `cancer` and 25 per cent under `early_stage_prostate_cancer`, which is why
+      # the two tiers must not be flattened into one filter.
+    benign_brain_or_spinal_cord_tumour:
+      name: Benign brain or spinal cord tumour
+      group: cancer
+
+  # ── Partial conditions ────────────────────────────────────────────────────
+  #
+  # Pay a stated PROPORTION of the sum insured, and generally reduce the remaining cover by the
+  # amount paid. A product offering one of these does not thereby offer the corresponding full
+  # condition, and a consumer must not treat a partial match as satisfying a full-condition filter.
+  #
+  # The proportions themselves are not recorded here: they are each insurer's own, they differ
+  # between products, and publishing one product's figure as though it were the standard's would
+  # be asserting a product rule this standard does not own.
+  partial:
+    carcinoma_in_situ:
+      name: Carcinoma in situ
+      group: cancer
+      # ONE condition, not one per site. No disclosure document read for this file enumerates
+      # carcinoma in situ by anatomical site as separate covered conditions; they treat it as a
+      # single condition, with the site mattering only to whether a subsequent claim is allowed.
+    early_stage_chronic_lymphocytic_leukaemia:
+      name: Early stage chronic lymphocytic leukaemia
+      group: cancer
+    early_stage_melanoma:
+      name: Early stage melanoma
+      group: cancer
+    early_stage_prostate_cancer:
+      name: Early stage prostate cancer
+      group: cancer
+    diagnosed_benign_brain_or_spinal_cord_tumour:
+      name: Diagnosed benign brain or spinal cord tumour
+      group: cancer
+    adult_onset_insulin_dependent_diabetes:
+      name: Adult onset insulin dependent diabetes mellitus
+      group: blood_and_metabolic
+    loss_of_hearing_one_ear:
+      name: Loss of hearing in one ear
+      group: sensory_and_functional_loss
+    loss_of_sight_one_eye:
+      name: Loss of sight in one eye
+      group: sensory_and_functional_loss
+    loss_of_use_of_single_limb:
+      name: Loss of use of a single limb
+      group: sensory_and_functional_loss

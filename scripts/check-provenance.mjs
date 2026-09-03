@@ -44,6 +44,11 @@ const FORBIDDEN = [
 const ALLOWLIST = new Set([
     "docs/acord-relationship.md",
     "docs/PROVENANCE-RULES.md",
+    // Records which disclosure documents the feature vocabulary was built from, so naming their
+    // issuers is the point of the file rather than a leak into it. `taxonomy/features.yaml` is
+    // deliberately NOT here: the vocabulary itself stays vendor-neutral and the gate still
+    // enforces that.
+    "taxonomy/FEATURES-PROVENANCE.md",
 ]);
 
 const TEXT_EXT = new Set([".yaml", ".yml", ".json", ".md", ".js", ".mjs", ".ts", ".py"]);
