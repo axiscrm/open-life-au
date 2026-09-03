@@ -10,7 +10,13 @@ name: ✅ CI
 #   nothing derived from a vendor specification has crept in.
 
 on:
+  # `labeled` and `unlabeled` are here so the `breaking-change-approved` escape hatch below
+  # actually works. The default set is opened/synchronize/reopened, and the label is read from the
+  # triggering event's payload — so labelling an open pull request re-ran nothing, and the only way
+  # to use the documented mechanism was to have labelled it before the last push. `unlabeled` so
+  # withdrawing approval puts the gate back rather than leaving a stale green tick.
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches: [main]
 
