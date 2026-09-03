@@ -8,7 +8,7 @@
 #
 # These dimensions exist because the ABS classification does not carry them. OSCA is built for
 # labour statistics, so it has no notion of working at height or trade qualification, while
-# underwriting manuals discriminate on exactly those facts. See taxonomy/PROVENANCE.md.
+# underwriting manuals discriminate on exactly those facts. See taxonomy/OCCUPATION-PROVENANCE.md.
 #
 # DIMENSIONS, NOT DESCRIPTIONS. The standard defines "working height in metres"; each insurer bands
 # it however its own manual does. Publishing bands here would be asserting a rating rule we do not

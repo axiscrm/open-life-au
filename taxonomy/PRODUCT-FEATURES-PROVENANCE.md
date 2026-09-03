@@ -1,12 +1,12 @@
 # Product features — provenance
 
-This file records where the vocabulary in [`features.yaml`](features.yaml) came from, so the claim
+This file records where the vocabulary in [`product-features.yaml`](product-features.yaml) came from, so the claim
 is auditable rather than asserted. See also [`../docs/PROVENANCE-RULES.md`](../docs/PROVENANCE-RULES.md)
-and [`PROVENANCE.md`](PROVENANCE.md), which records the occupation baseline.
+and [`OCCUPATION-PROVENANCE.md`](OCCUPATION-PROVENANCE.md), which records the occupation baseline.
 
 ## Why this file exists
 
-`PROVENANCE.md` can point at the ABS and stop, because someone else maintains the occupation
+`OCCUPATION-PROVENANCE.md` can point at the ABS and stop, because someone else maintains the occupation
 classification and publishes it openly. There is no equivalent body enumerating product features
 for the Australian life market, so this standard defines them — and a standard that defines its own
 vocabulary owes a much longer answer to "on what basis?".
@@ -16,7 +16,7 @@ The answer is: on the basis of the disclosure documents the products are actuall
 ## Sources
 
 Product disclosure statements for the eleven insurers on a full retail panel. Each is the issuer's
-own document, and each entry in `features.yaml` names the ones it was taken from.
+own document, and each entry in `product-features.yaml` names the ones it was taken from.
 
 | Key | Issuer | Product | Document date |
 |---|---|---|---|
@@ -35,14 +35,14 @@ own document, and each entry in `features.yaml` names the ones it was taken from
 Read on 3 September 2026. Document dates are the issuer's own as printed on each document.
 
 A twelfth source, for three conditions only, is the **Life Insurance Code of Practice** published by
-the Council of Australian Life Insurers. It is recorded in the `baselines` block of `features.yaml`
+the Council of Australian Life Insurers. It is recorded in the `baselines` block of `product-features.yaml`
 rather than here, because it is a baseline the standard defers to rather than a document the
 vocabulary was read from.
 
 ## Method
 
 **Conditions** were taken from the critical illness schedules of the NEOS and TAL documents, which
-list them in full and group them by body system. `features.yaml` keeps that grouping. Where the two
+list them in full and group them by body system. `product-features.yaml` keeps that grouping. Where the two
 documents name the same condition differently — *deafness* against *loss of hearing* — the entry
 carries one code and both documents are cited. Where one document splits what the other combines —
 *encephalitis* and *meningitis* against *encephalitis and meningitis* — the entry follows the split,
@@ -61,7 +61,7 @@ Carcinoma in situ is **one condition, not one per anatomical site**. No document
 enumerates it by site as separate covered conditions.
 
 **Structural features** were confirmed by searching every document for the benefit by name. Every
-entry in `features.yaml` is one that at least one issuer's document describes.
+entry in `product-features.yaml` is one that at least one issuer's document describes.
 
 Seven candidates were removed because no document on the panel describes them: a loyalty benefit, a
 crisis benefit, a severe disability benefit, a child care benefit, a transportation benefit, a
@@ -93,7 +93,7 @@ useful answer rather than a gap.
 
 ## What is not claimed
 
-The definitions behind these names are **not** in this standard, and `features.yaml` says so at
+The definitions behind these names are **not** in this standard, and `product-features.yaml` says so at
 length. Two products listing the same condition are not thereby comparable: the severity thresholds
 and exclusions are the substance of what a critical illness product sells, and they differ. This
 file records that a name is real and in market use. It records nothing about what any particular

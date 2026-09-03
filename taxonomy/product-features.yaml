@@ -33,7 +33,7 @@
 # HOW TO READ `summary`. It states what the feature IS, in terms an insurer can check its own
 # product against. It does not state a threshold, a waiting period or a benefit amount: those are
 # each insurer's own, and publishing them here would be asserting a product rule this standard does
-# not own. Same principle as `qualifiers.yaml` — the standard defines the dimension, the insurer
+# not own. Same principle as `occupation-qualifiers.yaml` — the standard defines the dimension, the insurer
 # fills it in.
 
 version: '0.1.0'
@@ -41,7 +41,7 @@ version: '0.1.0'
 # ── Provenance ────────────────────────────────────────────────────────────────
 #
 # The structural features below are defined by this standard. We hold that position deliberately
-# and it is the exception to the rule in `PROVENANCE.md`: there is no external body that enumerates
+# and it is the exception to the rule in `OCCUPATION-PROVENANCE.md`: there is no external body that enumerates
 # product features for the Australian market the way the ABS enumerates occupations, so the choice
 # is between defining them and leaving consumers unable to compare. Where an external authority
 # DOES exist we defer to it, which is what `baseline` records.
@@ -547,7 +547,7 @@ covers:
 # GROUPED BY BODY SYSTEM, which is how the underlying products present them, and which keeps
 # related conditions together in a picker.
 #
-# WHICH DOCUMENTS EACH ENTRY CAME FROM is recorded in `FEATURES-PROVENANCE.md`, not here. It
+# WHICH DOCUMENTS EACH ENTRY CAME FROM is recorded in `PRODUCT-FEATURES-PROVENANCE.md`, not here. It
 # lives there because naming insurers is exactly what this file must not do — see
 # `docs/PROVENANCE-RULES.md` — and because the evidence is about how the vocabulary was built
 # rather than about what a code means to someone reading it.

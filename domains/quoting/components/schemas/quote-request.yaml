@@ -414,7 +414,7 @@ RequiredFeatures:
     Keys are `CoverType` values, plus `policy` for features that describe the policy rather than one
     benefit. The codes under each key are EITHER:
 
-      * a **standard feature**, from `taxonomy/features.yaml` — portable, and the same code means
+      * a **standard feature**, from `taxonomy/product-features.yaml` — portable, and the same code means
         the same thing at every insurer; or
       * the **insurer's own code**, discoverable from `features` on that cover in the capability
         document.

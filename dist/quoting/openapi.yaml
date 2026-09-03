@@ -1279,7 +1279,7 @@ components:
         ## Two vocabularies, and a consumer may mix them
         Keys are `CoverType` values, plus `policy` for features that describe the policy rather than one benefit. The codes under each key are EITHER:
 
-          * a **standard feature**, from `taxonomy/features.yaml` — portable, and the same code means
+          * a **standard feature**, from `taxonomy/product-features.yaml` — portable, and the same code means
             the same thing at every insurer; or
           * the **insurer's own code**, discoverable from `features` on that cover in the capability
             document.
@@ -2640,7 +2640,7 @@ components:
           description: |-
             Named product features that may be required for this cover via `required_features`.
             DISTINCT FROM `supported_options`, and the distinction is the whole point. An option is something the consumer asks the insurer to APPLY, and the insurer answers it in `resolved_options`. A feature is something the consumer FILTERS on, and the insurer answers it by using only products that have it — or by declining the benefit. So the same underlying product capability may legitimately appear in both, and they are not interchangeable.
-            `code` is the insurer's own and is scoped to this cover. `standard_feature` is the portable equivalent from `taxonomy/features.yaml` where one exists, and publishing it is what lets a consumer send ONE request to a whole panel instead of translating per insurer. Publish it wherever the mapping is honest; omit it where the insurer's benefit genuinely is not the standard one, because a wrong mapping here is worse than none — it produces a filter that silently selects the wrong products.
+            `code` is the insurer's own and is scoped to this cover. `standard_feature` is the portable equivalent from `taxonomy/product-features.yaml` where one exists, and publishing it is what lets a consumer send ONE request to a whole panel instead of translating per insurer. Publish it wherever the mapping is honest; omit it where the insurer's benefit genuinely is not the standard one, because a wrong mapping here is worse than none — it produces a filter that silently selects the wrong products.
             Features with no `code`, only a `standard_feature`, are permitted: an insurer with no identifiers of its own can declare purely in the standard's terms.
             POLICY-LEVEL FEATURES DO NOT BELONG HERE. `guaranteed_renewable` describes the policy, not one benefit inside it; declare those in `policy_features` on the document rather than repeating them under every cover.
           type: array
@@ -2660,7 +2660,7 @@ components:
                 type: string
                 maxLength: 64
               standard_feature:
-                description: The portable code from `taxonomy/features.yaml` this feature corresponds to, where it corresponds to one. It MUST be a code that file lists for this cover.
+                description: The portable code from `taxonomy/product-features.yaml` this feature corresponds to, where it corresponds to one. It MUST be a code that file lists for this cover.
                 type: string
                 maxLength: 64
               name:
@@ -2798,7 +2798,7 @@ components:
                 type: string
                 maxLength: 64
               standard_feature:
-                description: The portable code from `taxonomy/features.yaml`, which MUST be one listed under `policy` in that file.
+                description: The portable code from `taxonomy/product-features.yaml`, which MUST be one listed under `policy` in that file.
                 type: string
                 maxLength: 64
               name:

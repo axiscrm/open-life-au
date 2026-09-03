@@ -156,7 +156,7 @@ Capabilities:
             maxLength: 64
           standard_feature:
             description: >-
-              The portable code from `taxonomy/features.yaml`, which MUST be one listed under
+              The portable code from `taxonomy/product-features.yaml`, which MUST be one listed under
               `policy` in that file.
             type: string
             maxLength: 64
@@ -401,7 +401,7 @@ CoverCapability:
         product capability may legitimately appear in both, and they are not interchangeable.
 
         `code` is the insurer's own and is scoped to this cover. `standard_feature` is the portable
-        equivalent from `taxonomy/features.yaml` where one exists, and publishing it is what lets a
+        equivalent from `taxonomy/product-features.yaml` where one exists, and publishing it is what lets a
         consumer send ONE request to a whole panel instead of translating per insurer. Publish it
         wherever the mapping is honest; omit it where the insurer's benefit genuinely is not the
         standard one, because a wrong mapping here is worse than none — it produces a filter that
@@ -428,7 +428,7 @@ CoverCapability:
             maxLength: 64
           standard_feature:
             description: >-
-              The portable code from `taxonomy/features.yaml` this feature corresponds to, where it
+              The portable code from `taxonomy/product-features.yaml` this feature corresponds to, where it
               corresponds to one. It MUST be a code that file lists for this cover.
             type: string
             maxLength: 64
