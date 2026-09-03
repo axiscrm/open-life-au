@@ -1,0 +1,760 @@
+# Open Life Data Standards (AU) — product features.
+#
+# The machine-readable companion to `RequiredFeatures` in
+# `domains/quoting/components/schemas/quote-request.yaml`. The schema says a feature may be
+# required; this file says what each feature MEANS — the context an implementer needs to map one
+# onto its own product manual, and a consumer needs to put a checkbox in front of an adviser.
+#
+# WHY A SHARED VOCABULARY AT ALL. Features were originally the insurer's own codes, discoverable
+# from the capability document. That works for an implementer, which declares what it has, and
+# fails for a consumer, which cannot ask a panel of insurers "must include terminal illness"
+# without hand-maintaining one private mapping per insurer — the exact work this standard exists
+# to remove. Every
+# other place the standard meets this problem it answers the same way: a portable term beside the
+# insurer's own identifier, as `osca` sits beside `insurer_occupation_id` and `basis` beside
+# `insurer_commission_id`. This is that portable term for features.
+#
+# THE INSURER'S CODES DO NOT GO AWAY. Product benefits are long-tailed, and no vocabulary written
+# here will cover every benefit every insurer sells. `standard_feature` is OPTIONAL on a
+# declared feature, and `required_features` accepts either form — see `feature_resolution` in the
+# capability document.
+#
+# TWO KINDS OF ENTRY, AND THE DIFFERENCE IS THE MOST IMPORTANT THING IN THIS FILE.
+#
+#   `policy` and `covers` are DEFINED here. They are structural: a policy either is guaranteed
+#   renewable or it is not, and two insurers answering the same way are saying the same thing.
+#
+#   `conditions` are NAMED here and DEFINED BY THE INSURER, except the three the industry has
+#   standardised. A trauma policy's condition definitions are the substance of what it sells, and
+#   the severity thresholds are precisely where insurers differ. Two products both listing `cancer`
+#   are NOT thereby comparable, and a consumer that presents them as equivalent is manufacturing a
+#   false comparison over the one axis that matters. See the note on `conditions`.
+#
+# HOW TO READ `summary`. It states what the feature IS, in terms an insurer can check its own
+# product against. It does not state a threshold, a waiting period or a benefit amount: those are
+# each insurer's own, and publishing them here would be asserting a product rule this standard does
+# not own. Same principle as `occupation-qualifiers.yaml` — the standard defines the dimension, the insurer
+# fills it in.
+
+version: '0.1.0'
+
+# ── Provenance ────────────────────────────────────────────────────────────────
+#
+# The structural features below are defined by this standard. We hold that position deliberately
+# and it is the exception to the rule in `OCCUPATION-PROVENANCE.md`: there is no external body that enumerates
+# product features for the Australian market the way the ABS enumerates occupations, so the choice
+# is between defining them and leaving consumers unable to compare. Where an external authority
+# DOES exist we defer to it, which is what `baseline` records.
+baselines:
+  cali_licp:
+    name: Life Insurance Code of Practice
+    publisher: Council of Australian Life Insurers (CALI)
+    document: >-
+      Life Insurance Code of Practice, version 1.0, as published by CALI. The appendix titled
+      "minimum standard medical definitions" carries definitions for cancer, heart attack and
+      stroke.
+    url: https://cali.org.au/wp-content/uploads/2023/09/Life-Insurance-Code-of-Practice-version-1.0.pdf
+    landing_page: https://cali.org.au/life-insurance-code-of-practice/
+    verified: '2026-09-03'
+    covers_only: [trauma]
+
+    # WHAT THE CODE ACTUALLY DOES, read from the document rather than described from memory. It
+    # matters because it is NOT the product-design rule it is easily mistaken for.
+    #
+    # Clause 20A scopes the minimum standard medical definitions to the FIRST $2 MILLION of
+    # trauma/critical illness cover, for policies and group schemes issued on or after 1 July 2017.
+    #
+    # Clause 20B is a CLAIMS-ASSESSMENT rule, not a product-definition floor: where cover includes
+    # cancer, a heart attack or a stroke, a claim is assessed against both the definition in the
+    # insurer's own disclosure document and the corresponding Code minimum current at the time of
+    # the insured event, so that the claimant gets the better of the two.
+    #
+    # THE CONSEQUENCE FOR COMPARISON. A product matching one of these three conditions does NOT
+    # thereby have a definition at least as broad as the Code's — its own definition may be
+    # narrower, with the Code reaching the claimant only at claim time and only up to $2 million.
+    # So the floor is real and it is a floor on the CLAIM, not on the product. A consumer may say
+    # "there is a standardised minimum behind this condition"; it may not say "these two products
+    # define this condition the same way".
+    limitation: >-
+      Applies to the first $2 million of trauma/critical illness cover, for policies issued on or
+      after 1 July 2017, and operates at claim time by giving the claimant the better of the
+      insurer's definition and the Code's.
+
+    # NOT YET ESTABLISHED, and deliberately recorded as such rather than guessed: whether version
+    # 1.0 above is the current edition. The Financial Services Council introduced these definitions
+    # in the Code commencing 1 July 2017 and transferred the Code to CALI on 29 September 2023;
+    # there are references to a later edition that have not been confirmed against the source.
+    # Confirm the current edition before treating this citation as authoritative.
+    open_question: >-
+      Confirm whether version 1.0 is the current edition, and re-verify the three definitions
+      against it if not.
+
+# ── Policy-level features ─────────────────────────────────────────────────────
+#
+# These describe the POLICY, not a benefit inside one, which is why they are addressed under the
+# `policy` key of `RequiredFeatures` rather than repeated under every cover. Repeating them per
+# cover would make "guaranteed renewable" seven different filters that must all be ticked
+# together, which is one fact wearing seven answers.
+policy:
+  variable_age_stepped_premiums:
+    name: Variable age-stepped premiums
+    summary: >-
+      Premiums rise with the insured's age on a published scale, rather than being reset at the
+      insurer's discretion.
+
+  variable_premiums:
+    name: Variable premiums
+    summary: >-
+      The insurer may vary premium rates for a class of policyholders, rather than guaranteeing
+      the rate table for the life of the policy.
+
+  healthy_lives_discount:
+    name: Healthy lives discounts and benefits
+    summary: >-
+      Premium discounts or added benefits earned by meeting health, lifestyle or engagement
+      criteria after the policy is issued.
+
+  financial_planning_benefit:
+    name: Financial planning benefit
+    summary: >-
+      The insurer contributes to the cost of financial advice following a claim.
+
+  premium_waiver_on_disability:
+    name: Premium waiver on disability
+    summary: >-
+      Premiums are waived while the insured is disabled, with the cover remaining in force.
+
+  guarantee_of_upgrade:
+    name: Guarantee of upgrade
+    summary: >-
+      Improvements the insurer makes to the product apply to policies already in force, without
+      re-underwriting and without a premium increase for the upgrade itself.
+
+  guaranteed_renewable:
+    name: Guaranteed renewable
+    summary: >-
+      The insurer cannot decline to renew, cancel, or re-underwrite an in-force policy on account
+      of a change in the insured's health or occupation.
+
+  guarantee_of_premium_rates:
+    name: Guarantee of premium rates
+    summary: >-
+      The premium rate table is guaranteed for a stated period, so rates cannot be repriced within
+      it. Distinct from `variable_premiums`, which is the absence of such a guarantee.
+
+  future_insurability:
+    name: Future insurability
+    summary: >-
+      Cover may be increased on defined personal events — marriage, a mortgage, a child — without
+      further medical underwriting.
+
+  business_future_insurability:
+    name: Business future insurability
+    summary: >-
+      Cover may be increased on defined BUSINESS events, such as a change in the insured's share
+      of business value or in a loan guarantee, without further medical underwriting.
+
+  benefit_indexation:
+    name: Benefit indexation
+    summary: >-
+      The sum insured increases automatically each year in line with a published index or a stated
+      minimum, so cover keeps pace with inflation without a new application.
+
+  premium_freeze_option:
+    name: Premium freeze option
+    summary: >-
+      The insured may hold the premium at its current amount and let the sum insured reduce
+      instead, rather than paying the age-stepped increase.
+
+  worldwide_cover:
+    name: Worldwide cover
+    summary: >-
+      Cover continues without geographic restriction, and residence or travel outside Australia
+      does not of itself suspend or void it.
+
+# ── Cover-level features ──────────────────────────────────────────────────────
+#
+# One code per feature, listing the covers it can be required on, rather than a separate code per
+# cover. `counselling_benefit` means the same thing on a Life policy and a Trauma one, and giving
+# it two codes would force a consumer to know that. `covers` is what makes a code valid under a
+# given cover in `RequiredFeatures`; a code used under a cover not listed here is out of scope for
+# that benefit and MUST be reported as unrecognised.
+covers:
+  # ── Shared across several covers ────────────────────────────────────────────
+  death_benefit:
+    name: Death benefit
+    summary: >-
+      A lump sum payable on death under a cover whose main purpose is something else, typically a
+      small proportion of the sum insured.
+    covers: [tpd, trauma, income_protection, business_expenses]
+
+  accommodation_benefit:
+    name: Accommodation benefit
+    summary: >-
+      The insurer contributes to accommodation costs for the insured or an immediate family member
+      while the insured is receiving treatment away from home.
+    covers: [tpd, trauma, income_protection, child_trauma]
+
+  counselling_benefit:
+    name: Counselling benefit
+    summary: >-
+      The insurer contributes to counselling for the insured or an immediate family member
+      following a claim event.
+    covers: [life, tpd, trauma, income_protection]
+
+  complimentary_child_insurance:
+    name: Complimentary child insurance
+    summary: >-
+      Cover on the insured's children is included at no additional premium.
+    covers: [life, tpd, trauma, income_protection]
+
+
+  premium_and_cover_suspension:
+    name: Premium and cover suspension
+    summary: >-
+      The policy may be suspended for a stated period — commonly financial hardship or parental
+      leave — and reinstated afterwards without re-underwriting. Cover does not apply while
+      suspended.
+    covers: [life, tpd, trauma, income_protection, business_expenses]
+
+  conversion_options:
+    name: Conversion options
+    summary: >-
+      The cover may be converted to another product or ownership structure without further medical
+      underwriting.
+    covers: [life, tpd, trauma]
+
+
+  elective_surgery_benefit:
+    name: Elective surgery benefit
+    summary: >-
+      Disability arising from elective or cosmetic surgery is treated as a claimable event rather
+      than excluded.
+    covers: [income_protection, business_expenses]
+
+  accident_benefit_option:
+    name: Accident benefit option
+    summary: >-
+      Benefits become payable from the date of an accidental injury, ahead of the ordinary waiting
+      period.
+    covers: [income_protection, business_expenses]
+
+
+  no_claim_discount:
+    name: No claim discount or bonus
+    summary: >-
+      A premium discount or benefit increase earned by not claiming over a stated period.
+    covers: [income_protection, business_expenses]
+
+  recurrent_disability:
+    name: Recurrent disability
+    summary: >-
+      A recurrence of the same condition within a stated period is treated as a continuation of the
+      original claim, so no new waiting period applies.
+    covers: [income_protection, business_expenses]
+
+  cover_extension:
+    name: Cover extension
+    summary: >-
+      Cover may continue beyond the policy's ordinary expiry age, on stated terms.
+    covers: [income_protection, business_expenses]
+
+  # ── Life ────────────────────────────────────────────────────────────────────
+  accidental_death_benefit:
+    name: Accidental death benefit
+    summary: >-
+      An additional amount payable where death is accidental, or interim cover for accidental death
+      while an application is being underwritten.
+    covers: [life]
+
+  funeral_expenses_benefit:
+    name: Funeral expenses benefit
+    summary: >-
+      Part of the sum insured is released quickly on death to meet funeral costs, ahead of the full
+      claim being assessed.
+    covers: [life]
+
+  terminal_illness_benefit:
+    name: Terminal illness benefit
+    summary: >-
+      The sum insured is paid on diagnosis of a terminal illness with a stated life expectancy,
+      rather than on death.
+    covers: [life]
+
+  severe_trauma_benefit:
+    name: Severe trauma benefit
+    summary: >-
+      Part of the life sum insured is paid early on a defined severe trauma event, without a
+      separate trauma cover being held.
+    covers: [life]
+
+  # ── TPD ─────────────────────────────────────────────────────────────────────
+  tpd_any_occupation_available:
+    name: TPD any-occupation definition available
+    summary: >-
+      The product can be written on an any-occupation disability test. A capability of the product,
+      not a request to apply it — the test actually applied is the `tpd_definition` option.
+    covers: [tpd]
+
+  tpd_own_occupation_available:
+    name: TPD own-occupation definition available
+    summary: >-
+      The product can be written on an own-occupation disability test, which is materially harder
+      to obtain and not offered to every occupation.
+    covers: [tpd]
+
+  tpd_partial_and_permanent_disability_benefit:
+    name: Partial and permanent disability benefit
+    summary: >-
+      A proportion of the sum insured is payable for a permanent impairment that does not meet the
+      full total-and-permanent test.
+    covers: [tpd]
+
+  life_buy_back_after_tpd:
+    name: Life buy-back after TPD
+    summary: >-
+      Life cover reduced by a TPD claim may be reinstated after a stated period without further
+      underwriting.
+    covers: [tpd]
+
+  double_tpd:
+    name: Double TPD
+    summary: >-
+      TPD is written so that a TPD claim does not reduce the linked life cover, leaving both sums
+      insured payable.
+    covers: [tpd]
+
+  # ── Trauma ──────────────────────────────────────────────────────────────────
+  intensive_care_benefit:
+    name: Intensive care benefit
+    summary: >-
+      A benefit payable for a stated period in intensive care, regardless of whether the underlying
+      condition is itself a listed condition.
+    covers: [trauma]
+
+  trauma_reinstatement:
+    name: Trauma reinstatement
+    summary: >-
+      Trauma cover reduced by a claim may be reinstated after a stated period, generally excluding
+      the condition claimed for and those related to it.
+    covers: [trauma]
+
+  # ── Income protection ───────────────────────────────────────────────────────
+  agreed_value:
+    name: Agreed value
+    summary: >-
+      The monthly benefit is fixed at application on income evidence supplied then, and is not
+      re-tested against income at claim time.
+    covers: [income_protection]
+
+  indemnity_option:
+    name: Indemnity option
+    summary: >-
+      The monthly benefit is assessed against income at the time of claim rather than at
+      application.
+    covers: [income_protection]
+
+  own_occupation_beyond_two_years:
+    name: Own occupation available beyond two years of benefit
+    summary: >-
+      The own-occupation disability test continues past the first two years of a claim, rather than
+      reverting to a broader test.
+    covers: [income_protection]
+
+  total_disability_best_occupation_definition:
+    name: Total disability — most favourable occupation definition
+    summary: >-
+      The product offers the insurer's most favourable total-disability test for the insured's
+      occupation class.
+    covers: [income_protection]
+
+  total_disability_worst_occupation_definition:
+    name: Total disability — least favourable occupation definition
+    summary: >-
+      The product's total-disability test for the insured's occupation class is the insurer's least
+      favourable. Required in order to FIND such products, not to prefer them.
+    covers: [income_protection]
+
+  partial_disability_best_occupation_definition:
+    name: Partial disability — most favourable occupation definition
+    summary: >-
+      As `total_disability_best_occupation_definition`, for partial disability.
+    covers: [income_protection]
+
+  partial_disability_worst_occupation_definition:
+    name: Partial disability — least favourable occupation definition
+    summary: >-
+      As `total_disability_worst_occupation_definition`, for partial disability.
+    covers: [income_protection]
+
+
+  booster_benefit:
+    name: Booster benefit
+    summary: >-
+      An increased benefit for a stated initial period of a claim.
+    covers: [income_protection]
+
+  specific_injury_benefit:
+    name: Specific injury benefit
+    summary: >-
+      A benefit payable for a stated period on a listed injury, without the insured having to
+      satisfy the disability test or serve the waiting period.
+    covers: [income_protection]
+
+  waiting_period_bed_benefit:
+    name: Waiting period bed confinement benefit
+    summary: >-
+      A benefit payable during the waiting period while the insured is confined to bed.
+    covers: [income_protection]
+
+  home_care_benefit:
+    name: Home care benefit
+    summary: >-
+      The insurer contributes to home help or nursing care while the insured is disabled.
+    covers: [income_protection]
+
+
+  rehabilitation_benefits:
+    name: Rehabilitation benefits
+    summary: >-
+      The insurer contributes to rehabilitation, retraining or workplace modification aimed at
+      returning the insured to work.
+    covers: [income_protection]
+
+  return_to_work_bonus:
+    name: Return to work bonus
+    summary: >-
+      An additional payment made when the insured returns to work.
+    covers: [income_protection]
+
+  increasing_claim_benefit:
+    name: Increasing claim benefit
+    summary: >-
+      The monthly benefit is indexed while a claim is being paid, so a long claim keeps pace with
+      inflation.
+    covers: [income_protection]
+
+  lump_sum_benefit:
+    name: Lump sum benefit
+    summary: >-
+      A lump sum payable in place of, or in addition to, the monthly benefit on a defined event.
+    covers: [income_protection]
+
+  superannuation_contribution_option:
+    name: Superannuation contribution option
+    summary: >-
+      An additional benefit paid to a superannuation fund to continue contributions while the
+      insured is disabled.
+    covers: [income_protection]
+
+  cover_whilst_unemployed:
+    name: Cover whilst unemployed
+    summary: >-
+      Cover continues for a stated period after the insured stops working, rather than ending with
+      employment.
+    covers: [income_protection]
+
+  waiting_period_conversion:
+    name: Waiting period conversion
+    summary: >-
+      The waiting period may be changed after issue without further underwriting.
+    covers: [income_protection]
+
+  # ── Business expenses ───────────────────────────────────────────────────────
+  total_disability_benefit:
+    name: Total disability benefit
+    summary: >-
+      Reimbursement of allowable business expenses while the insured is totally disabled.
+    covers: [business_expenses]
+
+  partial_disability_benefit:
+    name: Partial disability benefit
+    summary: >-
+      Proportional reimbursement of allowable business expenses while the insured is partially
+      disabled.
+    covers: [business_expenses]
+
+
+  # ── Needle stick ────────────────────────────────────────────────────────────
+  occupational_hiv_or_hepatitis_cover:
+    name: Occupational HIV or hepatitis cover
+    summary: >-
+      A benefit payable on occupationally acquired HIV or hepatitis, for occupations exposed to
+      it through their work.
+    covers: [needle_stick]
+
+  # ── Child trauma ────────────────────────────────────────────────────────────
+  continuation_if_parent_cover_ends:
+    name: Continuation if the parent's cover ends
+    summary: >-
+      Child cover continues if the adult policy it is attached to ends.
+    covers: [child_trauma]
+
+  convertible_to_life_plan:
+    name: Convertible to a life plan
+    summary: >-
+      Child cover may be converted to the child's own life policy at a stated age without further
+      underwriting.
+    covers: [child_trauma]
+
+  convertible_to_trauma_plan:
+    name: Convertible to a trauma plan
+    summary: >-
+      Child cover may be converted to the child's own trauma policy at a stated age without further
+      underwriting.
+    covers: [child_trauma]
+
+  grief_counselling:
+    name: Grief counselling
+    summary: >-
+      The insurer contributes to grief counselling for the family following a child claim.
+    covers: [child_trauma]
+
+
+  child_trauma_cover_increases:
+    name: Child trauma cover increases
+    summary: >-
+      The child's sum insured may be increased without further underwriting.
+    covers: [child_trauma]
+
+  child_trauma_partial_payments:
+    name: Child trauma partial payments
+    summary: >-
+      A proportion of the sum insured is payable on stated less-severe conditions.
+    covers: [child_trauma]
+
+# ── Critical illness conditions ───────────────────────────────────────────────
+#
+# READ THIS BEFORE USING ANY OF IT.
+#
+# These entries NAME a condition. With three exceptions they do NOT define it, and this standard
+# does not intend to: an insurer's condition definitions — the severity thresholds, the exclusions
+# for early-stage disease, which events pay in full and which pay a proportion — are the substance
+# of a critical illness product and the principal axis on which such products compete. Two products
+# both listing `cancer` are NOT thereby equivalent.
+#
+# So a consumer MUST NOT present a condition match as a like-for-like comparison, in the same way
+# and for the same reason it must not compare `rating_class` across insurers. What a condition
+# filter honestly supports is "narrow the panel to products that pay something on this condition,
+# then read the definitions". That is genuinely useful and it is all it is.
+#
+# TWO TIERS, BECAUSE PRODUCTS HAVE TWO. `full` conditions pay the sum insured; `partial` conditions
+# pay a stated proportion of it and generally reduce the remaining cover. Flattening the two would
+# be the most misleading thing this file could do — an early-stage cancer paying 25% is not the
+# same answer as a cancer paying 100%, and a consumer filtering on "cancer" must not be shown a
+# product that only reaches the partial tier.
+#
+# GROUPED BY BODY SYSTEM, which is how the underlying products present them, and which keeps
+# related conditions together in a picker.
+#
+# WHICH DOCUMENTS EACH ENTRY CAME FROM is recorded in `PRODUCT-FEATURES-PROVENANCE.md`, not here. It
+# lives there because naming insurers is exactly what this file must not do — see
+# `docs/PROVENANCE-RULES.md` — and because the evidence is about how the vocabulary was built
+# rather than about what a code means to someone reading it.
+#
+# THE THREE EXCEPTIONS carry `baseline: cali_licp`, and the baseline note above records what that
+# Code actually does and, importantly, what it does not.
+conditions:
+  full:
+    # ── Cardiovascular ──────────────────────────────────────────────────────
+    angioplasty:
+      name: Coronary artery angioplasty
+      group: cardiovascular
+    angioplasty_triple_vessel:
+      name: Triple vessel angioplasty
+      group: cardiovascular
+    aortic_surgery:
+      name: Aortic surgery
+      group: cardiovascular
+    cardiomyopathy:
+      name: Cardiomyopathy
+      group: cardiovascular
+    coronary_artery_bypass:
+      name: Coronary artery bypass surgery
+      group: cardiovascular
+    heart_attack:
+      name: Heart attack
+      group: cardiovascular
+      baseline: cali_licp
+      # Titled "Heart attack - with evidence of severe heart muscle damage" in the Code.
+      # Deliberately NOT paraphrased: the definition turns on cardiac biomarker values against the
+      # 99th percentile upper reference limit together with stated clinical and ECG findings, with
+      # a left ventricular ejection fraction fallback. A one-line summary of that is a summary
+      # someone will rely on.
+    heart_valve_surgery:
+      name: Heart valve surgery
+      group: cardiovascular
+    open_heart_surgery:
+      name: Open heart surgery
+      group: cardiovascular
+    out_of_hospital_cardiac_arrest:
+      name: Out of hospital cardiac arrest
+      group: cardiovascular
+    pulmonary_arterial_hypertension:
+      name: Pulmonary arterial hypertension
+      group: cardiovascular
+
+    # ── Neurological ────────────────────────────────────────────────────────
+    coma:
+      name: Coma
+      group: neurological
+    dementia_including_alzheimers:
+      name: Dementia including Alzheimer's disease
+      group: neurological
+    encephalitis:
+      name: Encephalitis
+      group: neurological
+      # Separated from meningitis because one source lists them as two conditions and the other as
+      # one ("encephalitis and meningitis"). Two codes is the safe direction: an insurer writing
+      # them together can declare both, where an insurer writing only one cannot honestly declare
+      # a combined code.
+    meningitis:
+      name: Meningitis
+      group: neurological
+    meningococcal_disease:
+      name: Meningococcal disease
+      group: neurological
+    major_head_trauma:
+      name: Major head trauma
+      group: neurological
+    motor_neurone_disease:
+      name: Progressive and debilitating motor neurone disease
+      group: neurological
+    multiple_sclerosis:
+      name: Multiple sclerosis
+      group: neurological
+    muscular_dystrophy:
+      name: Muscular dystrophy
+      group: neurological
+    paralysis:
+      name: Paralysis
+      group: neurological
+    parkinsons_disease:
+      name: Parkinson's disease
+      group: neurological
+    stroke:
+      name: Stroke
+      group: neurological
+      baseline: cali_licp
+      # Titled "Stroke - in the brain resulting in specified permanent neurological deficit" in the
+      # Code. Not paraphrased, for the same reason as heart attack.
+
+    # ── Sensory and functional loss ─────────────────────────────────────────
+    blindness:
+      name: Blindness
+      group: sensory_and_functional_loss
+    loss_of_hearing:
+      name: Loss of hearing
+      group: sensory_and_functional_loss
+      # One source calls this deafness. The same benefit under two names, so one code.
+    loss_of_independent_existence:
+      name: Loss of independent existence
+      group: sensory_and_functional_loss
+    loss_of_use_of_limbs:
+      name: Loss of use of limbs
+      group: sensory_and_functional_loss
+    loss_of_speech:
+      name: Loss of speech
+      group: sensory_and_functional_loss
+    prolonged_intensive_care:
+      name: Prolonged intensive care
+      group: sensory_and_functional_loss
+
+    # ── Organ ───────────────────────────────────────────────────────────────
+    chronic_kidney_failure:
+      name: Chronic kidney failure
+      group: organ
+    chronic_liver_failure:
+      name: Chronic liver failure
+      group: organ
+    chronic_lung_failure:
+      name: Chronic lung failure
+      group: organ
+    major_organ_transplant:
+      name: Major organ transplant
+      group: organ
+    pneumonectomy:
+      name: Pneumonectomy
+      group: organ
+    severe_burns:
+      name: Severe burns
+      group: organ
+    severe_rheumatoid_arthritis:
+      name: Severe rheumatoid arthritis
+      group: organ
+
+    # ── Blood and metabolic ─────────────────────────────────────────────────
+    aplastic_anaemia:
+      name: Aplastic anaemia
+      group: blood_and_metabolic
+    medically_acquired_hiv:
+      name: Medically-acquired HIV
+      group: blood_and_metabolic
+    occupationally_acquired_hiv:
+      name: Occupationally-acquired HIV
+      group: blood_and_metabolic
+    occupationally_acquired_hepatitis:
+      name: Occupationally-acquired hepatitis B or C
+      group: blood_and_metabolic
+    severe_diabetes:
+      name: Severe diabetes
+      group: blood_and_metabolic
+
+    # ── Cancer ──────────────────────────────────────────────────────────────
+    cancer:
+      name: Cancer
+      group: cancer
+      baseline: cali_licp
+      # Titled "Cancer - excluding specified early stage cancers" in the Code. Deliberately NOT
+      # paraphrased: the definition turns on histological classification and on staging thresholds
+      # stated per site — Gleason scores for prostate, TNM classifications for thyroid, bladder and
+      # melanoma, Rai staging for chronic lymphocytic leukaemia.
+      #
+      # NOTE the relationship to the partial tier below. The early-stage cancers this definition
+      # excludes are frequently written as PARTIAL conditions instead. A product may therefore pay
+      # nothing under `cancer` and 25 per cent under `early_stage_prostate_cancer`, which is why
+      # the two tiers must not be flattened into one filter.
+    benign_brain_or_spinal_cord_tumour:
+      name: Benign brain or spinal cord tumour
+      group: cancer
+
+  # ── Partial conditions ────────────────────────────────────────────────────
+  #
+  # Pay a stated PROPORTION of the sum insured, and generally reduce the remaining cover by the
+  # amount paid. A product offering one of these does not thereby offer the corresponding full
+  # condition, and a consumer must not treat a partial match as satisfying a full-condition filter.
+  #
+  # The proportions themselves are not recorded here: they are each insurer's own, they differ
+  # between products, and publishing one product's figure as though it were the standard's would
+  # be asserting a product rule this standard does not own.
+  partial:
+    carcinoma_in_situ:
+      name: Carcinoma in situ
+      group: cancer
+      # ONE condition, not one per site. No disclosure document read for this file enumerates
+      # carcinoma in situ by anatomical site as separate covered conditions; they treat it as a
+      # single condition, with the site mattering only to whether a subsequent claim is allowed.
+    early_stage_chronic_lymphocytic_leukaemia:
+      name: Early stage chronic lymphocytic leukaemia
+      group: cancer
+    early_stage_melanoma:
+      name: Early stage melanoma
+      group: cancer
+    early_stage_prostate_cancer:
+      name: Early stage prostate cancer
+      group: cancer
+    diagnosed_benign_brain_or_spinal_cord_tumour:
+      name: Diagnosed benign brain or spinal cord tumour
+      group: cancer
+    adult_onset_insulin_dependent_diabetes:
+      name: Adult onset insulin dependent diabetes mellitus
+      group: blood_and_metabolic
+    loss_of_hearing_one_ear:
+      name: Loss of hearing in one ear
+      group: sensory_and_functional_loss
+    loss_of_sight_one_eye:
+      name: Loss of sight in one eye
+      group: sensory_and_functional_loss
+    loss_of_use_of_single_limb:
+      name: Loss of use of a single limb
+      group: sensory_and_functional_loss

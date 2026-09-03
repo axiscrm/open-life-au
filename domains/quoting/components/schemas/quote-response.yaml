@@ -201,6 +201,16 @@ QuoteLine:
         $ref: '#/ResolvedOption'
       default: []
 
+    resolved_features:
+      description: >-
+        What happened to every code in `required_features`. REQUIRED whenever the request carried
+        any, on priced and declined lines alike — a declined line is precisely the case a consumer
+        needs the reason for. See `ResolvedFeature`.
+      type: array
+      items:
+        $ref: '#/ResolvedFeature'
+      default: []
+
     campaign:
       description: >-
         The campaign variant this line was priced under. Absent on a standard-rates line.
@@ -376,6 +386,74 @@ ResolvedOption:
         and for `substituted` it is what lets an adviser judge whether the substitution is acceptable.
       type: string
       maxLength: 300
+
+ResolvedFeature:
+  title: ResolvedFeature
+  description: >-
+    What one required feature did to this line.
+
+    A REQUIRED FEATURE IS A FILTER, so unlike `ResolvedOption` there is no "applied differently"
+    outcome — either a product carrying the feature was used, or the benefit could not be written.
+    The value of this array is that it says WHICH feature failed, on a line whose `errors` would
+    otherwise say only that the need could not be met.
+
+    THE TWO FAILURES ARE DIFFERENT ANSWERS AND MUST NOT BE COLLAPSED. `unrecognised` is a fault in
+    the request — a code the insurer has never heard of, or one sent under a benefit it does not
+    scope it to — and an adviser needs to correct it. `not_offered` is a fact about the insurer's
+    range. Reporting a mistyped code as `not_offered` tells an adviser that no product in the
+    market offers something, which is a claim about the market and is not one this insurer made.
+
+    A consumer sending only standard codes and getting `unrecognised` back has found an
+    implementation that has not published a mapping for it, not a typo — which is why
+    `feature_resolution` requires every implementation to accept `standard`.
+  type: object
+  required: [feature, scope, resolution]
+  additionalProperties: false
+  properties:
+    feature:
+      description: The code as the consumer sent it, echoed verbatim in whichever vocabulary it used.
+      type: string
+      maxLength: 64
+    standard_feature:
+      description: >-
+        The portable code this resolves to, where the insurer can say. Populated when the consumer
+        sent an insurer code that maps to one, so a consumer holding a mixed request can key its
+        display off one vocabulary.
+      type: string
+      maxLength: 64
+    scope:
+      description: >-
+        The key this feature was requested under — a cover type, or `policy`.
+      type: string
+      maxLength: 40
+      examples: [policy, life, trauma, income_protection]
+    resolution:
+      type: string
+      enum:
+        # A product carrying this feature was used to write the benefit. The premium reflects it.
+        - available
+        # The insurer knows this feature and no product of its own carries it, so the benefit
+        # could not be written. An answer about this insurer's range.
+        - not_offered
+        # The insurer does not know this code, or does not scope it to this benefit. A fault in
+        # the request, NOT a statement that the market lacks the feature.
+        - unrecognised
+    detail:
+      description: >-
+        Why, in adviser-facing terms. RECOMMENDED on `not_offered` and `unrecognised`; on the
+        latter it is the only thing that distinguishes "never heard of it" from "not on this
+        cover", which is what an adviser needs to fix the request.
+      type: string
+      maxLength: 300
+  examples:
+    - feature: agreed_value
+      scope: income_protection
+      resolution: not_offered
+      detail: No income protection product in this range is written on an agreed-value basis.
+    - feature: TRM_TERM_ILL
+      standard_feature: terminal_illness_benefit
+      scope: life
+      resolution: available
 
 AppliedCommission:
   title: AppliedCommission

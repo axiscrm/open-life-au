@@ -114,6 +114,61 @@ Capabilities:
         type: string
         enum: [basis, insurer_commission_id]
       default: [basis]
+    feature_resolution:
+      description: >-
+        Which forms of feature code this implementation accepts in `required_features`. `standard`
+        MUST always be supported — it is the portable form, and the only one a consumer can send to
+        a panel without first reading each insurer's own declarations.
+
+        `insurer_code` is optional, and an implementation that accepts it MUST publish those codes
+        in `features` on the covers it writes, and in `policy_features`: an identifier space a
+        consumer cannot enumerate is one it cannot use.
+
+        Declared for the same reason `occupation_resolution` and `commission_resolution` are —
+        finding out from the capability document costs nothing, and finding out from a declined
+        line costs a pricing call and an adviser's confusion.
+      type: array
+      items:
+        type: string
+        enum: [standard, insurer_code]
+      default: [standard]
+
+    policy_features:
+      description: >-
+        Features that describe the POLICY rather than one benefit within it, requestable under the
+        `policy` key of `required_features`.
+
+        Separate from `covers[].features` because these are not cover-scoped: a policy either is
+        guaranteed renewable or it is not, and declaring it under each of seven covers would make
+        one fact seven filters that must all be ticked together. A policy-level fact is declared
+        once.
+      type: array
+      maxItems: 100
+      items:
+        type: object
+        required: [code, name]
+        additionalProperties: false
+        properties:
+          code:
+            type: string
+            maxLength: 64
+          standard_feature:
+            description: >-
+              The portable code from `taxonomy/product-features.yaml`, which MUST be one listed under
+              `policy` in that file.
+            type: string
+            maxLength: 64
+          name:
+            type: string
+            maxLength: 200
+          description:
+            type: string
+            maxLength: 1000
+      examples:
+        - - code: GTD_RENEW
+            standard_feature: guaranteed_renewable
+            name: Guaranteed renewable
+
     occupation_qualifiers_used:
       description: >-
         Which `OccupationQualifiers` fields actually affect this insurer's rating. Lets a consumer
@@ -343,8 +398,20 @@ CoverCapability:
         it by using only products that have it — or by declining the benefit. So the same underlying
         product capability may legitimately appear in both, and they are not interchangeable.
 
-        Codes are the insurer's own and scoped to this cover: the same code under a different cover
-        is a different feature, and a code used under the wrong cover MUST be rejected.
+        `code` is the insurer's own and is scoped to this cover. `standard_feature` is the portable
+        equivalent from `taxonomy/product-features.yaml` where one exists, and publishing it is what lets a
+        consumer send ONE request to a whole panel instead of translating per insurer. Publish it
+        wherever the mapping is honest; omit it where the insurer's benefit genuinely is not the
+        standard one, because a wrong mapping here is worse than none — it produces a filter that
+        silently selects the wrong products.
+
+        Both `code` and `name` stay REQUIRED. An implementation with no identifiers of its own
+        can use the standard code as its `code` — one duplicated string, against making a field
+        every consumer already reads optional.
+
+        POLICY-LEVEL FEATURES DO NOT BELONG HERE. `guaranteed_renewable` describes the policy, not
+        one benefit inside it; declare those in `policy_features` on the document rather than
+        repeating them under every cover.
       type: array
       maxItems: 200
       items:
@@ -353,6 +420,13 @@ CoverCapability:
         additionalProperties: false
         properties:
           code:
+            description: The insurer's own identifier for this feature, scoped to this cover.
+            type: string
+            maxLength: 64
+          standard_feature:
+            description: >-
+              The portable code from `taxonomy/product-features.yaml` this feature corresponds to, where it
+              corresponds to one. It MUST be a code that file lists for this cover.
             type: string
             maxLength: 64
           name:
@@ -364,7 +438,11 @@ CoverCapability:
             maxLength: 1000
       examples:
         - - code: TRM_TERM_ILL
+            standard_feature: terminal_illness_benefit
             name: Terminal illness benefit
+          # No standard equivalent — the insurer's own code is the only way to name it.
+          - code: NEO_FUNERAL_ADV
+            name: Funeral advancement
 
 InsurerCommissionOption:
   title: InsurerCommissionOption

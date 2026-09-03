@@ -46,7 +46,7 @@ not, and `npm run rejections` asserts it.
 [OSCA](https://abs.gov.au/statistics/classifications/osca-occupation-standard-classification-australia/latest-release)
 code plus risk qualifiers; the insurer matches it to its own occupation, prices on that, and echoes
 back what it matched. Nobody in the value chain owns the taxonomy — the ABS does. See
-[`taxonomy/PROVENANCE.md`](taxonomy/PROVENANCE.md).
+[`taxonomy/OCCUPATION-PROVENANCE.md`](taxonomy/OCCUPATION-PROVENANCE.md).
 
 **Privacy as a constraint.** No name, no address, no contact details, no health data, and `Insured`
 is a closed schema so there is nowhere to put them. Age next birthday is preferred over date of

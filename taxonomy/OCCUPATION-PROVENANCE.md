@@ -46,12 +46,12 @@ underground or offshore work, or the proportion of manual duties — yet those f
 occupation by one or more rating classes, and two OSCA-identical clients can price materially
 differently because of them.
 
-`qualifiers.yaml` therefore defines a small set of risk qualifiers layered over the OSCA code. These
+`occupation-qualifiers.yaml` therefore defines a small set of risk qualifiers layered over the OSCA code. These
 dimensions are **ours**, derived from how underwriting manuals discriminate within an occupation.
 They are deliberately dimensions rather than descriptions: the standard says "working height in
 metres", and each insurer bands that however its own manual does.
 
-Nothing in `qualifiers.yaml` is copied from any aggregator or insurer document. Where domain
+Nothing in `occupation-qualifiers.yaml` is copied from any aggregator or insurer document. Where domain
 research established that a dimension matters, the dimension was defined here from first
 principles; no name, code, string or band boundary was carried across. See
 [`../docs/PROVENANCE-RULES.md`](../docs/PROVENANCE-RULES.md) for the distinction and how it is
