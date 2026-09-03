@@ -2641,18 +2641,15 @@ components:
             Named product features that may be required for this cover via `required_features`.
             DISTINCT FROM `supported_options`, and the distinction is the whole point. An option is something the consumer asks the insurer to APPLY, and the insurer answers it in `resolved_options`. A feature is something the consumer FILTERS on, and the insurer answers it by using only products that have it — or by declining the benefit. So the same underlying product capability may legitimately appear in both, and they are not interchangeable.
             `code` is the insurer's own and is scoped to this cover. `standard_feature` is the portable equivalent from `taxonomy/product-features.yaml` where one exists, and publishing it is what lets a consumer send ONE request to a whole panel instead of translating per insurer. Publish it wherever the mapping is honest; omit it where the insurer's benefit genuinely is not the standard one, because a wrong mapping here is worse than none — it produces a filter that silently selects the wrong products.
-            Features with no `code`, only a `standard_feature`, are permitted: an insurer with no identifiers of its own can declare purely in the standard's terms.
+            Both `code` and `name` stay REQUIRED. An implementation with no identifiers of its own can use the standard code as its `code` — one duplicated string, against making a field every consumer already reads optional.
             POLICY-LEVEL FEATURES DO NOT BELONG HERE. `guaranteed_renewable` describes the policy, not one benefit inside it; declare those in `policy_features` on the document rather than repeating them under every cover.
           type: array
           maxItems: 200
           items:
             type: object
-            anyOf:
-              - required:
-                  - code
-                  - name
-              - required:
-                  - standard_feature
+            required:
+              - code
+              - name
             additionalProperties: false
             properties:
               code:
@@ -2786,12 +2783,9 @@ components:
           maxItems: 100
           items:
             type: object
-            anyOf:
-              - required:
-                  - code
-                  - name
-              - required:
-                  - standard_feature
+            required:
+              - code
+              - name
             additionalProperties: false
             properties:
               code:

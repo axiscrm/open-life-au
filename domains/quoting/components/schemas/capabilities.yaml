@@ -146,9 +146,7 @@ Capabilities:
       maxItems: 100
       items:
         type: object
-        anyOf:
-          - required: [code, name]
-          - required: [standard_feature]
+        required: [code, name]
         additionalProperties: false
         properties:
           code:
@@ -407,8 +405,9 @@ CoverCapability:
         standard one, because a wrong mapping here is worse than none — it produces a filter that
         silently selects the wrong products.
 
-        Features with no `code`, only a `standard_feature`, are permitted: an insurer with no
-        identifiers of its own can declare purely in the standard's terms.
+        Both `code` and `name` stay REQUIRED. An implementation with no identifiers of its own
+        can use the standard code as its `code` — one duplicated string, against making a field
+        every consumer already reads optional.
 
         POLICY-LEVEL FEATURES DO NOT BELONG HERE. `guaranteed_renewable` describes the policy, not
         one benefit inside it; declare those in `policy_features` on the document rather than
@@ -417,9 +416,7 @@ CoverCapability:
       maxItems: 200
       items:
         type: object
-        anyOf:
-          - required: [code, name]
-          - required: [standard_feature]
+        required: [code, name]
         additionalProperties: false
         properties:
           code:
