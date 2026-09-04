@@ -29,6 +29,11 @@ permissions:
   pages: write
   id-token: write
 
+# @stoplight/prism-cli pulls in @scarf/scarf, whose postinstall pings Scarf on every `npm ci`.
+# package.json turns it off too; this covers the case where npm cannot resolve the repo root.
+env:
+  SCARF_ANALYTICS: "false"
+
 # Never cancel a Pages deploy in flight — a half-published site is worse than a stale one. Queue
 # instead, so the last commit to land is the one that ends up live.
 concurrency:

@@ -1,40 +1,40 @@
 {
   "//": "Accepted npm-audit advisories, consumed by scripts/npm-audit-gate.mjs. Every entry needs a reason and an expiry — an expired entry fails the gate again, forcing a re-decision instead of rotting silently. This matters more here than in a private repo: the SDKs generated from this contract are things insurers install, so an unreviewed advisory in our toolchain becomes their exposure too.",
-  "//scope": "Every entry below is a transitive dependency of @stoplight/prism-cli, which is dev-only: it serves a mock of our own committed contract during development and in CI. It is not a dependency of anything published, it never runs in an insurer's or consumer's environment, and the only input it processes is dist/quoting/openapi.yaml — a file in this repository. prism-cli 5.14.2 is the current release, so there is no version to move to; the fix has to come from upstream. Re-check at expiry: if Stoplight has not shipped, consider replacing the mock with a small hand-written stub server, which reference-impl/ largely already is.",
+  "//scope": "Every entry below is a transitive dependency of @stoplight/prism-cli, which is dev-only: it serves a mock of our own committed contract during development and in CI. It is not a dependency of anything published, it never runs in an insurer's or consumer's environment, and the only input it processes is dist/quoting/openapi.yaml — a file in this repository. prism-cli 5.16.0 fixed the advisories it could: its own lodash, fast-xml-parser and @faker-js/faker are all on patched versions. What is left is three exact pins inside postman-collection 4.5.0 — lodash 4.17.21, uuid 8.3.2 and @faker-js/faker 5.5.3 — which @stoplight/http-spec pins at ^4.1.3, so no version prism-cli allows can move them, and postman-collection 5.x still pins the same three. postman-collection reaches us only through @stoplight/http-spec's Postman-to-OAS converter, a path prism never enters when mocking an OpenAPI document, and nothing in this repository imports it directly. Re-check at expiry: if Stoplight has not shipped, consider replacing the mock with a small hand-written stub server.",
   "exceptions": [
     {
       "advisory": "GHSA-r5fr-rjxr-66jc",
       "package": "lodash",
       "severity": "high",
-      "reason": "Code injection via `_.template` import key names, reachable only by templating attacker-controlled strings. Pulled in transitively by @stoplight/prism-cli (dev-only mock server); no code path here calls `_.template`, and the only document Prism parses is our own committed dist/quoting/openapi.yaml. No fix available — prism-cli 5.14.2 is current.",
+      "reason": "Code injection through import key names in the `template` helper, reachable only by templating attacker-controlled strings. prism-cli's own lodash is 4.18.1 and patched; the flagged copy is the lodash 4.17.21 pinned by postman-collection (dev-only), and no code path here calls `_.template`. Not fixable from our side — the pin is exact.",
       "expires": "2026-11-06"
     },
     {
       "advisory": "GHSA-f23m-r3pf-42rh",
       "package": "lodash",
       "severity": "moderate",
-      "reason": "Prototype pollution via array-path bypass in `_.unset`/`_.omit`, requiring attacker-controlled property paths. Transitive under @stoplight/prism-cli (dev-only); paths come from our own contract file. No fix available upstream.",
+      "reason": "Prototype pollution through an array-path bypass in the `unset` and `omit` helpers, requiring attacker-controlled property paths. Same pinned lodash 4.17.21 under postman-collection (dev-only); paths come from our own contract file. Not fixable from our side.",
       "expires": "2026-11-06"
     },
     {
       "advisory": "GHSA-xxjr-mmjv-4gpg",
       "package": "lodash",
       "severity": "moderate",
-      "reason": "Second prototype-pollution advisory against the same `_.unset`/`_.omit` functions, same reachability argument and same transitive path via @stoplight/prism-cli. No fix available upstream.",
+      "reason": "Second prototype-pollution advisory against those same `unset` and `omit` helpers, with the same reachability argument and the same pinned copy under postman-collection. That copy is lodash 4.17.21, and it is not fixable from our side.",
       "expires": "2026-11-06"
     },
     {
       "advisory": "GHSA-w5hq-g745-h8pq",
       "package": "uuid",
       "severity": "moderate",
-      "reason": "Missing buffer bounds check in uuid v3/v5/v6 when an explicit `buf` argument is supplied. Transitive via postman-collection under @stoplight/prism-cli (dev-only); nothing here generates namespaced UUIDs into a caller-supplied buffer. No fix available upstream.",
+      "reason": "Missing buffer bounds check in uuid v3/v5/v6 when an explicit `buf` argument is supplied. postman-collection pins uuid 8.3.2 exactly (dev-only); nothing here generates namespaced UUIDs into a caller-supplied buffer. Not fixable from our side.",
       "expires": "2026-11-06"
     },
     {
-      "advisory": "GHSA-gh4j-gqv2-49f6",
-      "package": "fast-xml-parser",
-      "severity": "moderate",
-      "reason": "XML comment/CDATA injection in XMLBuilder when building XML from untrusted values. Transitive under @stoplight/prism-cli (dev-only). This contract is JSON-only — no operation declares an XML media type, so the XML builder is never exercised. No fix available upstream.",
+      "advisory": "GHSA-qxc2-j82w-r537",
+      "package": "@faker-js/faker",
+      "severity": "high",
+      "reason": "Arbitrary code execution when the template string expanded by faker's `fake` helper is attacker-controlled. Patched in 10.5.0, and prism-http 5.16.0 is on 10.6.0; the flagged copy is the @faker-js/faker 5.5.3 pinned by postman-collection, which only expands Postman `{{$random*}}` variables and is never handed one of ours. An override cannot fix it: forcing a patched 10.x makes postman-collection throw at load, because its dynamic-variable table calls v5 namespaces (`faker.address.city` among 118 others) that v10 removed.",
       "expires": "2026-11-06"
     }
   ]
