@@ -48,10 +48,12 @@ carries one code and both documents are cited. Where one document splits what th
 *encephalitis* and *meningitis* against *encephalitis and meningitis* — the entry follows the split,
 because an insurer writing only one of the two cannot honestly declare a combined code.
 
-Every full condition appears in **both** documents, with two exceptions that appear in the NEOS
-document only: `prolonged_intensive_care` and `severe_rheumatoid_arthritis`. Every partial condition
-was taken from the NEOS document; the TAL document structures its lesser-payment benefits
-differently and they were not mapped for this version.
+Every full condition appears in **both** documents, with two exceptions absent from the TAL
+document: `prolonged_intensive_care` and `severe_rheumatoid_arthritis`. Neither rests on one
+document — the Encompass and Futura schedules were read afterwards and carry intensive care both,
+and rheumatoid arthritis in the Futura schedule. Every partial condition was taken from the NEOS
+document; the TAL document structures its lesser-payment benefits differently and they were not
+mapped for this version.
 
 The **full and partial tiers are separate** because the products separate them. Early-stage cancers
 and carcinoma in situ are partial conditions paying a proportion of the sum insured, not lesser
@@ -84,8 +86,6 @@ visible rather than buried:
 | `agreed_value` | PPS Mutual only |
 | `severe_trauma_benefit` | ClearView only |
 | `no_claim_discount` | AIA only, as a no-claim escalation benefit |
-| `prolonged_intensive_care` (condition) | NEOS only |
-| `severe_rheumatoid_arthritis` (condition) | NEOS only |
 
 A feature only one insurer writes still belongs in a portable vocabulary: the insurer that writes it
 needs a standard way to say so, and every other implementation answers `not_offered`, which is a

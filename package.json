@@ -56,5 +56,8 @@
     "@hey-api/openapi-ts": {
       "js-yaml": "^4.3.0"
     }
+  },
+  "scarfSettings": {
+    "enabled": false
   }
 }

@@ -24,6 +24,11 @@ on:
 permissions:
   contents: read
 
+# @stoplight/prism-cli pulls in @scarf/scarf, whose postinstall pings Scarf on every `npm ci`.
+# package.json turns it off too; this covers the case where npm cannot resolve the repo root.
+env:
+  SCARF_ANALYTICS: "false"
+
 jobs:
   audit:
     name: 🔒 Toolchain dependencies

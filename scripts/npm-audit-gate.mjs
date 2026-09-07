@@ -44,8 +44,8 @@ for (const e of exceptions) {
   else active.set(e.advisory, e);
 }
 
-// npm audit exits 1 when it finds anything — the JSON on stdout is complete
-// either way, so capture it instead of failing on the exit code.
+// npm audit exits 1 when it finds anything, so capture stdout instead of
+// failing on the exit code.
 let report;
 try {
   report = execSync("npm audit --json", {
@@ -59,7 +59,29 @@ try {
     process.exit(2);
   }
 }
-const audit = JSON.parse(report);
+
+let audit;
+try {
+  audit = JSON.parse(report);
+} catch {
+  console.error("npm audit did not return JSON:\n" + report.slice(0, 500));
+  process.exit(2);
+}
+
+// A non-zero exit does NOT mean the report is usable. When npm cannot reach the
+// advisory endpoint it writes an error object to stdout — `{message, error}`,
+// no `vulnerabilities` key — which parses perfectly well and would otherwise
+// read as "nothing found" and pass the gate. A registry blip would then turn
+// the nightly security job into a silent no-op. Insist on the markers a real
+// report carries and fail closed: an audit we could not run is not a clean one.
+if (audit.auditReportVersion === undefined || !audit.vulnerabilities) {
+  const why = audit.message || audit.error?.summary || audit.error?.detail;
+  console.error(
+    `npm audit did not return a report${why ? `: ${why}` : ""}\n` +
+      "The gate fails closed rather than reporting a tree it never audited — re-run it.",
+  );
+  process.exit(2);
+}
 
 // Each vulnerability's `via` mixes advisory objects (the package with the flaw)
 // and plain strings (packages vulnerable only through a dependency). Gating on
