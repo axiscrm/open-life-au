@@ -49,7 +49,8 @@
           },
           "reason": "Insufficient funds",
           "expected_lapse_on": "2026-08-15",
-          "attempts": 2
+          "attempts": 2,
+          "collection_state": "retry_scheduled"
         },
         {
           "dishonoured_on": "2026-06-15",
@@ -60,7 +61,8 @@
           "amount_is_estimate": true,
           "reason": "Insufficient funds",
           "expected_lapse_on": "2026-08-15",
-          "attempts": 3
+          "attempts": 3,
+          "collection_state": "retry_scheduled"
         }
       ]
     },
@@ -100,7 +102,8 @@
           },
           "reason": "Card expired",
           "expected_lapse_on": "2026-08-01",
-          "attempts": 4
+          "attempts": 4,
+          "collection_state": "ceased"
         }
       ]
     }
