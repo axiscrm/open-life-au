@@ -178,6 +178,43 @@ StructureResponse:
     unrecognised value through for display rather than failing, so that adding to the premium structures is a minor
     release rather than a major one.
 
-    Known values: [stepped, level_65, level_70, blended]. Validate against `Structure` when SENDING; tolerate anything when RECEIVING.
+    Known values: [stepped, level_65, level_70, blended, level_55, level_60]. Validate against `Structure` when SENDING; tolerate anything when RECEIVING.
+
+    `level_55` and `level_60` are held level to age 55 and 60 respectively, then stepped, exactly as
+    `level_65` is to 65. They are known to this twin and NOT to `Structure`, deliberately: an
+    in-force book holds benefits written on level-to ages that no product on today's quote screen
+    offers, and the policy contract has to be able to report them. Whether a quote may ASK for one
+    is a separate question for the quoting contract, which a closed request enum answers with a 422
+    until it is decided.
   type: string
-  x-extensible-enum: [stepped, level_65, level_70, blended]
+  x-extensible-enum: [stepped, level_65, level_70, blended, level_55, level_60]
+
+TpdDefinitionResponse:
+  title: TpdDefinitionResponse
+  description: >-
+    RESPONSE-facing TpdDefinition: the test of total and permanent disability a benefit was WRITTEN
+    on. Same meaning as `TpdDefinition`, but extensible — a consumer MUST pass an unrecognised value
+    through for display rather than failing.
+
+    Known values: [own_occupation, any_occupation, home_duties, adl]. `prefer` is absent on
+    purpose: it is a request to let the insurer choose, and an in-force benefit has already been
+    written on one definition or another. An implementation that cannot say which MUST omit the
+    field rather than send `prefer`.
+  type: string
+  x-extensible-enum: [own_occupation, any_occupation, home_duties, adl]
+
+IncomeProtectionBasis:
+  title: IncomeProtectionBasis
+  description: >-
+    How an income-style benefit is assessed at claim. RESPONSE-facing and extensible: a consumer
+    MUST pass an unrecognised value through rather than failing.
+
+    Carried because it decides what a claim pays. An agreed-value benefit pays the amount fixed at
+    application; an indemnity benefit pays against income proven at claim time, which can be
+    materially less than the sum insured a consumer is displaying. The values are the same concepts
+    as the `agreed_value` and `indemnity_option` cover features in `taxonomy/product-features.yaml`,
+    stated here as the basis a benefit IS written on rather than a feature a product offers.
+      - `agreed_value`  the monthly benefit was fixed on income evidence supplied at application
+      - `indemnity`     the monthly benefit is assessed against income at the time of claim
+  type: string
+  x-extensible-enum: [agreed_value, indemnity]
