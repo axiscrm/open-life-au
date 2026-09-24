@@ -1,0 +1,75 @@
+# Open Life Data Standards (AU) — Policy — GET /policies/{policy_id}/transactions
+
+get:
+  operationId: listPolicyTransactions
+  summary: Fetch one policy's premium history
+  description: >-
+    Return the premium transactions on one policy — what fell due, what was collected or failed to
+    be, and what was refunded or rebated — most recent first, paged.
+
+    ### Optional
+
+    OPTIONAL — declare it in `capabilities.transactions.supported`, and reject it with `422` where
+    unsupported rather than returning an empty history. An empty history means nothing happened in
+    the period, which is not what an implementation that cannot answer should say.
+
+    ### A history, not a ledger, and not a snapshot
+
+    How far back it reaches is the implementation's choice, and the response's `since` says where it
+    starts. A transaction absent from the response has not been reversed, and an older one absent
+    from it may simply be older than the implementation keeps. This does not replace `arrears`: what
+    is outstanding is stated on the policy, and a consumer MUST NOT derive it by netting these.
+
+    Transactions are not changes to the policy record, and MUST NOT bump its `policy_version`.
+
+    ### Personal information
+
+    A client's payment history. Servers MUST send `Cache-Control: no-store`.
+  tags: [Policies]
+  security:
+    - oauth2: [policies.read]
+  parameters:
+    - $ref: '../components/parameters.yaml#/PolicyIdPath'
+    - $ref: '../components/parameters.yaml#/Since'
+    - $ref: '../components/parameters.yaml#/Cursor'
+    - $ref: '../components/parameters.yaml#/Limit'
+    - $ref: '../components/parameters.yaml#/RequestId'
+  responses:
+    '200':
+      description: One page of the policy's premium transactions.
+      headers:
+        Cache-Control:
+          description: MUST be `no-store`.
+          required: true
+          schema:
+            type: string
+            const: no-store
+        X-Request-Id:
+          $ref: '../../../core/http/headers.yaml#/XRequestId'
+        X-OpenLife-Spec-Version:
+          $ref: '../../../core/http/headers.yaml#/SpecVersion'
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/transactions.yaml#/TransactionPage'
+    '400':
+      $ref: '../../../core/http/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../../core/http/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../../core/http/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../../core/http/responses.yaml#/NotFound'
+    '422':
+      description: >-
+        This implementation does not serve premium transactions, or a supplied parameter is not
+        supported. Problem type `unsupported-operation`. Returned rather than an empty history,
+        deliberately — see the description above.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../../../core/schemas/problems.yaml#/Problem'
+    '429':
+      $ref: '../../../core/http/responses.yaml#/TooManyRequests'
+    '500':
+      $ref: '../../../core/http/responses.yaml#/InternalError'

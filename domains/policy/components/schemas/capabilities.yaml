@@ -104,6 +104,27 @@ Capabilities:
           type: integer
           minimum: 0
 
+    transactions:
+      description: >-
+        Whether this implementation serves `GET /policies/{policy_id}/transactions`, the premium
+        history of one policy. OPTIONAL, and declared here as an operation rather than as a field,
+        because it is one: an insurer whose premium ledger lives apart from its policy record can
+        serve the book without it, and one that cannot serve it MUST answer `422` rather than an
+        empty history, which would read as "nothing was ever collected".
+      type: object
+      additionalProperties: false
+      properties:
+        supported:
+          type: boolean
+          default: false
+        max_lookback_days:
+          description: >-
+            How far back the history reaches. A `since` earlier than this is answered from this
+            limit, and the response's `since` says so. Absent means the implementation does not
+            state a limit, which is not a promise that it has none.
+          type: integer
+          minimum: 1
+
     incremental:
       description: >-
         Optional, and deliberately so. The snapshot is the required path — it is the smallest thing
