@@ -233,10 +233,8 @@ LifeRole:
       - `life_insured`  the person whose risk is being underwritten
       - `policy_owner`  the owner, where they are not the life insured
       - `both`          owner and life insured, the common single-life case
-      - `payer`         who the premium will be collected from, where they are neither of the above
-      - `beneficiary`   a person nominated on the application to receive a death benefit
   type: string
-  x-extensible-enum: [life_insured, policy_owner, both, payer, beneficiary]
+  x-extensible-enum: [life_insured, policy_owner, both]
 
 CaseCover:
   title: CaseCover
@@ -248,9 +246,11 @@ CaseCover:
   properties:
     cover_id:
       description: >-
-        The insurer's identifier for this benefit on the application, where it has one. Where the
-        application issues, the same value SHOULD become the benefit's `cover_id` in the policy
-        contract, which is what lets a consumer carry a decision through to the benefit in force.
+        The insurer's own identifier for this benefit on the application, where it has one, and
+        absent where it has none: no substitute is defined, and an implementation MUST NOT construct
+        one. Where the application issues and the insurer keeps the identifier, the same value SHOULD
+        become the benefit's `cover_id` in the policy contract, which is what lets a consumer carry a
+        decision through to the benefit in force.
       type: string
       maxLength: 64
     benefit_name:
@@ -277,6 +277,7 @@ CaseCover:
       description: The premium for this benefit as applied for or as offered, at the application's billing frequency.
       $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
     decision:
+      description: The underwriting outcome on this benefit. Absent means no decision has been made yet.
       $ref: '#/UnderwritingDecision'
     decision_detail:
       description: >-
@@ -291,7 +292,6 @@ UnderwritingDecision:
   description: >-
     The underwriting outcome on one benefit. RESPONSE-facing and extensible: a consumer MUST pass an
     unrecognised value through rather than failing the page.
-      - `pending`        not yet decided
       - `standard`       accepted as applied for, at standard rates
       - `loading`        accepted with a premium loading
       - `exclusion`      accepted with an exclusion
@@ -300,11 +300,14 @@ UnderwritingDecision:
       - `declined`       the insurer will not write this benefit
       - `postponed`      the insurer will not decide until a stated period or event has passed
 
-    A decision other than `standard` or `pending` normally awaits the client's acceptance, and the
-    case carries a `counter_offer` requirement for it. The decision says WHAT was offered; the
-    requirement is what ages and what is chased.
+    There is no value for "not yet decided": an absent `decision` already says that, and a second
+    way of saying it would leave a consumer checking for both.
+
+    A decision other than `standard` normally awaits the client's acceptance, and the case carries a
+    `counter_offer` requirement for it. The decision says WHAT was offered; the requirement is what
+    ages and what is chased.
   type: string
-  x-extensible-enum: [pending, standard, loading, exclusion, revised_terms, declined, postponed]
+  x-extensible-enum: [standard, loading, exclusion, revised_terms, declined, postponed]
 
 InsurerContact:
   title: InsurerContact

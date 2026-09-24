@@ -48,8 +48,7 @@
           "premium": {
             "amount": "121.60",
             "currency": "AUD"
-          },
-          "decision": "pending"
+          }
         },
         {
           "cover_id": "APP-2026-004471-C2",
@@ -63,8 +62,7 @@
           "premium": {
             "amount": "60.80",
             "currency": "AUD"
-          },
-          "decision": "pending"
+          }
         }
       ],
       "insurer_contacts": [
