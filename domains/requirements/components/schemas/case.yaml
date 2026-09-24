@@ -85,6 +85,28 @@ UnderwritingCase:
       minItems: 1
       items:
         $ref: '#/InsuredLife'
+    covers:
+      description: >-
+        The benefits applied for, each with its own underwriting decision. Optional.
+
+        Per benefit because underwriting decides per benefit: one application routinely carries a
+        life benefit accepted at standard rates beside an income benefit offered with an exclusion,
+        and `status` can only say one thing about the whole case. A consumer that reads the case
+        status alone tells the adviser the application is fine, or that it is not, and is wrong about
+        one of the two benefits either way.
+      type: array
+      minItems: 1
+      items:
+        $ref: '#/CaseCover'
+    insurer_contacts:
+      description: >-
+        The insurer's own staff handling this case — who an adviser rings about it. Optional. These
+        are the insurer's working contacts, published to the adviser who wrote the business, and
+        nothing about the client.
+      type: array
+      minItems: 1
+      items:
+        $ref: '#/InsurerContact'
     distribution:
       description: >-
         Who wrote the application. `adviser_code` is what the work routes on, so an implementation
@@ -211,5 +233,112 @@ LifeRole:
       - `life_insured`  the person whose risk is being underwritten
       - `policy_owner`  the owner, where they are not the life insured
       - `both`          owner and life insured, the common single-life case
+      - `payer`         who the premium will be collected from, where they are neither of the above
+      - `beneficiary`   a person nominated on the application to receive a death benefit
   type: string
-  x-extensible-enum: [life_insured, policy_owner, both]
+  x-extensible-enum: [life_insured, policy_owner, both, payer, beneficiary]
+
+CaseCover:
+  title: CaseCover
+  description: >-
+    One benefit applied for, and where underwriting has got to on it.
+  type: object
+  required: [benefit_name]
+  additionalProperties: false
+  properties:
+    cover_id:
+      description: >-
+        The insurer's identifier for this benefit on the application, where it has one. Where the
+        application issues, the same value SHOULD become the benefit's `cover_id` in the policy
+        contract, which is what lets a consumer carry a decision through to the benefit in force.
+      type: string
+      maxLength: 64
+    benefit_name:
+      description: The insurer's own name for the benefit, verbatim.
+      type: string
+      minLength: 1
+      maxLength: 200
+    cover_type:
+      description: The benefit mapped onto the shared cover vocabulary, where one applies. Omit rather than guess.
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/CoverTypeResponse'
+    life_id:
+      description: >-
+        Which life on the case this benefit is on, matching a `life_id` in `lives`. On a joint
+        application two benefits can share a name and belong to different people, and a decision
+        that does not say whose it is has to be resolved by ringing the insurer.
+      type: string
+      maxLength: 64
+    sum_insured:
+      description: >-
+        The amount applied for, or as offered where the insurer has revised it. For monthly-benefit
+        covers this is the monthly amount.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    premium:
+      description: The premium for this benefit as applied for or as offered, at the application's billing frequency.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    decision:
+      $ref: '#/UnderwritingDecision'
+    decision_detail:
+      description: >-
+        The insurer's own wording for the decision, verbatim — the loading applied, the exclusion
+        offered, why a benefit was postponed. What an adviser reads to the client, so it MUST NOT be
+        dropped in favour of `decision`.
+      type: string
+      maxLength: 1000
+
+UnderwritingDecision:
+  title: UnderwritingDecision
+  description: >-
+    The underwriting outcome on one benefit. RESPONSE-facing and extensible: a consumer MUST pass an
+    unrecognised value through rather than failing the page.
+      - `pending`        not yet decided
+      - `standard`       accepted as applied for, at standard rates
+      - `loading`        accepted with a premium loading
+      - `exclusion`      accepted with an exclusion
+      - `revised_terms`  offered on terms other than those applied for, where the insurer does not
+                         say which kind, or where more than one applies — read `decision_detail`
+      - `declined`       the insurer will not write this benefit
+      - `postponed`      the insurer will not decide until a stated period or event has passed
+
+    A decision other than `standard` or `pending` normally awaits the client's acceptance, and the
+    case carries a `counter_offer` requirement for it. The decision says WHAT was offered; the
+    requirement is what ages and what is chased.
+  type: string
+  x-extensible-enum: [pending, standard, loading, exclusion, revised_terms, declined, postponed]
+
+InsurerContact:
+  title: InsurerContact
+  description: >-
+    One of the insurer's staff on this case. At least one way of reaching them MUST be present,
+    since a contact with only a role tells an adviser nothing they can act on. A shared team
+    mailbox with no named person is a legitimate contact.
+  type: object
+  required: [role]
+  additionalProperties: false
+  anyOf:
+    - required: [name]
+    - required: [phone]
+    - required: [email]
+  properties:
+    role:
+      $ref: '#/InsurerContactRole'
+    name:
+      type: string
+      maxLength: 200
+    phone:
+      type: string
+      maxLength: 50
+    email:
+      type: string
+      format: email
+      maxLength: 254
+
+InsurerContactRole:
+  title: InsurerContactRole
+  description: >-
+    RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than
+    failing.
+      - `underwriter`   assessing the risk
+      - `case_manager`  managing the application through to issue — who to chase about requirements
+  type: string
+  x-extensible-enum: [underwriter, case_manager]
