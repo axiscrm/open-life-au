@@ -449,6 +449,39 @@ PolicyPremium:
       minItems: 1
       items:
         $ref: '#/PremiumDiscount'
+    next_anniversary:
+      $ref: '#/NextAnniversaryPremium'
+
+NextAnniversaryPremium:
+  title: NextAnniversaryPremium
+  description: >-
+    The premium the policy will bill from its next anniversary, where the insurer has already
+    repriced it — for age, indexation, a rate change or a loading falling away. The fields above say
+    what the policy costs today; this says what it will cost, and it is the figure a renewal
+    conversation turns on: an adviser who sees a large increase before the anniversary can review
+    the cover with the client, rather than learn of it from a lapse after the client has read the
+    insurer's notice.
+
+    Omitted until the insurer has repriced. An absent `next_anniversary` means no new figure is
+    known yet, NOT that the premium is unchanged: a consumer MUST NOT compare it against `amount`
+    and report "no increase" from its absence. Declared in
+    `capabilities.fields.next_anniversary_premium`.
+  type: object
+  required: [effective_on, amount]
+  additionalProperties: false
+  properties:
+    effective_on:
+      description: >-
+        The anniversary the new premium applies from. Normally `dates.renewal_on`, stated here so the
+        figure cannot be read against the wrong anniversary once that date rolls forward.
+      type: string
+      format: date
+    amount:
+      description: The amount that will be billed each period, at the policy's current `frequency`.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    annualised:
+      description: The annual cost from that anniversary. Read, not derived, for the same reason as `annualised` above.
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
 
 SuperFund:
   title: SuperFund

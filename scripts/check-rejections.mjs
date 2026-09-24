@@ -1024,6 +1024,26 @@ const POLICY_CASES = [
         },
     },
     {
+        name: "a next-anniversary premium with no effective date",
+        why: "a repriced premium read against the wrong anniversary tells a renewal review the wrong increase",
+        doc: {
+            ...policyBase,
+            premium: { amount: money("50.00"), frequency: "monthly", next_anniversary: { amount: money("55.00") } },
+        },
+    },
+    {
+        name: "an unknown field on a next-anniversary premium",
+        why: "a misspelled field is silently dropped, and the renewal figure with it",
+        doc: {
+            ...policyBase,
+            premium: {
+                amount: money("50.00"),
+                frequency: "monthly",
+                next_anniversary: { effective_on: "2026-10-01", amount: money("55.00"), increase_pct: "10" },
+            },
+        },
+    },
+    {
         name: "a discount above 100 percent",
         why: "a discount is a share of the premium it reduces; more than all of it is a defect",
         doc: {
