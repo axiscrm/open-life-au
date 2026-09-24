@@ -839,6 +839,22 @@
           "terminated"
         ]
       },
+      "ExitReason": {
+        "title": "ExitReason",
+        "description": "Why a policy or a benefit ended. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing the page.\nKnown values:\n  - `non_payment`              premiums were not paid and the cover lapsed\n  - `owner_request`            the owner asked for it to be cancelled\n  - `replaced`                 replaced by another policy or benefit, with this insurer or another\n  - `claim_death`              a death or terminal illness claim was paid\n  - `claim_tpd`                a total and permanent disability claim was paid\n  - `claim_trauma`             a trauma or critical illness claim was paid\n  - `claim_income_protection`  an income-style benefit ended with a claim, such as the benefit\n                               period running out while on claim\n  - `expiry`                   the benefit reached its expiry date or age\n  - `other`                    read `status_detail`\n\n`claim_*` means the claim ENDED the cover. A partial payment that leaves the benefit in force is not an exit, and a benefit reduced by a claim on another cover it is linked to ends only when its sum insured reaches nil.",
+        "type": "string",
+        "x-extensible-enum": [
+          "non_payment",
+          "owner_request",
+          "replaced",
+          "claim_death",
+          "claim_tpd",
+          "claim_trauma",
+          "claim_income_protection",
+          "expiry",
+          "other"
+        ]
+      },
       "Gender": {
         "title": "Gender",
         "description": "The gender used for rating. Life insurance rate tables in this market are published for two values, so this enum carries only those two; it describes a pricing input, not the insured's identity, and it is deliberately separate from any demographic field a CRM might hold.",
@@ -918,11 +934,69 @@
           "ACT"
         ]
       },
-      "PostalAddress": {
-        "title": "PostalAddress",
-        "description": "An Australian postal address as held on the policy. Every field optional: insurer exports vary in how much they carry, and a partial address is still useful for matching.",
+      "OverseasAddress": {
+        "title": "OverseasAddress",
+        "description": "The parts of an address outside Australia that the Australian fields cannot hold. Free text and loosely bounded, deliberately: postal formats differ by country, and this standard is not the place to validate them.",
         "type": "object",
         "additionalProperties": false,
+        "properties": {
+          "locality": {
+            "description": "The town or city.",
+            "type": "string",
+            "maxLength": 100
+          },
+          "region": {
+            "description": "The state, province, county or equivalent, where the country uses one.",
+            "type": "string",
+            "maxLength": 100
+          },
+          "postal_code": {
+            "description": "The postal code in the country's own format, as the insurer holds it.",
+            "type": "string",
+            "maxLength": 20
+          }
+        }
+      },
+      "PostalAddress": {
+        "title": "PostalAddress",
+        "description": "A postal address as held on the policy. Every field optional: insurer exports vary in how much they carry, and a partial address is still useful for matching.\nAustralian by default, and the Australian fields are unchanged: absent `country`, or `AU`, means `suburb`, `state` and `postcode` apply exactly as before. An address outside Australia sets `country` and carries its locality, region and postal code in `overseas` instead, and MUST omit `state` and `postcode` — the schema rejects either beside a `country` other than `AU`. `line1` and `line2` are street lines and apply to both.\nBuilt this way, rather than by relaxing `state` and `postcode`, so that nothing a consumer already validates changes. A consumer that reads only the Australian fields still gets an Australian address or none — never a foreign postcode in a field it checks for four digits — and an overseas client no longer has to be given an invented state and postcode to be represented at all.",
+        "type": "object",
+        "additionalProperties": false,
+        "dependentSchemas": {
+          "country": {
+            "anyOf": [
+              {
+                "properties": {
+                  "country": {
+                    "const": "AU"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "state": {
+                    "not": {}
+                  },
+                  "postcode": {
+                    "not": {}
+                  }
+                }
+              }
+            ]
+          },
+          "overseas": {
+            "required": [
+              "country"
+            ],
+            "properties": {
+              "country": {
+                "not": {
+                  "const": "AU"
+                }
+              }
+            }
+          }
+        },
         "properties": {
           "line1": {
             "type": "string",
@@ -933,15 +1007,26 @@
             "maxLength": 200
           },
           "suburb": {
+            "description": "Australian addresses only. An overseas address uses `overseas.locality`.",
             "type": "string",
             "maxLength": 100
           },
           "state": {
+            "description": "Australian addresses only.",
             "$ref": "#/components/schemas/AustralianState"
           },
           "postcode": {
+            "description": "Australian addresses only.",
             "type": "string",
             "pattern": "^\\d{4}$"
+          },
+          "country": {
+            "description": "ISO 3166-1 alpha-2, upper case. Omitted or `AU` means the Australian fields apply. REQUIRED with `overseas`.",
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "overseas": {
+            "$ref": "#/components/schemas/OverseasAddress"
           }
         }
       },
@@ -1013,6 +1098,123 @@
           }
         }
       },
+      "PartyRole": {
+        "title": "PartyRole",
+        "description": "The role a party holds on the policy. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing the page.\n  - `life_insured`  the person whose life or health the cover is on\n  - `policy_owner`  the legal owner — who can change the policy and who is paid on most claims\n  - `payer`         who the premium is collected from, where it is not the owner\n  - `beneficiary`   a person or entity nominated to receive a death benefit; the nomination\n                    itself is on `Policy.beneficiaries`",
+        "type": "string",
+        "x-extensible-enum": [
+          "life_insured",
+          "policy_owner",
+          "payer",
+          "beneficiary"
+        ]
+      },
+      "PolicyParty": {
+        "title": "PolicyParty",
+        "description": "One person or entity the insurer records against the policy, in one role. Enough to MATCH the party against a record the consumer already holds, and deliberately no more.\nThe same restraint as `PolicyHolder`, for the same reason, and stricter: this carries no contact detail at all. A consumer needs a payer's or a beneficiary's name and date of birth to find them in its own records, and has no use for the insurer's copy of their phone number that justifies publishing it. This MUST NOT be extended into a contact record.\nONE ENTRY PER ROLE. A person who both owns and pays for a policy appears twice, once as `policy_owner` and once as `payer`, with the same `party_id`. A single entry with a list of roles was the alternative, and it was rejected because the common consumer question is \"who is the payer?\", which one entry per role answers with a filter and a list of roles answers with a search inside every entry.",
+        "type": "object",
+        "required": [
+          "role",
+          "last_name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "party_id": {
+            "description": "The insurer's own identifier for this party on this policy, where it has one. Referenced by `covers[].life_party_id` and `beneficiaries[].party_id`, so an implementation populating either of those MUST populate this.\nWhere the insurer holds the party as a client across policies, send the same value as `PolicyHolder.client_id` would carry for them. Scoped to the issuing insurer, and MUST NOT be compared across insurers.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "role": {
+            "$ref": "#/components/schemas/PartyRole"
+          },
+          "first_name": {
+            "description": "Absent for an entity.",
+            "type": "string",
+            "maxLength": 100
+          },
+          "last_name": {
+            "description": "A person's family name, or an entity's full legal name — a company, a trust, a superannuation trustee. Longer than `PolicyHolder.last_name` for that reason, and matching `PolicyOwnership.owner_name`.\nNatural case, for the reason given on `PolicyHolder.last_name`, and an entity's name as it is legally registered. A consumer MUST NOT re-case either.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "date_of_birth": {
+            "description": "RFC 3339 full-date, for a person. Absent for an entity. Name plus date of birth is the match, so a party without one can be displayed but SHOULD NOT be attached to a client record on name alone.",
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "NominationType": {
+        "title": "NominationType",
+        "description": "The legal force of a nomination. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing.\n  - `binding`        the trustee must pay as nominated, while the nomination is valid\n  - `non_binding`    the trustee considers the nomination but decides\n  - `non_lapsing`    binding, and does not expire\n  - `reversionary`   the benefit continues to a nominated person as an income stream",
+        "type": "string",
+        "x-extensible-enum": [
+          "binding",
+          "non_binding",
+          "non_lapsing",
+          "reversionary"
+        ]
+      },
+      "SharePercentage": {
+        "title": "SharePercentage",
+        "description": "A percentage that is a SHARE OF A WHOLE, and therefore cannot exceed 100 — a commission dial-down, a split between advisers. Serialised exactly as `Percentage`, with a narrower range.\nSeparate from `Percentage` because that schema deliberately allows up to 1000: an underwriting loading of 400% is a real thing an adviser is told, and the bound there exists to catch a units mistake rather than to describe a share. Reuse it for a share and `'900'` validates, and there is no reading of that value which is not a defect. The policy contract already shipped this mistake once — a commission split inheriting the generic schema, so a 900% split passed — which is why the narrower type exists rather than the bound being restated at each call site.",
+        "type": "string",
+        "pattern": "^(100(\\.0{1,3})?|\\d{1,2}(\\.\\d{1,3})?)$",
+        "examples": [
+          "0",
+          "30",
+          "12.5",
+          "100"
+        ]
+      },
+      "BeneficiaryNomination": {
+        "title": "BeneficiaryNomination",
+        "description": "One death-benefit nomination. Names the beneficiary by `party_id` — their name and date of birth are on the matching `beneficiary` entry in `parties`, and are not repeated here — or by `relationship` alone where the nomination is to a class rather than a person, such as the legal personal representative. At least one of the two MUST be present.",
+        "type": "object",
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "party_id"
+            ]
+          },
+          {
+            "required": [
+              "relationship"
+            ]
+          }
+        ],
+        "properties": {
+          "party_id": {
+            "description": "The `party_id` of a `beneficiary` entry in the policy's `parties`.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "nomination_type": {
+            "$ref": "#/components/schemas/NominationType"
+          },
+          "relationship": {
+            "description": "The beneficiary's relationship to the life insured, in the insurer's own wording — \"spouse\", \"child\", \"legal personal representative\". Free text, because who may be nominated depends on the ownership structure and the fund's own rules, and a closed list here would be asserting a rule this standard does not own.",
+            "type": "string",
+            "maxLength": 100
+          },
+          "share_percent": {
+            "description": "This beneficiary's share of the benefit. Cannot exceed 100, and the shares on a policy SHOULD sum to 100.",
+            "$ref": "#/components/schemas/SharePercentage"
+          },
+          "effective_on": {
+            "description": "The date the nomination took effect.",
+            "type": "string",
+            "format": "date"
+          },
+          "expires_on": {
+            "description": "The date the nomination lapses, where it does — a binding nomination in super commonly lapses after a fixed period unless renewed, and an expired one leaves the benefit to the trustee's discretion. The field an adviser needs in order to renew it in time.",
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
       "OwnershipResponse": {
         "title": "OwnershipResponse",
         "description": "RESPONSE-facing Ownership. Same meaning as `Ownership`, but extensible: a consumer MUST pass an unrecognised value through for display rather than failing, so that adding to the ownership forms is a minor release rather than a major one.\nKnown values: [super, ordinary, smsf, superlink, smsf_superlink]. Validate against `Ownership` when SENDING; tolerate anything when RECEIVING.",
@@ -1023,6 +1225,18 @@
           "smsf",
           "superlink",
           "smsf_superlink"
+        ]
+      },
+      "OwnerType": {
+        "title": "OwnerType",
+        "description": "What KIND of person or entity owns the policy. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing.\nDistinct from `ownership_type`, which is the TAX structure the cover is held under and says nothing about who the owner is. A policy held outside super can be owned by an individual or by a company, and the difference decides who may be nominated as a beneficiary, who signs an alteration, and who is paid on a claim. Folding it into `ownership_type` would have made a company-owned ordinary policy a new tax structure, which it is not.\n  - `individual`     a natural person\n  - `company`        a company, including a business owning cover on a key person\n  - `trust`          the trustee of a trust other than a superannuation fund\n  - `super_trustee`  the trustee of a retail or industry superannuation fund\n  - `smsf_trustee`   the trustee of a self-managed superannuation fund",
+        "type": "string",
+        "x-extensible-enum": [
+          "individual",
+          "company",
+          "trust",
+          "super_trustee",
+          "smsf_trustee"
         ]
       },
       "PolicyOwnership": {
@@ -1037,6 +1251,9 @@
             "description": "The legal owner where it is not the life insured — a superannuation trustee, an SMSF, a company, or another individual.\nSend it as the entity is legally named, and do not case-normalise it. These are mostly entity names rather than personal ones, so a consumer applying title case to them produces \"Abc Super Fund Pty Ltd\" and \"Smith Smsf\" — and a consumer receiving one MUST NOT re-case it either.",
             "type": "string",
             "maxLength": 255
+          },
+          "owner_type": {
+            "$ref": "#/components/schemas/OwnerType"
           }
         }
       },
@@ -1147,13 +1364,15 @@
       },
       "StructureResponse": {
         "title": "StructureResponse",
-        "description": "RESPONSE-facing Structure. Same meaning as `Structure`, but extensible: a consumer MUST pass an unrecognised value through for display rather than failing, so that adding to the premium structures is a minor release rather than a major one.\nKnown values: [stepped, level_65, level_70, blended]. Validate against `Structure` when SENDING; tolerate anything when RECEIVING.",
+        "description": "RESPONSE-facing Structure. Same meaning as `Structure`, but extensible: a consumer MUST pass an unrecognised value through for display rather than failing, so that adding to the premium structures is a minor release rather than a major one.\nKnown values: [stepped, level_65, level_70, blended, level_55, level_60]. Validate against `Structure` when SENDING; tolerate anything when RECEIVING.\n`level_55` and `level_60` are held level to age 55 and 60 respectively, then stepped, exactly as `level_65` is to 65. They are known to this twin and NOT to `Structure`, deliberately: an in-force book holds benefits written on level-to ages that no product on today's quote screen offers, and the policy contract has to be able to report them. Whether a quote may ASK for one is a separate question for the quoting contract, which a closed request enum answers with a 422 until it is decided.",
         "type": "string",
         "x-extensible-enum": [
           "stepped",
           "level_65",
           "level_70",
-          "blended"
+          "blended",
+          "level_55",
+          "level_60"
         ]
       },
       "PaymentMethod": {
@@ -1169,6 +1388,78 @@
           "superannuation_rollover",
           "employer_deduction"
         ]
+      },
+      "SuperFund": {
+        "title": "SuperFund",
+        "description": "The superannuation fund a policy's premium is paid from, where it is paid by rollover or held in super. Carried because a rollover dishonour is resolved with the fund rather than the client — often by someone the adviser has never spoken to — and the follow-up starts by identifying which fund, under which member account.\nDeclared in `capabilities.fields.super_fund`.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fund_name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "usi": {
+            "description": "The fund's Unique Superannuation Identifier, as published on the register of funds. The identifier a rollover is actually addressed to, so it is worth more than the name.",
+            "type": "string",
+            "maxLength": 20
+          },
+          "abn": {
+            "description": "The fund's Australian Business Number, eleven digits with no spaces.",
+            "type": "string",
+            "pattern": "^\\d{11}$"
+          },
+          "member_number": {
+            "description": "The member's account number at the fund, MASKED: asterisks, then at most the last four characters in clear — `****4471`. The schema rejects anything else.\nMasked for the reason `payment_method_detail` is. Four characters is enough to confirm the right account with the fund, and a full member number is a credential for the member's retirement savings, travelling to every consumer of this contract.",
+            "type": "string",
+            "pattern": "^\\*+[A-Za-z0-9]{1,4}$",
+            "maxLength": 24
+          }
+        }
+      },
+      "DiscountType": {
+        "title": "DiscountType",
+        "description": "The kind of discount. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing.\n  - `multi_cover`      for holding several benefits, or several lives, on one policy\n  - `size`             for a sum insured or premium above a threshold\n  - `loyalty`          for years in force\n  - `wellness`         earned by meeting health or engagement criteria after issue — the\n                       `healthy_lives_discount` policy feature, as applied to this premium\n  - `preferred_lives`  a rating category for lives underwritten as lower risk than standard\n  - `other`            read `name`",
+        "type": "string",
+        "x-extensible-enum": [
+          "multi_cover",
+          "size",
+          "loyalty",
+          "wellness",
+          "preferred_lives",
+          "other"
+        ]
+      },
+      "PremiumDiscount": {
+        "title": "PremiumDiscount",
+        "description": "A discount applied to a premium. The premium it sits beside is already net of it: this explains the premium, it is not to be subtracted from it again.\nCarried because discounts are the usual explanation for a premium that moves at renewal with no change in cover — a multi-benefit discount lost when a benefit is removed, a loyalty discount reaching its next step — and without them that movement looks like a rate change.",
+        "type": "object",
+        "required": [
+          "discount_type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "discount_type": {
+            "$ref": "#/components/schemas/DiscountType"
+          },
+          "name": {
+            "description": "The insurer's own name for the discount, verbatim.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "share_percent": {
+            "description": "The discount as a share of the undiscounted premium. Cannot exceed 100.",
+            "$ref": "#/components/schemas/SharePercentage"
+          },
+          "amount": {
+            "description": "The discount at the policy's billing frequency, as `PolicyPremium.amount` is billed.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "annualised": {
+            "description": "The discount over a year. Read, not derived — for the reason `PolicyPremium.annualised` is, and because some insurers report only this figure.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          }
+        }
       },
       "PolicyPremium": {
         "title": "PolicyPremium",
@@ -1209,6 +1500,17 @@
             "description": "The insurer's own wording for the payment arrangement, where it carries more than the enum does — a masked account or card tail, the name of the paying super fund, an employer scheme. MUST NOT carry a full account number, card number or any other unmasked credential.",
             "type": "string",
             "maxLength": 100
+          },
+          "super_fund": {
+            "$ref": "#/components/schemas/SuperFund"
+          },
+          "discounts": {
+            "description": "Discounts applied across the policy's premium. `amount` is already net of them. Discounts on one benefit only are on that benefit's `discounts`.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/PremiumDiscount"
+            }
           }
         }
       },
@@ -1226,6 +1528,174 @@
           "child_trauma"
         ]
       },
+      "CoverState": {
+        "title": "CoverState",
+        "description": "A condition that holds on a benefit on top of its status. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing.\n  - `on_claim`               a claim on this benefit is being assessed or paid\n  - `premium_waiver_active`  premiums on this benefit are currently waived, typically under a\n                             waiver-on-disability option\n  - `premium_freeze`         the premium is held at its current amount and the sum insured\n                             reduces instead\n  - `suspended`              premiums and cover are suspended for a period, after which the\n                             benefit resumes; `state_detail` carries how long",
+        "type": "string",
+        "x-extensible-enum": [
+          "on_claim",
+          "premium_waiver_active",
+          "premium_freeze",
+          "suspended"
+        ]
+      },
+      "CoverLinkType": {
+        "title": "CoverLinkType",
+        "description": "How a benefit relates to the one named in `linked_to_cover_id` or `linked_to_policy_id`. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing.\n  - `extension`   held as a rider on the linked benefit, so paying it reduces that benefit. The\n                  same meaning as `extension` in the quoting contract's `LinkType`, so a quoted\n                  extension is reported under the same word once in force. Insurers describe\n                  this as linked, attached or an extension; all three are this value.\n  - `superlink`   one half of a split superannuation structure, with the other half held\n                  outside super, linked so that the two cannot both pay for one event\n  - `standalone`  stated positively to be linked to nothing. Sent without a target, and a\n                  benefit carrying it MUST NOT carry `linked_to_cover_id`",
+        "type": "string",
+        "x-extensible-enum": [
+          "extension",
+          "superlink",
+          "standalone"
+        ]
+      },
+      "CoverOption": {
+        "title": "CoverOption",
+        "description": "An option in force on one benefit. The same shape as `PolicyOption`, and a separate schema because `feature` comes from a different level of the taxonomy.",
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "feature": {
+            "description": "The portable code from the `covers` level of `taxonomy/product-features.yaml` this option corresponds to, where it corresponds to one. It MUST be a code listed at that level and SHOULD be one whose `covers` include this benefit's `cover_type`. Omit it rather than map loosely, for the reason given on `PolicyOption.feature`.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "insurer_code": {
+            "description": "The insurer's own code for the option, verbatim, where it has one.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "name": {
+            "description": "The insurer's own name for the option, verbatim.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      },
+      "IndexationState": {
+        "title": "IndexationState",
+        "description": "Whether this benefit's sum insured is indexed at each anniversary. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing.\nCarried per benefit because that is where insurers hold it, and because it is the usual explanation for a sum insured that moved at anniversary with nobody asking — a consumer that cannot see it reads an indexation increase as an unexplained change in cover.\n  - `on`             indexed at each anniversary\n  - `off`            not indexed\n  - `guaranteed_on`  indexed on terms the product describes as guaranteed. What is guaranteed —\n                     the right to index, or a minimum rate — is the product's own term; an\n                     implementation that cannot say SHOULD send `on`\n\nDistinct from the `benefit_indexation` feature in `taxonomy/product-features.yaml`, which says a product OFFERS indexation. This says whether a benefit in force IS indexed, and an implementation SHOULD report it here rather than as an entry in `options`.",
+        "type": "string",
+        "x-extensible-enum": [
+          "on",
+          "off",
+          "guaranteed_on"
+        ]
+      },
+      "TpdDefinitionResponse": {
+        "title": "TpdDefinitionResponse",
+        "description": "RESPONSE-facing TpdDefinition: the test of total and permanent disability a benefit was WRITTEN on. Same meaning as `TpdDefinition`, but extensible — a consumer MUST pass an unrecognised value through for display rather than failing.\nKnown values: [own_occupation, any_occupation, home_duties, adl]. `prefer` is absent on purpose: it is a request to let the insurer choose, and an in-force benefit has already been written on one definition or another. An implementation that cannot say which MUST omit the field rather than send `prefer`.",
+        "type": "string",
+        "x-extensible-enum": [
+          "own_occupation",
+          "any_occupation",
+          "home_duties",
+          "adl"
+        ]
+      },
+      "IncomeProtectionBasis": {
+        "title": "IncomeProtectionBasis",
+        "description": "How an income-style benefit is assessed at claim. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing.\nCarried because it decides what a claim pays. An agreed-value benefit pays the amount fixed at application; an indemnity benefit pays against income proven at claim time, which can be materially less than the sum insured a consumer is displaying. The values are the same concepts as the `agreed_value` and `indemnity_option` cover features in `taxonomy/product-features.yaml`, stated here as the basis a benefit IS written on rather than a feature a product offers.\n  - `agreed_value`  the monthly benefit was fixed on income evidence supplied at application\n  - `indemnity`     the monthly benefit is assessed against income at the time of claim",
+        "type": "string",
+        "x-extensible-enum": [
+          "agreed_value",
+          "indemnity"
+        ]
+      },
+      "LoadingBasis": {
+        "title": "LoadingBasis",
+        "description": "What a loading was applied for. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing.\n  - `medical`       health, history or build\n  - `occupational`  the insured's occupation or working conditions\n  - `pastime`       a hazardous pastime or sport\n  - `other`         read `description`",
+        "type": "string",
+        "x-extensible-enum": [
+          "medical",
+          "occupational",
+          "pastime",
+          "other"
+        ]
+      },
+      "Percentage": {
+        "title": "Percentage",
+        "description": "A percentage serialised as a decimal string (not a 0-1 ratio): `'25'` means 25%. At most three fractional digits, and at most 1000.\nA string for the same reason as `Decimal` and `RatePerThousand`. This was a JSON number until 0.2.0, justified on the grounds that percentages are inputs to arithmetic rather than amounts stored to the cent, and that three decimal places are exactly representable. The second half of that is not true: `0.001` has no exact IEEE-754 representation, so a loading of `25.001` arrives as `25.000999...` in every generated client. More to the point, the reasoning proved too clever — a loading percentage IS an input to pricing, and it was the one remaining path by which a contract value reached a rating engine through a double while every amount beside it travelled as a string. The inconsistency was visible in this very file: `RatePerThousand` is the OTHER axis of the same loadings map and was always a string.\n`'0'` is a MEANINGFUL value — see the loadings schema, where an explicit zero cancels an inherited loading and is not the same as omitting the field. Implementations MUST NOT normalise `'0'` to `'0.000'` or vice versa when echoing a value back, and consumers MUST treat the two as numerically equal.",
+        "type": "string",
+        "pattern": "^(1000(\\.0{1,3})?|\\d{1,3}(\\.\\d{1,3})?)$",
+        "examples": [
+          "0",
+          "25",
+          "62.5",
+          "12.375"
+        ]
+      },
+      "RatePerThousand": {
+        "title": "RatePerThousand",
+        "description": "A dollar rate applied per $1,000 of sum insured, the second axis on which underwriting loadings are expressed. Serialised as a decimal string for the same reason as `Decimal`.",
+        "type": "string",
+        "pattern": "^\\d{1,6}(\\.\\d{1,2})?$",
+        "examples": [
+          "0",
+          "1.50",
+          "12.00"
+        ]
+      },
+      "CoverLoading": {
+        "title": "CoverLoading",
+        "description": "One underwriting loading on a benefit, on the same two axes as the quoting contract's `CoverLoadings` and named the same way, so a loading quoted and a loading in force read alike. Either axis or both. At least one MUST be present, since an entry with neither states nothing.",
+        "type": "object",
+        "required": [
+          "basis"
+        ],
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "percentage"
+            ]
+          },
+          {
+            "required": [
+              "rate_per_thousand"
+            ]
+          }
+        ],
+        "properties": {
+          "basis": {
+            "$ref": "#/components/schemas/LoadingBasis"
+          },
+          "percentage": {
+            "description": "A percentage uplift on this benefit's risk premium. `'50'` means loaded by 50%.",
+            "$ref": "#/components/schemas/Percentage"
+          },
+          "rate_per_thousand": {
+            "description": "A flat dollar amount per $1,000 of sum insured, added to this benefit's risk premium.",
+            "$ref": "#/components/schemas/RatePerThousand"
+          },
+          "description": {
+            "description": "The insurer's own wording for the loading, where it carries more than the basis does.",
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      },
+      "CoverExclusion": {
+        "title": "CoverExclusion",
+        "description": "One exclusion on a benefit, as the insurer words it.",
+        "type": "object",
+        "required": [
+          "description"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "The exclusion, verbatim. Free text on purpose: an exclusion's wording IS its scope, and no classification carries it without losing what a claim is assessed against.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      },
       "PolicyCover": {
         "title": "PolicyCover",
         "description": "One benefit held under the policy.",
@@ -1236,7 +1706,7 @@
         "additionalProperties": false,
         "properties": {
           "cover_id": {
-            "description": "The insurer's own stable identifier for this benefit, unchanged for its life. Optional but strongly RECOMMENDED, and it is the key a consumer uses to track a benefit between snapshots.\nWithout it the only handle is `(benefit_name, cover_type)`, which is not unique: an older book routinely holds two \"Income Protection\" benefits on one policy — an indemnity base plus an agreed-value top-up, or a legacy rider alongside the original. After indexation moves one of them, a consumer matching on name alone sees either \"no change\" or \"one benefit deleted, one added\", and fires a reduction-in-cover alert on a policy that grew. The flat one-row-per-benefit exports this contract replaces had per-benefit continuity; a structured shape has to restore it deliberately.\nMUST be unique within `covers`.",
+            "description": "The insurer's own stable identifier for this benefit, unchanged for its life. Optional but strongly RECOMMENDED, and it is the key a consumer uses to track a benefit between snapshots.\nWithout it the only handle is `(benefit_name, cover_type)`, which is not unique: an older book routinely holds two \"Income Protection\" benefits on one policy — an indemnity base plus an agreed-value top-up, or a legacy rider alongside the original. After indexation moves one of them, a consumer matching on name alone sees either \"no change\" or \"one benefit deleted, one added\", and fires a reduction-in-cover alert on a policy that grew. The flat one-row-per-benefit exports this contract replaces had per-benefit continuity; a structured shape has to restore it deliberately.\nWHERE THE INSURER HAS NO STABLE IDENTIFIER, an implementation MAY send a positional key instead: the benefit's name and its ordinal among the policy's benefits of that name, as `<benefit_name>#<ordinal>` counting from 1 — `Life Cover#1`, `Life Cover#2`. It MUST be derived deterministically from the insurer's data, so that an unchanged policy produces the same key every night, and MUST fit the length limit below. Where a benefit name is too long to fit, truncate the name, never the ordinal.\nA positional key is better than nothing and worse than an identifier: it survives indexation, but a benefit added or removed ahead of another renumbers it. So an implementation sending one MUST declare `capabilities.fields.cover_id_stable: false`, and a consumer reading that MUST NOT raise a reduction-in-cover alert on a cover_id change alone.\nMUST be unique within `covers`. `linked_to_cover_id` on another benefit refers to it.",
             "type": "string",
             "maxLength": 64
           },
@@ -1285,8 +1755,133 @@
           "expires_on": {
             "type": "string",
             "format": "date"
+          },
+          "exit_reason": {
+            "description": "Why this benefit ended, where it ended and the policy continues — a trauma benefit paid out on a policy whose life cover remains, for instance. Only on a benefit whose `status` is terminal, and the schema rejects it otherwise. Same vocabulary as `Policy.exit_reason`.",
+            "$ref": "#/components/schemas/ExitReason"
+          },
+          "states": {
+            "description": "Conditions that hold ON TOP of `status`, while the benefit is in force: on claim, premiums waived, frozen or suspended. Several can hold at once — a benefit on claim commonly has its premium waived as well.\nSeparate from `status` because none of these ends the benefit, and folding them in would take an on-claim benefit out of every `in_force` count. They matter because each changes what an adviser does: a consumer MUST NOT treat the premium of a benefit that is on claim or has its premium waived as a premium to chase, and one that did would ring a client mid-claim about a payment they do not owe.\nAbsence means none of these applies, and only where `capabilities.fields.cover_states` is `true`. An empty array MUST NOT be sent in place of absence.",
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CoverState"
+            }
+          },
+          "state_detail": {
+            "description": "The insurer's own wording for the states above, where it carries more than the enum does — the days of a suspension remaining, the claim a waiver relates to.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "life_party_id": {
+            "description": "Which life this benefit is on, as the `party_id` of a `life_insured` entry in the policy's `parties`. Absent means the benefit is on `policy_holder`.\nOne policy can insure two people, with each benefit on one of them, and without this a consumer attributes every benefit to the principal life — the wrong person's cover on the wrong person's record, discovered at claim.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "linked_to_cover_id": {
+            "description": "The `cover_id` of the benefit this one is linked to. On the same policy unless `linked_to_policy_id` says otherwise. MUST NOT be self-referential, and the links on a policy MUST be acyclic.\nWithout it a consumer double-counts. A TPD benefit held as an extension of a life benefit is not additional cover: paying one reduces the other, so a consumer summing the two sums insured overstates the client's cover by the whole TPD amount. A consumer totalling cover MUST NOT add an `extension` benefit's sum insured to its parent's.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "linked_to_policy_id": {
+            "description": "The policy the linked benefit is on, where it is not this policy — the two halves of a split superannuation structure are commonly separate policies. May be sent without `linked_to_cover_id` where the insurer records the related policy and not the benefit.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "link_type": {
+            "$ref": "#/components/schemas/CoverLinkType"
+          },
+          "options": {
+            "description": "Options elected on THIS benefit and in force — a buy-back, an increasing claim benefit, a reinstatement option. Policy-wide options are on `Policy.options`. Only what is in force; an option offered and not elected is absent, and absence is only meaningful where `capabilities.fields.options` is `true`.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/CoverOption"
+            }
+          },
+          "indexation": {
+            "$ref": "#/components/schemas/IndexationState"
+          },
+          "tpd_definition": {
+            "description": "For a TPD benefit, the disability test it was written on. Decides whether a claim succeeds at all, so it is not a detail: the same injury can qualify under an own-occupation test and fail an any-occupation one.",
+            "$ref": "#/components/schemas/TpdDefinitionResponse"
+          },
+          "income_protection_basis": {
+            "description": "For an income-style benefit, whether it pays an agreed value or is assessed on income at claim. Decides what a claim pays, which can be materially less than the `sum_insured` shown on an indemnity benefit.",
+            "$ref": "#/components/schemas/IncomeProtectionBasis"
+          },
+          "loadings": {
+            "description": "Underwriting loadings on this benefit, one entry per basis. Structured where the insurer holds them structured; `Policy.loadings` keeps the verbatim policy-level text.\nAn implementation SHOULD NOT send an entry whose axes are all zero: the loadings reported in this market are sparse, and a zero on every benefit buries the few that matter. Absence means not loaded where `capabilities.fields.cover_loadings_and_exclusions` is `true`, and nothing otherwise.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/CoverLoading"
+            }
+          },
+          "exclusions": {
+            "description": "Exclusions on this benefit, in the insurer's own wording, one entry per exclusion. `Policy.exclusions` keeps the verbatim policy-level text.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/CoverExclusion"
+            }
+          },
+          "occupation_class": {
+            "description": "The occupation rating class THIS benefit was written at, in the insurer's own notation. Insurers rate benefits separately, and one policy can carry a life benefit and an income benefit written at different classes for the same person — which is what decides the income benefit's definitions and what it costs.\nSHOULD be sent wherever the insurer records a class per benefit, and MUST be sent where it differs from `policy_holder.occupation_class`. Absent means read the policy holder's.",
+            "type": "string",
+            "maxLength": 32
+          },
+          "smoker": {
+            "description": "Smoker status THIS benefit was rated at, per the insurer's definition. MUST be sent where it differs from `policy_holder.smoker` — a benefit re-rated as non-smoking after issue, while an older one still carries the smoker rate. Absent means read the policy holder's.",
+            "type": "boolean"
+          },
+          "discounts": {
+            "description": "Discounts applied to this benefit's premium. `premium` is already net of them. Policy-wide discounts are on `Policy.premium.discounts`, and the same discount MUST NOT be reported at both levels.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/PremiumDiscount"
+            }
+          }
+        },
+        "dependentRequired": {
+          "linked_to_cover_id": [
+            "link_type"
+          ],
+          "linked_to_policy_id": [
+            "link_type"
+          ]
+        },
+        "dependentSchemas": {
+          "exit_reason": {
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "not": {
+                  "enum": [
+                    "in_force",
+                    "in_arrears",
+                    "pending"
+                  ]
+                }
+              }
+            }
           }
         }
+      },
+      "CollectionState": {
+        "title": "CollectionState",
+        "description": "What the insurer's collection process is doing about this failure. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing.\n`ceased` is the value this exists for. It means the insurer has stopped collecting from the payment method altogether — a cancelled authority, a closed account — so no retry will clear the arrears and the premium will not be collected at the next due date either. That is a different job from a missed payment: the client needs a new payment method, not a reminder, and a consumer that cannot see it waits for a retry that is never coming.\n  - `active`           collection continues on the normal cycle\n  - `retry_pending`    the insurer will retry, and has not yet set when\n  - `retry_scheduled`  a retry is booked\n  - `ceased`           the insurer has stopped collecting from this payment method",
+        "type": "string",
+        "x-extensible-enum": [
+          "active",
+          "retry_pending",
+          "retry_scheduled",
+          "ceased"
+        ]
       },
       "Arrears": {
         "title": "Arrears",
@@ -1337,6 +1932,90 @@
             "description": "How many collection attempts have failed for THIS instalment. Distinct from the number of entries in the array, which counts separate unpaid instalments — conflating the two makes a policy one month behind after three retries look the same as one three months behind.",
             "type": "integer",
             "minimum": 1
+          },
+          "collection_state": {
+            "$ref": "#/components/schemas/CollectionState"
+          }
+        }
+      },
+      "PolicyOption": {
+        "title": "PolicyOption",
+        "description": "An option in force across the policy.\n`feature` is the portable code and `insurer_code` the insurer's own, the same pairing as `standard_feature` beside `code` in the quoting contract's feature declarations. Both are optional, and `name` is required, because in-force options are often held only as a label: the portable code is what makes a book comparable across insurers, and the name is what an adviser can always be shown.",
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "feature": {
+            "description": "The portable code from the `policy` level of `taxonomy/product-features.yaml` this option corresponds to, where it corresponds to one. It MUST be a code listed at that level. Omit it where the insurer's option is not the standard one — a wrong mapping is worse than none, because a consumer filtering its book on the code then finds policies without the option.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "insurer_code": {
+            "description": "The insurer's own code for the option, verbatim, where it has one.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "name": {
+            "description": "The insurer's own name for the option, verbatim.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      },
+      "TransactionType": {
+        "title": "TransactionType",
+        "description": "RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing.\n  - `premium_due`  an instalment fell due\n  - `payment`      money collected, or an attempt to collect it — read `status`\n  - `dishonour`    a collection attempt failed\n  - `rebate`       a rebate credited against the premium, such as a tax rebate on super-held cover\n  - `refund`       money returned to the payer",
+        "type": "string",
+        "x-extensible-enum": [
+          "premium_due",
+          "payment",
+          "dishonour",
+          "rebate",
+          "refund"
+        ]
+      },
+      "TransactionStatus": {
+        "title": "TransactionStatus",
+        "description": "RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing.\n  - `succeeded`    completed\n  - `outstanding`  due or accrued and not yet collected, including an attempt still in flight\n  - `failed`       attempted and failed",
+        "type": "string",
+        "x-extensible-enum": [
+          "succeeded",
+          "outstanding",
+          "failed"
+        ]
+      },
+      "PremiumTransaction": {
+        "title": "PremiumTransaction",
+        "description": "One premium event on the policy. Amounts are never negative: `transaction_type` carries the direction, so a refund is a positive amount of type `refund` rather than a negative payment, and a consumer does not have to know which sign convention an insurer chose.",
+        "type": "object",
+        "required": [
+          "occurred_on",
+          "transaction_type",
+          "amount"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "transaction_id": {
+            "description": "The insurer's own identifier for the transaction, where it has one. Stable across snapshots, so a consumer holding history can tell a re-reported transaction from a new one.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "occurred_on": {
+            "description": "The date the transaction fell due or was processed. A `dishonour` SHOULD carry the same date as the matching entry in `arrears`, so that the two can be joined.",
+            "type": "string",
+            "format": "date"
+          },
+          "transaction_type": {
+            "$ref": "#/components/schemas/TransactionType"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TransactionStatus"
           }
         }
       },
@@ -1357,6 +2036,19 @@
             "properties": {
               "status": {
                 "const": "in_arrears"
+              }
+            }
+          },
+          "exit_reason": {
+            "properties": {
+              "status": {
+                "not": {
+                  "enum": [
+                    "in_force",
+                    "in_arrears",
+                    "pending"
+                  ]
+                }
               }
             }
           }
@@ -1391,8 +2083,28 @@
             "type": "string",
             "maxLength": 200
           },
+          "exit_reason": {
+            "description": "Why the policy ended, on a policy whose status is terminal. MUST NOT be sent on a policy that is still in force, in arrears or pending, and the schema rejects it there.\nSeparate from `status` because the two answer different questions, and folding the reason into the status is what several insurer systems do today — an ended policy whose status reads as the claim that ended it. `status` stays the lifecycle state a consumer's absence rule and worklists depend on; this says why, so that a book can be filtered and reported on by it. `status_detail` keeps the insurer's own wording alongside.",
+            "$ref": "#/components/schemas/ExitReason"
+          },
           "policy_holder": {
             "$ref": "#/components/schemas/PolicyHolder"
+          },
+          "parties": {
+            "description": "Every person or entity the insurer records against the policy, one entry per role. Optional, and declared in `capabilities.fields.parties`.\nNeeded because the people on a policy are routinely different people — a life insured, an owner, a payer, one or more beneficiaries — and name plus date of birth is how a consumer matches a policy to a client. A consumer that takes the life insured to be the owner matches the wrong person on every such policy, and nothing about the match looks wrong. Where this array is present, a consumer matching a client record MUST choose the party by role rather than assuming `policy_holder`.\n`policy_holder` is unchanged and remains the life insured, so a consumer that reads only it keeps working. Where both are present, a `life_insured` entry here MUST describe the same person as `policy_holder`. A policy covering more than one life carries one `life_insured` entry per life, and `policy_holder` is the principal one.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/PolicyParty"
+            }
+          },
+          "beneficiaries": {
+            "description": "The death-benefit nominations recorded on the policy. Optional, and declared in `capabilities.fields.beneficiaries`, because \"no nomination\" and \"this insurer does not report nominations\" otherwise look identical — and the first sends a claim to the estate while the second says nothing at all.\nEach nomination names its beneficiary by `party_id`, pointing at a `beneficiary` entry in `parties`. The shares of the nominations in force SHOULD sum to 100; JSON Schema cannot compare members of an array, so this is stated rather than enforced.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/BeneficiaryNomination"
+            }
           },
           "ownership": {
             "$ref": "#/components/schemas/PolicyOwnership"
@@ -1422,13 +2134,29 @@
               "$ref": "#/components/schemas/Arrears"
             }
           },
+          "options": {
+            "description": "Options elected at the POLICY level and in force — premium waiver on disability, a premium freeze, benefit indexation offered across the policy. Options that attach to one benefit are on that benefit's `options` instead; the split follows the `policy` and `covers` levels of `taxonomy/product-features.yaml`, so an option has one vocabulary from quote to in-force.\nOnly what is in force. An option the product offers and the owner did not elect is absent, and absence is only meaningful where `capabilities.fields.options` is `true`.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/PolicyOption"
+            }
+          },
+          "premium_transactions": {
+            "description": "Recent premium activity on the policy, most recent first: what fell due, what was collected, what dishonoured and what was refunded. Optional, declared in `capabilities.fields.premium_transactions`.\nA HISTORY, NOT A LEDGER. How far back it reaches is the implementation's choice, so a consumer MUST NOT read the absence of an older transaction as evidence it never happened. And it does not replace `arrears`: what is outstanding is stated there, and a consumer MUST NOT derive arrears by netting these entries, which double-counts a fee the insurer has folded into an outstanding amount and misses a retry the ledger has not yet posted.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/PremiumTransaction"
+            }
+          },
           "loadings": {
-            "description": "Underwriting loadings applied at issue, in the insurer's own wording.",
+            "description": "Underwriting loadings applied at issue, in the insurer's own wording. Where the insurer also reports loadings per benefit, those are on `covers[].loadings` and are the structured form; this stays the verbatim text.",
             "type": "string",
             "maxLength": 2000
           },
           "exclusions": {
-            "description": "Policy exclusions, in the insurer's own wording.",
+            "description": "Policy exclusions, in the insurer's own wording. Per-benefit exclusions, where reported, are on `covers[].exclusions`.",
             "type": "string",
             "maxLength": 2000
           }
@@ -1919,6 +2647,57 @@
                 "default": false
               },
               "loadings_and_exclusions": {
+                "description": "Whether the policy-level `loadings` and `exclusions` text is populated.",
+                "type": "boolean",
+                "default": false
+              },
+              "cover_loadings_and_exclusions": {
+                "description": "Whether benefits carry structured `loadings` and `exclusions`. `true` makes absence on a benefit mean \"not loaded, nothing excluded\"; `false` means absence says nothing, and the policy-level text is all there is.",
+                "type": "boolean",
+                "default": false
+              },
+              "cover_id_stable": {
+                "description": "Whether `cover_id` is the insurer's own identifier and survives from one snapshot to the next. `false` where it is the positional fallback `PolicyCover.cover_id` describes, or is not sent at all.\nRead this before building change detection on benefits. With `true`, a benefit whose `cover_id` disappears has gone. With `false`, a benefit added ahead of another renumbers it, and a consumer that trusts the key reports a cover as removed and re-added — and on a reduction-in-cover alert, fires it at a client whose cover did not change.",
+                "type": "boolean",
+                "default": false
+              },
+              "parties": {
+                "description": "Whether policies carry `parties`. `false` means `policy_holder` is the only person a consumer can match on, and the owner, payer and beneficiaries are unknown rather than the same person.",
+                "type": "boolean",
+                "default": false
+              },
+              "beneficiaries": {
+                "description": "Whether policies carry `beneficiaries`. `true` makes an absent list mean no nomination is recorded; `false` means the insurer does not report nominations.",
+                "type": "boolean",
+                "default": false
+              },
+              "options": {
+                "description": "Whether policies and benefits carry `options`. `true` makes an absent list mean no option is in force; `false` means the insurer does not report them.",
+                "type": "boolean",
+                "default": false
+              },
+              "cover_states": {
+                "description": "Whether benefits carry `states`. `false` means a consumer cannot see that a benefit is on claim or has its premium waived, and SHOULD NOT build premium follow-up that assumes it can.",
+                "type": "boolean",
+                "default": false
+              },
+              "cover_links": {
+                "description": "Whether benefits carry `linked_to_cover_id` and `link_type`. `false` means a consumer summing sums insured cannot tell an extension from additional cover, and the total it shows may double-count.",
+                "type": "boolean",
+                "default": false
+              },
+              "premium_discounts": {
+                "description": "Whether premiums and benefits carry `discounts`.",
+                "type": "boolean",
+                "default": false
+              },
+              "super_fund": {
+                "description": "Whether policies paid from or held in super carry `premium.super_fund`.",
+                "type": "boolean",
+                "default": false
+              },
+              "premium_transactions": {
+                "description": "Whether policies carry `premium_transactions`.",
                 "type": "boolean",
                 "default": false
               }

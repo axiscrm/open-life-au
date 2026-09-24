@@ -1710,13 +1710,16 @@ components:
       title: StructureResponse
       description: |-
         RESPONSE-facing Structure. Same meaning as `Structure`, but extensible: a consumer MUST pass an unrecognised value through for display rather than failing, so that adding to the premium structures is a minor release rather than a major one.
-        Known values: [stepped, level_65, level_70, blended]. Validate against `Structure` when SENDING; tolerate anything when RECEIVING.
+        Known values: [stepped, level_65, level_70, blended, level_55, level_60]. Validate against `Structure` when SENDING; tolerate anything when RECEIVING.
+        `level_55` and `level_60` are held level to age 55 and 60 respectively, then stepped, exactly as `level_65` is to 65. They are known to this twin and NOT to `Structure`, deliberately: an in-force book holds benefits written on level-to ages that no product on today's quote screen offers, and the policy contract has to be able to report them. Whether a quote may ASK for one is a separate question for the quoting contract, which a closed request enum answers with a 422 until it is decided.
       type: string
       x-extensible-enum:
         - stepped
         - level_65
         - level_70
         - blended
+        - level_55
+        - level_60
     CommissionBasisResponse:
       title: CommissionBasisResponse
       description: |-
