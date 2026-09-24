@@ -112,7 +112,7 @@
       },
       "covers": [
         {
-          "cover_id": "Life Cover#1",
+          "cover_id": "P-5520114-B1",
           "benefit_name": "Life Cover",
           "cover_type": "life",
           "sum_insured": {
@@ -127,6 +127,8 @@
           "life_party_id": "PT-5001",
           "link_type": "standalone",
           "indexation": "guaranteed_on",
+          "occupation_class": "A",
+          "smoker": true,
           "discounts": [
             {
               "discount_type": "wellness",
@@ -140,7 +142,7 @@
           ]
         },
         {
-          "cover_id": "Life Cover#2",
+          "cover_id": "P-5520114-B2",
           "benefit_name": "Life Cover",
           "cover_type": "life",
           "sum_insured": {
@@ -159,7 +161,7 @@
           "smoker": false
         },
         {
-          "cover_id": "Income Cover#1",
+          "cover_id": "P-5520114-B3",
           "benefit_name": "Income Cover",
           "cover_type": "income_protection",
           "sum_insured": {
@@ -178,6 +180,7 @@
           "state_detail": "Claim being paid; premiums waived from 2026-05-01",
           "life_party_id": "PT-5001",
           "income_protection_basis": "indemnity",
+          "occupation_class": "A",
           "smoker": false,
           "options": [
             {
@@ -189,7 +192,7 @@
           "benefit_period": "To age 65"
         },
         {
-          "cover_id": "Trauma Cover#1",
+          "cover_id": "P-5520114-B4",
           "benefit_name": "Trauma Cover",
           "cover_type": "trauma",
           "sum_insured": {
@@ -197,9 +200,10 @@
             "currency": "AUD"
           },
           "status": "terminated",
+          "status_detail": "Benefit paid in full on a cancer claim",
           "exit_reason": "claim_trauma",
           "life_party_id": "PT-5001",
-          "expires_on": "2026-03-12"
+          "terminated_on": "2026-03-12"
         }
       ],
       "policy_version": 12

@@ -195,18 +195,6 @@ Capabilities:
             policy-level text is all there is.
           type: boolean
           default: false
-        cover_id_stable:
-          description: >-
-            Whether `cover_id` is the insurer's own identifier and survives from one snapshot to the
-            next. `false` where it is the positional fallback `PolicyCover.cover_id` describes, or is
-            not sent at all.
-
-            Read this before building change detection on benefits. With `true`, a benefit whose
-            `cover_id` disappears has gone. With `false`, a benefit added ahead of another renumbers
-            it, and a consumer that trusts the key reports a cover as removed and re-added — and on
-            a reduction-in-cover alert, fires it at a client whose cover did not change.
-          type: boolean
-          default: false
         parties:
           description: >-
             Whether policies carry `parties`. `false` means `policy_holder` is the only person a
@@ -246,10 +234,6 @@ Capabilities:
           default: false
         super_fund:
           description: Whether policies paid from or held in super carry `premium.super_fund`.
-          type: boolean
-          default: false
-        premium_transactions:
-          description: Whether policies carry `premium_transactions`.
           type: boolean
           default: false
 

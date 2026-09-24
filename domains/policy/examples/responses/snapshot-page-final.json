@@ -52,14 +52,13 @@
         {
           "party_id": "PT-00017",
           "role": "policy_owner",
-          "last_name": "Example Super Fund Trustee Pty Ltd"
+          "last_name": "Example Super Fund"
         },
         {
           "party_id": "PT-88214",
           "role": "beneficiary",
           "first_name": "Casey",
-          "last_name": "Alvarez",
-          "date_of_birth": "1987-08-21"
+          "last_name": "Alvarez"
         }
       ],
       "beneficiaries": [
@@ -248,7 +247,8 @@
         },
         "structure": "stepped",
         "payment_method": "direct_debit",
-        "payment_method_detail": "Bank account ending 4417"
+        "payment_method_detail": "Bank account ending 4417",
+        "collection_state": "retry_scheduled"
       },
       "covers": [
         {
@@ -279,8 +279,7 @@
           },
           "reason": "Insufficient funds",
           "expected_lapse_on": "2026-08-15",
-          "attempts": 2,
-          "collection_state": "retry_scheduled"
+          "attempts": 2
         },
         {
           "dishonoured_on": "2026-06-15",
@@ -291,40 +290,7 @@
           "amount_is_estimate": true,
           "reason": "Insufficient funds",
           "expected_lapse_on": "2026-08-15",
-          "attempts": 3,
-          "collection_state": "retry_scheduled"
-        }
-      ],
-      "premium_transactions": [
-        {
-          "transaction_id": "TX-9031",
-          "occurred_on": "2026-07-15",
-          "transaction_type": "dishonour",
-          "amount": {
-            "amount": "96.20",
-            "currency": "AUD"
-          },
-          "status": "failed"
-        },
-        {
-          "transaction_id": "TX-9030",
-          "occurred_on": "2026-06-15",
-          "transaction_type": "dishonour",
-          "amount": {
-            "amount": "96.20",
-            "currency": "AUD"
-          },
-          "status": "failed"
-        },
-        {
-          "transaction_id": "TX-9012",
-          "occurred_on": "2026-05-15",
-          "transaction_type": "payment",
-          "amount": {
-            "amount": "96.20",
-            "currency": "AUD"
-          },
-          "status": "succeeded"
+          "attempts": 3
         }
       ],
       "policy_version": 3

@@ -112,8 +112,9 @@ PostalAddress:
     Australian by default, and the Australian fields are unchanged: absent `country`, or `AU`, means
     `suburb`, `state` and `postcode` apply exactly as before. An address outside Australia sets
     `country` and carries its locality, region and postal code in `overseas` instead, and MUST omit
-    `state` and `postcode` — the schema rejects either beside a `country` other than `AU`. `line1` and
-    `line2` are street lines and apply to both.
+    `suburb`, `state` and `postcode` — the schema rejects any of them beside a `country` other than
+    `AU`. The overseas town or city is `overseas.locality`. `line1` and `line2` are street lines and
+    apply to both.
 
     Built this way, rather than by relaxing `state` and `postcode`, so that nothing a consumer
     already validates changes. A consumer that reads only the Australian fields still gets an
@@ -122,8 +123,9 @@ PostalAddress:
     at all.
   type: object
   additionalProperties: false
-  # A foreign address with an Australian state or postcode is the invented value this structure exists
-  # to remove, so it is refused rather than tolerated.
+  # A foreign address with an Australian suburb, state or postcode is the invented value this structure
+  # exists to remove, so it is refused rather than tolerated. `suburb` included, because two fields for
+  # one town leave a consumer to pick which one it prints.
   dependentSchemas:
     country:
       anyOf:
@@ -131,6 +133,8 @@ PostalAddress:
             country:
               const: AU
         - properties:
+            suburb:
+              not: {}
             state:
               not: {}
             postcode:
@@ -163,6 +167,10 @@ PostalAddress:
       description: >-
         ISO 3166-1 alpha-2, upper case. Omitted or `AU` means the Australian fields apply. REQUIRED
         with `overseas`.
+
+        The pattern checks the shape only — `ZZ` passes it. A consumer SHOULD validate the value
+        against the ISO 3166-1 list itself; the list changes, and a standard that froze a copy of it
+        would reject a real country the day one is added.
       type: string
       pattern: '^[A-Z]{2}$'
     overseas:
@@ -197,9 +205,14 @@ PolicyParty:
     party against a record the consumer already holds, and deliberately no more.
 
     The same restraint as `PolicyHolder`, for the same reason, and stricter: this carries no contact
-    detail at all. A consumer needs a payer's or a beneficiary's name and date of birth to find them
-    in its own records, and has no use for the insurer's copy of their phone number that justifies
+    detail at all. A consumer needs a payer's or an owner's name and date of birth to find them in
+    its own records, and has no use for the insurer's copy of their phone number that justifies
     publishing it. This MUST NOT be extended into a contact record.
+
+    A `beneficiary` MUST NOT carry `date_of_birth`, and the schema rejects it. A beneficiary is
+    matched far less often than the other roles — a consumer rarely holds a beneficiary's client
+    record, so the date of birth would mostly travel to consumers with nothing to match it against —
+    and the name and relationship are what an adviser needs to confirm a nomination with the owner.
 
     ONE ENTRY PER ROLE. A person who both owns and pays for a policy appears twice, once as
     `policy_owner` and once as `payer`, with the same `party_id`. A single entry with a list of
@@ -209,6 +222,14 @@ PolicyParty:
   type: object
   required: [role, last_name]
   additionalProperties: false
+  # A beneficiary's date of birth is personal information with no matching use to justify it — see the
+  # description. Keyed on the date so that a new role value, unknown to this version, is unaffected.
+  dependentSchemas:
+    date_of_birth:
+      properties:
+        role:
+          not:
+            const: beneficiary
   properties:
     party_id:
       description: >-
@@ -240,9 +261,9 @@ PolicyParty:
       maxLength: 255
     date_of_birth:
       description: >-
-        RFC 3339 full-date, for a person. Absent for an entity. Name plus date of birth is the match,
-        so a party without one can be displayed but SHOULD NOT be attached to a client record on name
-        alone.
+        RFC 3339 full-date, for a person. Absent for an entity, and never sent for a `beneficiary`.
+        Name plus date of birth is the match, so a party without one can be displayed but SHOULD NOT
+        be attached to a client record on name alone.
       type: string
       format: date
 

@@ -22,13 +22,47 @@ Policy:
       properties:
         status:
           const: in_arrears
-    # A reason for ending on a policy that has not ended is a contradiction, and the likelier cause is
-    # an implementation that copied a cover's exit reason onto its parent policy.
+    # A reason for ending is only valid on a status that has ended. An ALLOWLIST of the terminal
+    # statuses rather than a denylist of the live ones, because `status` is extensible: a denylist
+    # accepts an exit reason on every status added later, including a live one such as a premium
+    # holiday, while an allowlist fails closed and a new terminal status is added here in the release
+    # that names it. The likeliest defect it catches is a cover's exit reason copied onto its policy.
     exit_reason:
+      required: [status]
       properties:
         status:
-          not:
-            enum: [in_force, in_arrears, pending]
+          enum: [lapsed, cancelled, terminated]
+      # The reason refines the status, so it cannot contradict it. Each status that already names a
+      # reason refuses the others' — a lapse is not an owner's request, a cancellation is not a
+      # non-payment — and `terminated`, "any other reason", refuses both.
+      allOf:
+        - if:
+            properties:
+              status:
+                const: lapsed
+          then:
+            properties:
+              exit_reason:
+                not:
+                  const: owner_request
+        - if:
+            properties:
+              status:
+                const: cancelled
+          then:
+            properties:
+              exit_reason:
+                not:
+                  const: non_payment
+        - if:
+            properties:
+              status:
+                const: terminated
+          then:
+            properties:
+              exit_reason:
+                not:
+                  enum: [non_payment, owner_request]
   properties:
     policy_id:
       description: >-
@@ -56,8 +90,13 @@ Policy:
       maxLength: 200
     exit_reason:
       description: >-
-        Why the policy ended, on a policy whose status is terminal. MUST NOT be sent on a policy that
-        is still in force, in arrears or pending, and the schema rejects it there.
+        Why the policy ended. Only valid where `status` is `lapsed`, `cancelled` or `terminated`,
+        and the schema rejects it on any other status, including one this version does not name.
+
+        It REFINES the status and MUST be consistent with it: a `lapsed` policy did not end at the
+        owner's request, and a `cancelled` one did not end for non-payment. The schema rejects those
+        pairings. Where the insurer's own reason contradicts the status it reports, the status is
+        what the consumer's worklists run on, so fix the mapping rather than send both.
 
         Separate from `status` because the two answer different questions, and folding the reason
         into the status is what several insurer systems do today — an ended policy whose status
@@ -84,6 +123,10 @@ Policy:
         keeps working. Where both are present, a `life_insured` entry here MUST describe the same
         person as `policy_holder`. A policy covering more than one life carries one `life_insured`
         entry per life, and `policy_holder` is the principal one.
+
+        The owner is held the same way. Where both are present, a `policy_owner` entry here MUST
+        describe the same owner as `ownership.owner_name`, under the same name, and
+        `ownership.owner_type` describes that party.
       type: array
       minItems: 1
       items:
@@ -116,6 +159,14 @@ Policy:
         The benefits held under this policy. At least one — a policy with no benefits is not a
         policy. Where a benefit maps onto the shared cover vocabulary the insurer SHOULD populate
         `cover_type`; `benefit_name` always carries its own product wording.
+
+        A benefit that has ENDED while the insurer still reports it is sent here, present, with a
+        terminal `status`, its `terminated_on` and, where known, its `exit_reason` — a trauma benefit
+        paid out on a policy whose life cover continues, for instance. A benefit that is no longer
+        reported is absent, and absence means only that: the snapshot's absence rule applied one
+        level down, so within a complete walk it is no longer in force and the reason is unknown. A
+        consumer MUST NOT infer an exit reason from absence, and an insurer that knows why a benefit
+        ended SHOULD keep reporting it, terminal, long enough for a daily consumer to see it.
       type: array
       minItems: 1
       items:
@@ -140,32 +191,25 @@ Policy:
 
     options:
       description: >-
-        Options elected at the POLICY level and in force — premium waiver on disability, a premium
-        freeze, benefit indexation offered across the policy. Options that attach to one benefit are
-        on that benefit's `options` instead; the split follows the `policy` and `covers` levels of
-        `taxonomy/product-features.yaml`, so an option has one vocabulary from quote to in-force.
+        Options elected at the POLICY level and held — premium waiver on disability, a premium
+        freeze option. Options that attach to one benefit are on that benefit's `options` instead;
+        the split follows the `policy` and `covers` levels of `taxonomy/product-features.yaml`, so an
+        option has one vocabulary from quote to in-force.
 
-        Only what is in force. An option the product offers and the owner did not elect is absent,
-        and absence is only meaningful where `capabilities.fields.options` is `true`.
+        Only what is held. An option the product offers and the owner did not elect is absent, and
+        absence is only meaningful where `capabilities.fields.options` is `true`.
+
+        ONE HOME PER FACT. This MUST NOT carry a feature that has a dedicated field, and those fields
+        are authoritative: indexation is `covers[].indexation`, reported per benefit even where the
+        insurer holds it policy-wide; the TPD test is `covers[].tpd_definition`; the income basis is
+        `covers[].income_protection_basis`. A consumer given the same fact twice has to choose which
+        to believe, and the two drift. A premium freeze is split the same way: an entry here records
+        that the option is HELD, and `covers[].states` containing `premium_freeze` says whether it is
+        IN EFFECT now. Neither implies the other.
       type: array
       minItems: 1
       items:
         $ref: '#/PolicyOption'
-    premium_transactions:
-      description: >-
-        Recent premium activity on the policy, most recent first: what fell due, what was collected,
-        what dishonoured and what was refunded. Optional, declared in
-        `capabilities.fields.premium_transactions`.
-
-        A HISTORY, NOT A LEDGER. How far back it reaches is the implementation's choice, so a consumer
-        MUST NOT read the absence of an older transaction as evidence it never happened. And it does
-        not replace `arrears`: what is outstanding is stated there, and a consumer MUST NOT derive
-        arrears by netting these entries, which double-counts a fee the insurer has folded into an
-        outstanding amount and misses a retry the ledger has not yet posted.
-      type: array
-      minItems: 1
-      items:
-        $ref: '#/PremiumTransaction'
 
     loadings:
       description: >-
@@ -202,6 +246,11 @@ ExitReason:
     `claim_*` means the claim ENDED the cover. A partial payment that leaves the benefit in force is
     not an exit, and a benefit reduced by a claim on another cover it is linked to ends only when its
     sum insured reaches nil.
+
+    A reason refines the status beside it and never contradicts it. `non_payment` goes with
+    `lapsed`, `owner_request` with `cancelled`, and neither with `terminated`, which the status
+    vocabulary defines as any other reason; the schema rejects the contradicting pairs. `other`
+    points at the `status_detail` beside it, on the policy or the benefit.
   type: string
   x-extensible-enum:
     - non_payment
@@ -227,6 +276,12 @@ PolicyVersion:
     hand is newer than an event that arrived after it.
 
     Monotonic per policy. It carries no meaning across policies and MUST NOT be compared between them.
+
+    Premium transactions, served by `GET /policies/{policy_id}/transactions`, are not changes to the
+    policy record and MUST NOT bump it — otherwise every collected instalment looks like a policy
+    change, and a consumer diffing on the version re-reads the whole book monthly for nothing. What a
+    transaction causes on the record itself, such as `dates.paid_to` moving or `arrears` appearing,
+    is a change and does bump it.
   type: integer
   minimum: 1
 
@@ -272,9 +327,16 @@ PolicyOwnership:
         entity names rather than personal ones, so a consumer applying title case to them produces
         "Abc Super Fund Pty Ltd" and "Smith Smsf" — and a consumer receiving one MUST NOT re-case it
         either.
+
+        Where this is sent and the policy's `parties` carries a `policy_owner`, that party's name MUST
+        agree with this one — the same rule `parties` states for the life insured and `policy_holder`. Two spellings
+        of one owner read as two owners.
       type: string
       maxLength: 255
     owner_type:
+      description: >-
+        What kind of person or entity the owner is. Describes the owner named in `owner_name`, and
+        the `policy_owner` entry in `parties` where there is one.
       $ref: '#/OwnerType'
 
 OwnerType:
@@ -369,6 +431,14 @@ PolicyPremium:
         MUST NOT carry a full account number, card number or any other unmasked credential.
       type: string
       maxLength: 100
+    collection_state:
+      description: >-
+        What the insurer's collection process is doing with this payment method. Here, beside
+        `payment_method`, rather than on each `arrears` entry, because it describes the METHOD and
+        not one failure: a cancelled authority stops every future collection, not only the one that
+        dishonoured. It does not replace `arrears[].reason`, which stays the insurer's verbatim
+        wording for why each payment failed.
+      $ref: '#/CollectionState'
     super_fund:
       $ref: '#/SuperFund'
     discounts:
@@ -477,19 +547,7 @@ PolicyCover:
         exports this contract replaces had per-benefit continuity; a structured shape has to restore it
         deliberately.
 
-        WHERE THE INSURER HAS NO STABLE IDENTIFIER, an implementation MAY send a positional key
-        instead: the benefit's name and its ordinal among the policy's benefits of that name, as
-        `<benefit_name>#<ordinal>` counting from 1 — `Life Cover#1`, `Life Cover#2`. It MUST be derived
-        deterministically from the insurer's data, so that an unchanged policy produces the same key
-        every night, and MUST fit the length limit below. Where a benefit name is too long to fit,
-        truncate the name, never the ordinal.
-
-        A positional key is better than nothing and worse than an identifier: it survives indexation,
-        but a benefit added or removed ahead of another renumbers it. So an implementation sending one
-        MUST declare `capabilities.fields.cover_id_stable: false`, and a consumer reading that MUST
-        NOT raise a reduction-in-cover alert on a cover_id change alone.
-
-        MUST be unique within `covers`. `linked_to_cover_id` on another benefit refers to it.
+        MUST be unique within `covers`.
       type: string
       maxLength: 64
     benefit_name:
@@ -519,6 +577,12 @@ PolicyCover:
       $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
     status:
       $ref: '#/PolicyStatusResponse'
+    status_detail:
+      description: >-
+        The insurer's own wording for this benefit's status, where it carries more than the enum
+        does — and what an `exit_reason` of `other` points at.
+      type: string
+      maxLength: 200
     ownership:
       description: Where a single policy holds benefits under different ownership.
       $ref: '../../../../core/schemas/cover-vocabulary.yaml#/OwnershipResponse'
@@ -539,14 +603,25 @@ PolicyCover:
       type: string
       format: date
     expires_on:
+      description: >-
+        Scheduled expiry, for a benefit with a fixed term or expiry age. A date in the future, or the
+        date a benefit that ran to term ended. Not where a benefit that ended EARLY records its end:
+        that is `terminated_on`.
+      type: string
+      format: date
+    terminated_on:
+      description: >-
+        The date this benefit actually ended. Present on a benefit whose `status` is terminal, as
+        `dates.terminated_on` is on the policy.
       type: string
       format: date
 
     exit_reason:
       description: >-
         Why this benefit ended, where it ended and the policy continues — a trauma benefit paid out
-        on a policy whose life cover remains, for instance. Only on a benefit whose `status` is
-        terminal, and the schema rejects it otherwise. Same vocabulary as `Policy.exit_reason`.
+        on a policy whose life cover remains, for instance. Only valid where `status` is `lapsed`,
+        `cancelled` or `terminated`, and consistent with it, under the same rules as
+        `Policy.exit_reason`; the schema rejects it otherwise. `other` points at `status_detail`.
       $ref: '#/ExitReason'
     states:
       description: >-
@@ -577,7 +652,12 @@ PolicyCover:
     life_party_id:
       description: >-
         Which life this benefit is on, as the `party_id` of a `life_insured` entry in the policy's
-        `parties`. Absent means the benefit is on `policy_holder`.
+        `parties`. An implementation that knows SHOULD send it, on a single-life policy as well.
+
+        Absent means the life is UNKNOWN — not that it is `policy_holder`. A consumer MUST NOT infer
+        the life from the principal one, from the benefit name, or from there being only one
+        `life_insured` party today: a second life is routinely added later, and a default that was
+        right until then silently becomes wrong.
 
         One policy can insure two people, with each benefit on one of them, and without this a
         consumer attributes every benefit to the principal life — the wrong person's cover on the
@@ -590,6 +670,11 @@ PolicyCover:
         The `cover_id` of the benefit this one is linked to. On the same policy unless
         `linked_to_policy_id` says otherwise. MUST NOT be self-referential, and the links on a
         policy MUST be acyclic.
+
+        It MUST be a `cover_id` the insurer actually sends on the target benefit, and it is omitted
+        where the target has none — an implementation MUST NOT construct an identifier to point at.
+        `link_type` can still be sent alone, so a consumer knows a benefit is an extension even where
+        it cannot say of which.
 
         Without it a consumer double-counts. A TPD benefit held as an extension of a life benefit is
         not additional cover: paying one reduces the other, so a consumer summing the two sums insured
@@ -609,10 +694,15 @@ PolicyCover:
 
     options:
       description: >-
-        Options elected on THIS benefit and in force — a buy-back, an increasing claim benefit, a
-        reinstatement option. Policy-wide options are on `Policy.options`. Only what is in force; an
+        Options elected on THIS benefit and held — a buy-back, an increasing claim benefit, a
+        reinstatement option. Policy-wide options are on `Policy.options`. Only what is held; an
         option offered and not elected is absent, and absence is only meaningful where
         `capabilities.fields.options` is `true`.
+
+        MUST NOT carry a feature that has a dedicated field: `indexation`, `tpd_definition` and
+        `income_protection_basis` are authoritative for what they say, and a consumer reads them and
+        not this list. A premium freeze option is recorded here as HELD; whether it is in effect now
+        is `states` containing `premium_freeze`.
       type: array
       minItems: 1
       items:
@@ -662,15 +752,18 @@ PolicyCover:
         benefit written at different classes for the same person — which is what decides the income
         benefit's definitions and what it costs.
 
-        SHOULD be sent wherever the insurer records a class per benefit, and MUST be sent where it
-        differs from `policy_holder.occupation_class`. Absent means read the policy holder's.
+        MUST be sent whenever the insurer knows it for this benefit, whether or not it matches
+        `policy_holder.occupation_class`. Absent means not known for this benefit, not "the same as
+        the policy holder's": a consumer MUST NOT fill it in from there.
       type: string
       maxLength: 32
     smoker:
       description: >-
-        Smoker status THIS benefit was rated at, per the insurer's definition. MUST be sent where it
-        differs from `policy_holder.smoker` — a benefit re-rated as non-smoking after issue, while an
-        older one still carries the smoker rate. Absent means read the policy holder's.
+        Smoker status THIS benefit was rated at, per the insurer's definition. MUST be sent whenever
+        the insurer knows it for this benefit, not only where it differs from `policy_holder.smoker`
+        — benefits on one life drift apart, one re-rated as non-smoking after issue while an older one
+        keeps the smoker rate. Absent means not known for this benefit, and a consumer MUST NOT fill
+        it in from `policy_holder.smoker`.
       type: boolean
 
     discounts:
@@ -688,13 +781,44 @@ PolicyCover:
   dependentRequired:
     linked_to_cover_id: [link_type]
     linked_to_policy_id: [link_type]
+  # The same allowlist and the same consistency rules as `Policy.exit_reason`, for the same reasons.
   dependentSchemas:
     exit_reason:
       required: [status]
       properties:
         status:
-          not:
-            enum: [in_force, in_arrears, pending]
+          enum: [lapsed, cancelled, terminated]
+      # The reason refines the status, so it cannot contradict it. Each status that already names a
+      # reason refuses the others' — a lapse is not an owner's request, a cancellation is not a
+      # non-payment — and `terminated`, "any other reason", refuses both.
+      allOf:
+        - if:
+            properties:
+              status:
+                const: lapsed
+          then:
+            properties:
+              exit_reason:
+                not:
+                  const: owner_request
+        - if:
+            properties:
+              status:
+                const: cancelled
+          then:
+            properties:
+              exit_reason:
+                not:
+                  const: non_payment
+        - if:
+            properties:
+              status:
+                const: terminated
+          then:
+            properties:
+              exit_reason:
+                not:
+                  enum: [non_payment, owner_request]
 
 CoverState:
   title: CoverState
@@ -705,7 +829,8 @@ CoverState:
       - `premium_waiver_active`  premiums on this benefit are currently waived, typically under a
                                  waiver-on-disability option
       - `premium_freeze`         the premium is held at its current amount and the sum insured
-                                 reduces instead
+                                 reduces instead — IN EFFECT now. That the option is held at all is
+                                 an entry in `options`, and neither implies the other
       - `suspended`              premiums and cover are suspended for a period, after which the
                                  benefit resumes; `state_detail` carries how long
   type: string
@@ -744,15 +869,16 @@ IndexationState:
                          implementation that cannot say SHOULD send `on`
 
     Distinct from the `benefit_indexation` feature in `taxonomy/product-features.yaml`, which says a
-    product OFFERS indexation. This says whether a benefit in force IS indexed, and an implementation
-    SHOULD report it here rather than as an entry in `options`.
+    product OFFERS indexation. This says whether a benefit in force IS indexed, and it is the one
+    home for that fact: an implementation MUST report it here and MUST NOT also send it as an entry
+    in `options`.
   type: string
   x-extensible-enum: [on, off, guaranteed_on]
 
 PolicyOption:
   title: PolicyOption
   description: >-
-    An option in force across the policy.
+    An option held across the policy. Never one with a dedicated field — see `Policy.options`.
 
     `feature` is the portable code and `insurer_code` the insurer's own, the same pairing as
     `standard_feature` beside `code` in the quoting contract's feature declarations. Both are
@@ -784,8 +910,13 @@ PolicyOption:
 CoverOption:
   title: CoverOption
   description: >-
-    An option in force on one benefit. The same shape as `PolicyOption`, and a separate schema
+    An option held on one benefit. The same shape as `PolicyOption`, and a separate schema
     because `feature` comes from a different level of the taxonomy.
+
+    Records that the option is HELD, not that it is operating. For a premium freeze the two differ,
+    and whether the freeze is in effect now is the benefit's `states` containing `premium_freeze`.
+    Never an option with a dedicated field on the benefit — `indexation`, `tpd_definition`,
+    `income_protection_basis` — which is authoritative.
   type: object
   required: [name]
   additionalProperties: false
@@ -902,10 +1033,9 @@ DiscountType:
       - `loyalty`          for years in force
       - `wellness`         earned by meeting health or engagement criteria after issue — the
                            `healthy_lives_discount` policy feature, as applied to this premium
-      - `preferred_lives`  a rating category for lives underwritten as lower risk than standard
       - `other`            read `name`
   type: string
-  x-extensible-enum: [multi_cover, size, loyalty, wellness, preferred_lives, other]
+  x-extensible-enum: [multi_cover, size, loyalty, wellness, other]
 
 Arrears:
   title: Arrears
@@ -966,6 +1096,9 @@ Arrears:
         Why the payment failed, in the insurer's own wording — "insufficient funds", "account
         closed", "card expired". Materially changes what the adviser does next, so worth carrying
         verbatim rather than mapping to an enum nobody agrees on.
+
+        `premium.collection_state` says what the insurer is doing with the payment method as a
+        whole, and does not replace this: a consumer reads both.
       type: string
       maxLength: 200
     expected_lapse_on:
@@ -987,14 +1120,13 @@ Arrears:
         policy one month behind after three retries look the same as one three months behind.
       type: integer
       minimum: 1
-    collection_state:
-      $ref: '#/CollectionState'
 
 CollectionState:
   title: CollectionState
   description: >-
-    What the insurer's collection process is doing about this failure. RESPONSE-facing and
-    extensible: a consumer MUST pass an unrecognised value through rather than failing.
+    What the insurer's collection process is doing with the policy's payment method.
+    RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than
+    failing.
 
     `ceased` is the value this exists for. It means the insurer has stopped collecting from the
     payment method altogether — a cancelled authority, a closed account — so no retry will clear
@@ -1002,11 +1134,13 @@ CollectionState:
     different job from a missed payment: the client needs a new payment method, not a reminder, and
     a consumer that cannot see it waits for a retry that is never coming.
       - `active`           collection continues on the normal cycle
-      - `retry_pending`    the insurer will retry, and has not yet set when
-      - `retry_scheduled`  a retry is booked
+      - `retry_scheduled`  a failed collection will be retried, whether or not the date is set
       - `ceased`           the insurer has stopped collecting from this payment method
+
+    It describes the method and not a failure, so it does not replace `arrears[].reason`: the
+    reason stays verbatim on each entry, and says why that payment failed.
   type: string
-  x-extensible-enum: [active, retry_pending, retry_scheduled, ceased]
+  x-extensible-enum: [active, retry_scheduled, ceased]
 
 BeneficiaryNomination:
   title: BeneficiaryNomination
@@ -1020,6 +1154,12 @@ BeneficiaryNomination:
   anyOf:
     - required: [party_id]
     - required: [relationship]
+  dependentSchemas:
+    lapsing:
+      required: [nomination_type]
+      properties:
+        nomination_type:
+          const: binding
   properties:
     party_id:
       description: The `party_id` of a `beneficiary` entry in the policy's `parties`.
@@ -1027,6 +1167,13 @@ BeneficiaryNomination:
       maxLength: 64
     nomination_type:
       $ref: '#/NominationType'
+    lapsing:
+      description: >-
+        For a `binding` nomination, whether it lapses after a fixed period unless renewed. `false`
+        is the binding nomination that does not lapse, which is a property of a binding nomination
+        rather than a fourth kind of one. Only valid beside `nomination_type: binding`, and the
+        schema rejects it elsewhere. Absent means not reported. Where it lapses, `expires_on` is when.
+      type: boolean
     relationship:
       description: >-
         The beneficiary's relationship to the life insured, in the insurer's own wording — "spouse",
@@ -1057,62 +1204,9 @@ NominationType:
   description: >-
     The legal force of a nomination. RESPONSE-facing and extensible: a consumer MUST pass an
     unrecognised value through rather than failing.
-      - `binding`        the trustee must pay as nominated, while the nomination is valid
+      - `binding`        the trustee must pay as nominated, while the nomination is valid. Whether
+                         it lapses is `lapsing` on the nomination
       - `non_binding`    the trustee considers the nomination but decides
-      - `non_lapsing`    binding, and does not expire
       - `reversionary`   the benefit continues to a nominated person as an income stream
   type: string
-  x-extensible-enum: [binding, non_binding, non_lapsing, reversionary]
-
-PremiumTransaction:
-  title: PremiumTransaction
-  description: >-
-    One premium event on the policy. Amounts are never negative: `transaction_type` carries the
-    direction, so a refund is a positive amount of type `refund` rather than a negative payment,
-    and a consumer does not have to know which sign convention an insurer chose.
-  type: object
-  required: [occurred_on, transaction_type, amount]
-  additionalProperties: false
-  properties:
-    transaction_id:
-      description: >-
-        The insurer's own identifier for the transaction, where it has one. Stable across snapshots,
-        so a consumer holding history can tell a re-reported transaction from a new one.
-      type: string
-      maxLength: 64
-    occurred_on:
-      description: >-
-        The date the transaction fell due or was processed. A `dishonour` SHOULD carry the same date
-        as the matching entry in `arrears`, so that the two can be joined.
-      type: string
-      format: date
-    transaction_type:
-      $ref: '#/TransactionType'
-    amount:
-      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
-    status:
-      $ref: '#/TransactionStatus'
-
-TransactionType:
-  title: TransactionType
-  description: >-
-    RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than
-    failing.
-      - `premium_due`  an instalment fell due
-      - `payment`      money collected, or an attempt to collect it — read `status`
-      - `dishonour`    a collection attempt failed
-      - `rebate`       a rebate credited against the premium, such as a tax rebate on super-held cover
-      - `refund`       money returned to the payer
-  type: string
-  x-extensible-enum: [premium_due, payment, dishonour, rebate, refund]
-
-TransactionStatus:
-  title: TransactionStatus
-  description: >-
-    RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than
-    failing.
-      - `succeeded`    completed
-      - `outstanding`  due or accrued and not yet collected, including an attempt still in flight
-      - `failed`       attempted and failed
-  type: string
-  x-extensible-enum: [succeeded, outstanding, failed]
+  x-extensible-enum: [binding, non_binding, reversionary]

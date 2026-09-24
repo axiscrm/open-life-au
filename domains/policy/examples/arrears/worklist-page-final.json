@@ -37,7 +37,8 @@
         },
         "frequency": "monthly",
         "payment_method": "direct_debit",
-        "payment_method_detail": "Bank account ending 4417"
+        "payment_method_detail": "Bank account ending 4417",
+        "collection_state": "retry_scheduled"
       },
       "paid_to": "2026-06-15",
       "arrears": [
@@ -49,8 +50,7 @@
           },
           "reason": "Insufficient funds",
           "expected_lapse_on": "2026-08-15",
-          "attempts": 2,
-          "collection_state": "retry_scheduled"
+          "attempts": 2
         },
         {
           "dishonoured_on": "2026-06-15",
@@ -61,8 +61,7 @@
           "amount_is_estimate": true,
           "reason": "Insufficient funds",
           "expected_lapse_on": "2026-08-15",
-          "attempts": 3,
-          "collection_state": "retry_scheduled"
+          "attempts": 3
         }
       ]
     },
@@ -90,7 +89,8 @@
         },
         "frequency": "quarterly",
         "payment_method": "credit_card",
-        "payment_method_detail": "Card ending 8802"
+        "payment_method_detail": "Card ending 8802",
+        "collection_state": "ceased"
       },
       "paid_to": "2026-05-01",
       "arrears": [
@@ -102,8 +102,7 @@
           },
           "reason": "Card expired",
           "expected_lapse_on": "2026-08-01",
-          "attempts": 4,
-          "collection_state": "ceased"
+          "attempts": 4
         }
       ]
     }
