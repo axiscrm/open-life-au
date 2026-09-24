@@ -1,0 +1,272 @@
+{
+  "mode": "full",
+  "snapshot_id": "snap_2026-08-06T02:30:00Z_c93d",
+  "generated_at": "2026-08-06T02:33:10+10:00",
+  "total_count": 2,
+  "complete": true,
+  "coverage": {
+    "adviser_codes": [
+      "AC100"
+    ],
+    "statuses": [
+      "in_force",
+      "in_arrears",
+      "pending",
+      "terminated"
+    ],
+    "includes_terminated": true
+  },
+  "policies": [
+    {
+      "policy_id": "P-5520114",
+      "insurer_id": "example-life",
+      "brand_id": "example-life",
+      "product_name": "Protection Plus",
+      "status": "in_force",
+      "policy_holder": {
+        "client_id": "CL-50011",
+        "first_name": "Mei",
+        "last_name": "Tanaka",
+        "date_of_birth": "1982-01-19",
+        "gender": "female",
+        "smoker": true,
+        "occupation": "Graphic designer",
+        "occupation_class": "A",
+        "email": "mei.tanaka@example.com.au",
+        "address": {
+          "line1": "4 Sample Road",
+          "country": "NZ",
+          "overseas": {
+            "locality": "Hamilton",
+            "region": "Waikato",
+            "postal_code": "3204"
+          }
+        }
+      },
+      "parties": [
+        {
+          "party_id": "PT-5001",
+          "role": "life_insured",
+          "first_name": "Mei",
+          "last_name": "Tanaka",
+          "date_of_birth": "1982-01-19"
+        },
+        {
+          "party_id": "PT-5002",
+          "role": "life_insured",
+          "first_name": "Ken",
+          "last_name": "Tanaka",
+          "date_of_birth": "1980-06-05"
+        },
+        {
+          "party_id": "PT-5001",
+          "role": "policy_owner",
+          "first_name": "Mei",
+          "last_name": "Tanaka",
+          "date_of_birth": "1982-01-19"
+        },
+        {
+          "party_id": "PT-5003",
+          "role": "payer",
+          "last_name": "Tanaka Design Pty Ltd"
+        }
+      ],
+      "ownership": {
+        "ownership_type": "ordinary",
+        "owner_type": "individual"
+      },
+      "distribution": {
+        "adviser_code": "AC100",
+        "adviser_name": "Sam Rivera"
+      },
+      "dates": {
+        "commenced_on": "2019-10-01",
+        "renewal_on": "2026-10-01",
+        "paid_to": "2026-09-01",
+        "duration_years": 6
+      },
+      "premium": {
+        "amount": {
+          "amount": "412.35",
+          "currency": "AUD"
+        },
+        "frequency": "monthly",
+        "annualised": {
+          "amount": "4750.00",
+          "currency": "AUD"
+        },
+        "structure": "stepped",
+        "next_anniversary": {
+          "effective_on": "2026-10-01",
+          "amount": {
+            "amount": "468.90",
+            "currency": "AUD"
+          },
+          "annualised": {
+            "amount": "5401.40",
+            "currency": "AUD"
+          }
+        },
+        "payment_method": "direct_debit",
+        "payment_method_detail": "Business account ending 0932",
+        "discounts": [
+          {
+            "discount_type": "loyalty",
+            "name": "Five-year loyalty discount",
+            "share_percent": "2.5",
+            "annualised": {
+              "amount": "121.80",
+              "currency": "AUD"
+            }
+          }
+        ]
+      },
+      "covers": [
+        {
+          "cover_id": "P-5520114-B1",
+          "benefit_name": "Life Cover",
+          "cover_type": "life",
+          "sum_insured": {
+            "amount": "800000.00",
+            "currency": "AUD"
+          },
+          "premium": {
+            "amount": "118.20",
+            "currency": "AUD"
+          },
+          "status": "in_force",
+          "life_party_id": "PT-5001",
+          "link_type": "standalone",
+          "indexation": "guaranteed_on",
+          "occupation_class": "A",
+          "smoker": true,
+          "discounts": [
+            {
+              "discount_type": "wellness",
+              "name": "Healthy lifestyle reward",
+              "share_percent": "10",
+              "amount": {
+                "amount": "13.13",
+                "currency": "AUD"
+              }
+            }
+          ]
+        },
+        {
+          "cover_id": "P-5520114-B2",
+          "benefit_name": "Life Cover",
+          "cover_type": "life",
+          "sum_insured": {
+            "amount": "600000.00",
+            "currency": "AUD"
+          },
+          "premium": {
+            "amount": "104.75",
+            "currency": "AUD"
+          },
+          "status": "in_force",
+          "life_party_id": "PT-5002",
+          "link_type": "standalone",
+          "indexation": "on",
+          "occupation_class": "B",
+          "smoker": false
+        },
+        {
+          "cover_id": "P-5520114-B3",
+          "benefit_name": "Income Cover",
+          "cover_type": "income_protection",
+          "sum_insured": {
+            "amount": "7200.00",
+            "currency": "AUD"
+          },
+          "premium": {
+            "amount": "189.40",
+            "currency": "AUD"
+          },
+          "status": "in_force",
+          "states": [
+            "on_claim",
+            "premium_waiver_active"
+          ],
+          "state_detail": "Claim being paid; premiums waived from 2026-05-01",
+          "life_party_id": "PT-5001",
+          "income_protection_basis": "indemnity",
+          "occupation_class": "A",
+          "smoker": false,
+          "options": [
+            {
+              "feature": "increasing_claim_benefit",
+              "name": "Increasing Claim Option"
+            }
+          ],
+          "waiting_period": "30 days",
+          "benefit_period": "To age 65"
+        },
+        {
+          "cover_id": "P-5520114-B4",
+          "benefit_name": "Trauma Cover",
+          "cover_type": "trauma",
+          "sum_insured": {
+            "amount": "200000.00",
+            "currency": "AUD"
+          },
+          "status": "terminated",
+          "status_detail": "Benefit paid in full on a cancer claim",
+          "exit_reason": "claim_trauma",
+          "life_party_id": "PT-5001",
+          "terminated_on": "2026-03-12"
+        }
+      ],
+      "policy_version": 12
+    },
+    {
+      "policy_id": "P-3308761",
+      "insurer_id": "example-life",
+      "brand_id": "example-life",
+      "product_name": "Protection Plus",
+      "status": "terminated",
+      "status_detail": "Death claim paid",
+      "exit_reason": "claim_death",
+      "policy_holder": {
+        "first_name": "Robert",
+        "last_name": "Hale",
+        "date_of_birth": "1951-11-30"
+      },
+      "ownership": {
+        "ownership_type": "super",
+        "owner_name": "Example Super Fund Trustee Pty Ltd",
+        "owner_type": "super_trustee"
+      },
+      "distribution": {
+        "adviser_code": "AC100",
+        "adviser_name": "Sam Rivera"
+      },
+      "dates": {
+        "commenced_on": "2008-04-01",
+        "terminated_on": "2026-07-22"
+      },
+      "premium": {
+        "amount": {
+          "amount": "0.00",
+          "currency": "AUD"
+        },
+        "frequency": "annual",
+        "payment_method": "superannuation_rollover"
+      },
+      "covers": [
+        {
+          "cover_id": "P-3308761-B1",
+          "benefit_name": "Life Cover",
+          "cover_type": "life",
+          "sum_insured": {
+            "amount": "250000.00",
+            "currency": "AUD"
+          },
+          "status": "terminated",
+          "exit_reason": "claim_death"
+        }
+      ],
+      "policy_version": 31
+    }
+  ]
+}

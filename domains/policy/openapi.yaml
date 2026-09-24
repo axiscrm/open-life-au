@@ -12,14 +12,15 @@ info:
 
     ## What this is
 
-    Four operations. Pull the book as a snapshot (`GET /policies`), pull the arrears worklist
-    (`GET /arrears`), fetch one policy (`GET /policies/{policy_id}`), and find out what the
-    implementation supports (`GET /capabilities`).
+    Five operations. Pull the book as a snapshot (`GET /policies`), pull the arrears worklist
+    (`GET /arrears`), fetch one policy (`GET /policies/{policy_id}`), fetch one policy's premium
+    history (`GET /policies/{policy_id}/transactions`), and find out what the implementation
+    supports (`GET /capabilities`).
 
     Most consumers will call the first once a day and the second rather more often. Only
     `GET /policies` and `GET /capabilities` are required; an insurer whose collections data lives
     apart from its in-force book may implement `GET /arrears` on its own, and that is a conformant
-    implementation.
+    implementation. The premium history is optional too, and declared in `capabilities`.
 
     ## Snapshot, not stream
 
@@ -103,6 +104,8 @@ paths:
     $ref: './paths/policies.yaml'
   /policies/{policy_id}:
     $ref: './paths/policies-id.yaml'
+  /policies/{policy_id}/transactions:
+    $ref: './paths/policies-id-transactions.yaml'
   /arrears:
     $ref: './paths/arrears.yaml'
   /capabilities:

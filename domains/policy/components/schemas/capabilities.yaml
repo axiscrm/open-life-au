@@ -104,6 +104,27 @@ Capabilities:
           type: integer
           minimum: 0
 
+    transactions:
+      description: >-
+        Whether this implementation serves `GET /policies/{policy_id}/transactions`, the premium
+        history of one policy. OPTIONAL, and declared here as an operation rather than as a field,
+        because it is one: an insurer whose premium ledger lives apart from its policy record can
+        serve the book without it, and one that cannot serve it MUST answer `422` rather than an
+        empty history, which would read as "nothing was ever collected".
+      type: object
+      additionalProperties: false
+      properties:
+        supported:
+          type: boolean
+          default: false
+        max_lookback_days:
+          description: >-
+            How far back the history reaches. A `since` earlier than this is answered from this
+            limit, and the response's `since` says so. Absent means the implementation does not
+            state a limit, which is not a promise that it has none.
+          type: integer
+          minimum: 1
+
     incremental:
       description: >-
         Optional, and deliberately so. The snapshot is the required path — it is the smallest thing
@@ -185,6 +206,62 @@ Capabilities:
           type: boolean
           default: false
         loadings_and_exclusions:
+          description: Whether the policy-level `loadings` and `exclusions` text is populated.
+          type: boolean
+          default: false
+        cover_loadings_and_exclusions:
+          description: >-
+            Whether benefits carry structured `loadings` and `exclusions`. `true` makes absence on a
+            benefit mean "not loaded, nothing excluded"; `false` means absence says nothing, and the
+            policy-level text is all there is.
+          type: boolean
+          default: false
+        parties:
+          description: >-
+            Whether policies carry `parties`. `false` means `policy_holder` is the only person a
+            consumer can match on, and the owner, payer and beneficiaries are unknown rather than the
+            same person.
+          type: boolean
+          default: false
+        beneficiaries:
+          description: >-
+            Whether policies carry `beneficiaries`. `true` makes an absent list mean no nomination is
+            recorded; `false` means the insurer does not report nominations.
+          type: boolean
+          default: false
+        options:
+          description: >-
+            Whether policies and benefits carry `options`. `true` makes an absent list mean no option
+            is in force; `false` means the insurer does not report them.
+          type: boolean
+          default: false
+        cover_states:
+          description: >-
+            Whether benefits carry `states`. `false` means a consumer cannot see that a benefit is on
+            claim or has its premium waived, and SHOULD NOT build premium follow-up that assumes it
+            can.
+          type: boolean
+          default: false
+        cover_links:
+          description: >-
+            Whether benefits carry `linked_to_cover_id` and `link_type`. `false` means a consumer
+            summing sums insured cannot tell an extension from additional cover, and the total it
+            shows may double-count.
+          type: boolean
+          default: false
+        premium_discounts:
+          description: Whether premiums and benefits carry `discounts`.
+          type: boolean
+          default: false
+        super_fund:
+          description: Whether policies paid from or held in super carry `premium.super_fund`.
+          type: boolean
+          default: false
+        next_anniversary_premium:
+          description: >-
+            Whether policies carry `premium.next_anniversary` once the insurer has repriced them.
+            `false` means renewal increases cannot be seen ahead of the anniversary from this
+            implementation, and a consumer planning renewal reviews has to find them another way.
           type: boolean
           default: false
 

@@ -49,6 +49,7 @@ policyAjv.addSchema({ ...policyDoc, $id: "policy" }, "policy");
 const validatePage = policyAjv.getSchema("policy#/components/schemas/PolicyPage");
 const validatePolicy = policyAjv.getSchema("policy#/components/schemas/Policy");
 const validateArrearsPage = policyAjv.getSchema("policy#/components/schemas/ArrearsPage");
+const validateTransactionPage = policyAjv.getSchema("policy#/components/schemas/TransactionPage");
 
 // The requirements contract, likewise its own bundle and its own document.
 const REQ_BUNDLE = path.join(ROOT, "dist/requirements/openapi.yaml");
@@ -627,6 +628,29 @@ const REQ_PAGE_CASES = [
         why: "the spreadsheet-export apostrophe splits one application into two reconciliation keys",
         doc: { ...reqPageBase, cases: [{ ...caseBase, case_id: "'APP-1" }] },
     },
+    {
+        name: "a case benefit with no benefit_name",
+        why: "a decision nobody can attribute to a benefit is not one an adviser can relay",
+        doc: { ...reqPageBase, cases: [{ ...caseBase, covers: [{ cover_type: "life", decision: "standard" }] }] },
+    },
+    {
+        name: "a case benefit carrying an unknown field",
+        why: "a misspelled key (outcome for decision) must surface rather than be absorbed",
+        doc: { ...reqPageBase, cases: [{ ...caseBase, covers: [{ benefit_name: "Life Cover", outcome: "standard" }] }] },
+    },
+    {
+        name: "a case benefit amount sent as a JSON number",
+        why: "amounts are decimal strings; a float drifts by cents",
+        doc: {
+            ...reqPageBase,
+            cases: [{ ...caseBase, covers: [{ benefit_name: "Life Cover", sum_insured: { amount: 500000, currency: "AUD" } }] }],
+        },
+    },
+    {
+        name: "an insurer contact with no way to reach them",
+        why: "a role alone tells an adviser there is an underwriter, and nothing they can act on",
+        doc: { ...reqPageBase, cases: [{ ...caseBase, insurer_contacts: [{ role: "underwriter" }] }] },
+    },
 ];
 
 const REQUIREMENT_CASES = [
@@ -848,6 +872,301 @@ const POLICY_CASES = [
         why: "same defect as quoting — the padded and bare forms are different keys and every join half-matches",
         doc: { ...policyBase, policy_id: " P-4471902 " },
     },
+
+    // ── Parties, beneficiaries and ownership. A party is a MATCHING record, and the restraint on it is
+    // the same one PolicyHolder carries: the easiest way to break it is to add a field, so that is
+    // asserted as well as the missing ones.
+    {
+        name: "a party with no role",
+        why: "choosing the party by role is the whole point; a roleless party is matched as whoever the consumer guesses",
+        doc: { ...policyBase, parties: [{ party_id: "PT-1", last_name: "Alvarez" }] },
+    },
+    {
+        name: "a party carrying contact detail",
+        why: "parties are matching fields only — this is how a party record turns into a contact record",
+        doc: { ...policyBase, parties: [{ role: "payer", last_name: "Alvarez", email: "a@example.com.au" }] },
+    },
+    {
+        name: "a party with a malformed date of birth",
+        why: "name plus date of birth is the match; a day-first date silently matches nobody, or the wrong person",
+        doc: { ...policyBase, parties: [{ role: "life_insured", last_name: "Alvarez", date_of_birth: "14/03/1985" }] },
+    },
+    {
+        name: "an empty parties array",
+        why: "absence is declared in capabilities; an empty array is an ambiguous third state",
+        doc: { ...policyBase, parties: [] },
+    },
+    {
+        name: "a beneficiary share above 100 percent",
+        why: "a share of a benefit cannot exceed the benefit — the generic Percentage allows 1000",
+        doc: { ...policyBase, beneficiaries: [{ party_id: "PT-2", share_percent: "120" }] },
+    },
+    {
+        name: "a beneficiary share sent as a JSON number",
+        why: "percentages are decimal strings here, as everywhere else in the standard",
+        doc: { ...policyBase, beneficiaries: [{ party_id: "PT-2", share_percent: 50 }] },
+    },
+    {
+        name: "a nomination with a malformed expiry date",
+        why: "an expiry an adviser cannot read is a lapsed binding nomination nobody renewed",
+        doc: { ...policyBase, beneficiaries: [{ party_id: "PT-2", expires_on: "2027-02-30" }] },
+    },
+    {
+        name: "a nomination naming no beneficiary at all",
+        why: "without a party or a relationship it nominates nobody, and still looks like a nomination",
+        doc: { ...policyBase, beneficiaries: [{ nomination_type: "binding", share_percent: "100" }] },
+    },
+    {
+        name: "a beneficiary party carrying a date of birth",
+        why: "a consumer rarely holds a beneficiary's client record, so the date of birth travels with nothing to match it to",
+        doc: {
+            ...policyBase,
+            parties: [{ party_id: "PT-2", role: "beneficiary", last_name: "Alvarez", date_of_birth: "1987-08-21" }],
+        },
+    },
+    {
+        name: "a non-binding nomination that says whether it lapses",
+        why: "lapsing is a property of a binding nomination; on any other kind it states something that cannot be true",
+        doc: { ...policyBase, beneficiaries: [{ party_id: "PT-2", nomination_type: "non_binding", lapsing: false }] },
+    },
+    {
+        name: "a lapsing flag with no nomination type",
+        why: "without the type there is no telling whether the flag means anything",
+        doc: { ...policyBase, beneficiaries: [{ party_id: "PT-2", lapsing: true }] },
+    },
+
+    // ── Why a policy or benefit ended.
+    {
+        name: "an exit reason on an in-force policy",
+        why: "a policy that has not ended has no reason for ending; a worklist filtering on it would include live policies",
+        doc: { ...policyBase, exit_reason: "claim_death" },
+    },
+    {
+        name: "an exit reason on a benefit still in force",
+        why: "the same contradiction one level down, and the likelier one — a policy's reason copied onto every benefit",
+        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", status: "in_force", exit_reason: "expiry" }] },
+    },
+    {
+        name: "an exit reason on a benefit with no status",
+        why: "a reason for ending cannot be read without the status that says the benefit ended",
+        doc: { ...policyBase, covers: [{ benefit_name: "Trauma Cover", exit_reason: "claim_trauma" }] },
+    },
+    {
+        name: "an exit reason on a status this version does not name",
+        why: "status is extensible, so the rule is an allowlist: a new live status such as a premium holiday must not take an exit reason",
+        doc: { ...policyBase, status: "premium_holiday", exit_reason: "owner_request" },
+    },
+    {
+        name: "a lapsed policy whose exit reason is the owner's request",
+        why: "the reason refines the status; a lapse is non-payment, and a report filtered on either is wrong",
+        doc: { ...policyBase, status: "lapsed", exit_reason: "owner_request" },
+    },
+    {
+        name: "a cancelled policy whose exit reason is non-payment",
+        why: "the same contradiction the other way round — a cancellation is the owner's request",
+        doc: { ...policyBase, status: "cancelled", exit_reason: "non_payment" },
+    },
+    {
+        name: "a terminated policy whose exit reason is non-payment",
+        why: "terminated is any OTHER reason; a non-payment exit is a lapse and belongs under that status",
+        doc: { ...policyBase, status: "terminated", exit_reason: "non_payment" },
+    },
+    {
+        name: "a lapsed benefit whose exit reason is the owner's request",
+        why: "the same consistency rule one level down",
+        doc: { ...policyBase, covers: [{ benefit_name: "Trauma Cover", status: "lapsed", exit_reason: "owner_request" }] },
+    },
+    {
+        name: "a cancelled benefit whose exit reason is non-payment",
+        why: "the same consistency rule one level down",
+        doc: { ...policyBase, covers: [{ benefit_name: "Trauma Cover", status: "cancelled", exit_reason: "non_payment" }] },
+    },
+
+    // ── What each benefit carries.
+    {
+        name: "a linked benefit that does not say how it is linked",
+        why: "a target without link_type cannot be read, and an extension read as extra cover double-counts the sum insured",
+        doc: { ...policyBase, covers: [{ benefit_name: "TPD Cover", linked_to_cover_id: "B1" }] },
+    },
+    {
+        name: "an option carrying an unknown field",
+        why: "a misspelled key (standard_feature for feature) must surface rather than be absorbed",
+        doc: { ...policyBase, options: [{ name: "Premium waiver", standard_feature: "premium_waiver_on_disability" }] },
+    },
+    {
+        name: "a benefit option with no name",
+        why: "the insurer's wording is the one thing an adviser can always be shown; a bare code is not",
+        doc: { ...policyBase, covers: [{ benefit_name: "TPD Cover", options: [{ feature: "life_buy_back_after_tpd" }] }] },
+    },
+    {
+        name: "an empty states array on a benefit",
+        why: "absence means no condition applies; an empty array is an ambiguous third state",
+        doc: { ...policyBase, covers: [{ benefit_name: "Income Cover", states: [] }] },
+    },
+    {
+        name: "a benefit loading with neither axis",
+        why: "an entry that names a basis and no amount states nothing, and looks like a loading",
+        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", loadings: [{ basis: "medical" }] }] },
+    },
+    {
+        name: "a benefit loading above 1000 percent",
+        why: "a four-digit loading is a units mistake, not a premium",
+        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", loadings: [{ basis: "medical", percentage: "1500" }] }] },
+    },
+
+    // ── Premium detail.
+    {
+        name: "an unmasked super fund member number",
+        why: "a full member number is a credential for the member's retirement savings, sent to every consumer",
+        doc: {
+            ...policyBase,
+            premium: { amount: money("50.00"), frequency: "monthly", super_fund: { member_number: "100447123" } },
+        },
+    },
+    {
+        name: "a next-anniversary premium with no effective date",
+        why: "a repriced premium read against the wrong anniversary tells a renewal review the wrong increase",
+        doc: {
+            ...policyBase,
+            premium: { amount: money("50.00"), frequency: "monthly", next_anniversary: { amount: money("55.00") } },
+        },
+    },
+    {
+        name: "an unknown field on a next-anniversary premium",
+        why: "a misspelled field is silently dropped, and the renewal figure with it",
+        doc: {
+            ...policyBase,
+            premium: {
+                amount: money("50.00"),
+                frequency: "monthly",
+                next_anniversary: { effective_on: "2026-10-01", amount: money("55.00"), increase_pct: "10" },
+            },
+        },
+    },
+    {
+        name: "a discount above 100 percent",
+        why: "a discount is a share of the premium it reduces; more than all of it is a defect",
+        doc: {
+            ...policyBase,
+            premium: { amount: money("50.00"), frequency: "monthly", discounts: [{ discount_type: "size", share_percent: "150" }] },
+        },
+    },
+    {
+        name: "premium transactions carried on the policy record",
+        why: "the history is its own operation; inside the record every collected instalment reads as a policy change",
+        doc: {
+            ...policyBase,
+            premium_transactions: [{ occurred_on: "2026-07-15", type: "payment", status: "received", amount: money("20.00") }],
+        },
+    },
+    {
+        name: "a collection state on an arrears entry",
+        why: "it describes the payment method, not one failure — its one home is premium.collection_state",
+        doc: {
+            ...policyBase,
+            status: "in_arrears",
+            arrears: [{ dishonoured_on: "2026-07-15", amount_outstanding: money("96.20"), collection_state: "ceased" }],
+        },
+    },
+
+    // ── Overseas addresses. The Australian fields are unchanged, so the cases to assert are the new
+    // block's own shape and the combination it exists to remove: a foreign address with an invented
+    // Australian state or postcode.
+    {
+        name: "a lower-case country code",
+        why: "ISO 3166-1 alpha-2 is upper case; 'nz' and 'NZ' as two keys half-match every comparison",
+        doc: { ...policyBase, policy_holder: { last_name: "Tanaka", address: { country: "nz" } } },
+    },
+    {
+        name: "an unknown field inside an overseas address",
+        why: "a misspelled key (postcode for postal_code) must surface rather than be absorbed",
+        doc: {
+            ...policyBase,
+            policy_holder: { last_name: "Tanaka", address: { country: "NZ", overseas: { postcode: "3204" } } },
+        },
+    },
+    {
+        name: "an overseas block with no country",
+        why: "without a country the block is an address nobody can post to",
+        doc: { ...policyBase, policy_holder: { last_name: "Tanaka", address: { overseas: { locality: "Hamilton" } } } },
+    },
+    {
+        name: "an overseas block on an Australian address",
+        why: "two sets of locality fields for one address, and nothing to say which is right",
+        doc: {
+            ...policyBase,
+            policy_holder: { last_name: "Tanaka", address: { country: "AU", overseas: { locality: "Hamilton" } } },
+        },
+    },
+    {
+        name: "a foreign address carrying a suburb",
+        why: "an overseas town is overseas.locality; two fields for one town leave a consumer to pick which it prints",
+        doc: {
+            ...policyBase,
+            policy_holder: { last_name: "Tanaka", address: { country: "NZ", suburb: "Hamilton", overseas: { locality: "Hamilton" } } },
+        },
+    },
+    {
+        name: "a foreign address carrying an Australian postcode",
+        why: "the invented value this structure exists to remove",
+        doc: {
+            ...policyBase,
+            policy_holder: { last_name: "Tanaka", address: { country: "NZ", postcode: "2000" } },
+        },
+    },
+];
+
+// The premium history, served by its own operation. A payment's outcome is the only status there is,
+// so both halves of that pairing are asserted — and a dishonour is a failed payment, not a type.
+const transactionPageBase = { policy_id: "P-1", since: "2026-01-01" };
+const TRANSACTION_CASES = [
+    {
+        name: "a transaction with a negative amount",
+        why: "the type carries direction; a signed amount would make every consumer guess the insurer's sign convention",
+        doc: { ...transactionPageBase, transactions: [{ occurred_on: "2026-07-15", type: "refund", amount: money("-20.00") }] },
+    },
+    {
+        name: "a transaction with a malformed date",
+        why: "a failed payment that cannot be dated cannot be joined to the arrears entry it belongs to",
+        doc: {
+            ...transactionPageBase,
+            transactions: [{ occurred_on: "2026-7-15", type: "payment", status: "failed", amount: money("20.00") }],
+        },
+    },
+    {
+        name: "a payment with no status",
+        why: "a collection attempt with no outcome cannot be read as collected or as failed",
+        doc: { ...transactionPageBase, transactions: [{ occurred_on: "2026-07-15", type: "payment", amount: money("20.00") }] },
+    },
+    {
+        name: "a status on a premium falling due",
+        why: "a demand has no outcome; a status on it invites a consumer to treat it as a collection",
+        doc: {
+            ...transactionPageBase,
+            transactions: [{ occurred_on: "2026-07-15", type: "premium_due", status: "received", amount: money("20.00") }],
+        },
+    },
+    {
+        name: "a dishonour sent as its own type, with a status",
+        why: "a dishonour is a payment whose status is failed; the removed type must not come back carrying one",
+        doc: {
+            ...transactionPageBase,
+            transactions: [{ occurred_on: "2026-07-15", type: "dishonour", status: "failed", amount: money("20.00") }],
+        },
+    },
+    {
+        name: "the retired transaction_type key",
+        why: "the field is `type`; a payload still on the draft name must fail, not validate empty",
+        doc: {
+            ...transactionPageBase,
+            transactions: [{ occurred_on: "2026-07-15", transaction_type: "payment", amount: money("20.00") }],
+        },
+    },
+    {
+        name: "a transaction page that does not say where it starts",
+        why: "a history cut at the lookback limit reads as months with no payment unless the start is stated",
+        doc: { policy_id: "P-1", transactions: [] },
+    },
 ];
 
 let wronglyAccepted = 0;
@@ -874,6 +1193,7 @@ for (const [group, validator, cases] of [
     ["policy page", validatePage, POLICY_PAGE_CASES],
     ["policy record", validatePolicy, POLICY_CASES],
     ["arrears worklist", validateArrearsPage, ARREARS_PAGE_CASES],
+    ["premium history", validateTransactionPage, TRANSACTION_CASES],
     ["requirements page", validateReqPage, REQ_PAGE_CASES],
     ["requirement", validateRequirement, REQUIREMENT_CASES],
     ["commission line", validateCommLine, COMMISSION_LINE_CASES],
@@ -1035,6 +1355,184 @@ const ACCEPTANCE_CASES = [
             commission: { basis: "level" },
         },
     },
+
+    // ── The in-force detail. Each of these is a response vocabulary, so an unrecognised value MUST
+    // validate; and the structure pair is the asymmetry itself, since `level_60` is also the canonical
+    // REJECTED request value above.
+    {
+        group: "policy record",
+        name: "a benefit on a level-to-60 structure",
+        why: "the response twin knows what the closed request enum deliberately does not",
+        validator: validatePolicy,
+        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", structure: "level_60" }] },
+    },
+    {
+        group: "policy record",
+        name: "an unrecognised exit reason on a terminated policy",
+        why: "response enums are extensible; a new reason must not fail the page",
+        validator: validatePolicy,
+        doc: { ...policyBase, status: "terminated", exit_reason: "converted_to_group_cover" },
+    },
+    {
+        group: "policy record",
+        name: "an unrecognised benefit state and link type",
+        why: "the same rule — a consumer passes an unknown value through",
+        validator: validatePolicy,
+        doc: {
+            ...policyBase,
+            covers: [{ benefit_name: "TPD Cover", states: ["under_review"], linked_to_cover_id: "B1", link_type: "rider" }],
+        },
+    },
+    {
+        group: "policy record",
+        name: "one person in two roles, as two entries",
+        why: "one entry per role is the rule, so the same party_id appearing twice is correct",
+        validator: validatePolicy,
+        doc: {
+            ...policyBase,
+            parties: [
+                { party_id: "PT-1", role: "life_insured", last_name: "Alvarez", date_of_birth: "1985-03-14" },
+                { party_id: "PT-1", role: "policy_owner", last_name: "Alvarez", date_of_birth: "1985-03-14" },
+            ],
+        },
+    },
+    {
+        group: "policy record",
+        name: "a standalone benefit that names no target",
+        why: "`standalone` is stated positively and has nothing to point at",
+        validator: validatePolicy,
+        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", link_type: "standalone" }] },
+    },
+    {
+        group: "policy record",
+        name: "a nomination to a class rather than a person",
+        why: "the legal personal representative is nominated by relationship and has no party entry",
+        validator: validatePolicy,
+        doc: {
+            ...policyBase,
+            beneficiaries: [{ nomination_type: "non_binding", relationship: "Legal personal representative" }],
+        },
+    },
+    {
+        group: "policy record",
+        name: "an Australian address that states its country",
+        why: "`AU` means the Australian fields apply, exactly as an address without a country always has",
+        validator: validatePolicy,
+        doc: {
+            ...policyBase,
+            policy_holder: {
+                last_name: "Alvarez",
+                address: { line1: "12 Example Street", suburb: "Newtown", state: "NSW", postcode: "2042", country: "AU" },
+            },
+        },
+    },
+    {
+        group: "policy record",
+        name: "an overseas address",
+        why: "the case the block exists for, with no invented state or postcode",
+        validator: validatePolicy,
+        doc: {
+            ...policyBase,
+            policy_holder: {
+                last_name: "Tanaka",
+                address: { line1: "4 Sample Road", country: "NZ", overseas: { locality: "Hamilton", postal_code: "3204" } },
+            },
+        },
+    },
+    {
+        group: "arrears worklist",
+        name: "an unrecognised collection state on the payment method",
+        why: "response enums are extensible; a new state must not abort the worklist",
+        validator: validateArrearsPage,
+        doc: {
+            ...arrearsPageBase,
+            items: [
+                {
+                    ...arrearsItemBase,
+                    premium: { amount: money("96.20"), frequency: "monthly", payment_method: "direct_debit", collection_state: "paused" },
+                },
+            ],
+        },
+    },
+    {
+        group: "policy record",
+        name: "a lapsed policy that lapsed for non-payment",
+        why: "the reason and the status agree, which is the pairing the rules exist to protect",
+        validator: validatePolicy,
+        doc: { ...policyBase, status: "lapsed", exit_reason: "non_payment" },
+    },
+    {
+        group: "policy record",
+        name: "an ended benefit reported with its end date, wording and an `other` reason",
+        why: "an ended benefit is present with a terminal status while reported, and `other` points at status_detail",
+        validator: validatePolicy,
+        doc: {
+            ...policyBase,
+            covers: [
+                policyBase.covers[0],
+                {
+                    benefit_name: "Trauma Cover",
+                    status: "terminated",
+                    status_detail: "Converted to a standalone policy",
+                    exit_reason: "other",
+                    terminated_on: "2026-03-12",
+                },
+            ],
+        },
+    },
+    {
+        group: "policy record",
+        name: "a binding nomination that does not lapse",
+        why: "the old non_lapsing value, now a property of a binding nomination",
+        validator: validatePolicy,
+        doc: { ...policyBase, beneficiaries: [{ party_id: "PT-2", nomination_type: "binding", lapsing: false }] },
+    },
+    {
+        group: "policy record",
+        name: "a beneficiary party with a name and no date of birth",
+        why: "name and relationship are what a nomination is confirmed on",
+        validator: validatePolicy,
+        doc: { ...policyBase, parties: [{ party_id: "PT-2", role: "beneficiary", first_name: "Casey", last_name: "Alvarez" }] },
+    },
+    {
+        group: "premium history",
+        name: "each transaction type, with a status on the payments only",
+        why: "the shape the rules allow, including a failed payment standing for a dishonour",
+        validator: validateTransactionPage,
+        doc: {
+            ...transactionPageBase,
+            transactions: [
+                { occurred_on: "2026-07-15", type: "payment", status: "failed", amount: money("96.20") },
+                { occurred_on: "2026-07-15", type: "premium_due", amount: money("96.20") },
+                { occurred_on: "2026-06-15", type: "payment", status: "pending", amount: money("96.20") },
+                { occurred_on: "2026-05-15", type: "payment", status: "received", amount: money("96.20") },
+                { occurred_on: "2026-04-20", type: "refund", amount: money("12.40") },
+                { occurred_on: "2026-04-01", type: "rebate", amount: money("8.10") },
+            ],
+        },
+    },
+    {
+        group: "premium history",
+        name: "an unrecognised transaction type with no status",
+        why: "response enums are extensible; a new type passes through as long as it does not claim a payment's outcome",
+        validator: validateTransactionPage,
+        doc: { ...transactionPageBase, transactions: [{ occurred_on: "2026-07-15", type: "adjustment", amount: money("1.00") }] },
+    },
+    {
+        group: "premium history",
+        name: "an empty history",
+        why: "no transactions since the stated date is an ordinary answer",
+        validator: validateTransactionPage,
+        doc: { ...transactionPageBase, transactions: [] },
+    },
+    {
+        group: "requirements page",
+        name: "an unrecognised underwriting decision",
+        why: "response enums are extensible; underwriting outcomes differ between insurers",
+        validator: validateReqPage,
+        doc: { ...reqPageBase, cases: [{ ...caseBase, covers: [{ benefit_name: "Life Cover", decision: "referred" }] }] },
+    },
+
     {
         group: "quoting request",
         name: "an income protection waiting period stated in weeks",
@@ -1087,6 +1585,50 @@ for (const { group, name, why, validator, doc: candidate } of ACCEPTANCE_CASES) 
     }
 }
 
+// ── Withdrawn in review. Several of these are values in EXTENSIBLE response enums, which no payload
+// can be rejected for — an unknown value passes by design — so their removal is asserted on the
+// bundles themselves. Each was a second way of saying something the contract already says, or a
+// promise it should not make, and the likeliest way back in is a well-meant re-addition.
+const WITHDRAWN = [
+    [policyDoc, "Capabilities", ["properties", "fields", "properties", "cover_id_stable"], "the positional cover_id fallback's flag"],
+    [policyDoc, "Capabilities", ["properties", "fields", "properties", "premium_transactions"], "the in-record history's flag"],
+    [policyDoc, "Policy", ["properties", "premium_transactions"], "premium transactions on the policy record"],
+    [policyDoc, "Arrears", ["properties", "collection_state"], "collection state on each arrears entry"],
+    [policyDoc, "CollectionState", ["x-extensible-enum", "retry_pending"], "retry_pending, merged into retry_scheduled"],
+    [policyDoc, "NominationType", ["x-extensible-enum", "non_lapsing"], "non_lapsing, now `lapsing` on a binding nomination"],
+    [policyDoc, "DiscountType", ["x-extensible-enum", "preferred_lives"], "preferred_lives, a rating category"],
+    [policyDoc, "TransactionType", ["x-extensible-enum", "dishonour"], "dishonour, which is a failed payment"],
+    [reqDoc, "UnderwritingDecision", ["x-extensible-enum", "pending"], "pending, which an absent decision already says"],
+    [reqDoc, "LifeRole", ["x-extensible-enum", "payer"], "payer, who is not a life on an application"],
+    [reqDoc, "LifeRole", ["x-extensible-enum", "beneficiary"], "beneficiary, who is not a life on an application"],
+];
+let reappeared = 0;
+for (const [bundle, schemaName, route, what] of WITHDRAWN) {
+    const schema = bundle.components?.schemas?.[schemaName];
+    if (!schema) {
+        reappeared += 1;
+        console.error(`✗ ${schemaName} is missing from its bundle, so the withdrawal of ${what} cannot be checked`);
+        continue;
+    }
+    const last = route[route.length - 1];
+    let node = schema;
+    for (const key of route.slice(0, -1)) node = node?.[key];
+    const present = Array.isArray(node) ? node.includes(last) : node != null && Object.hasOwn(node, last);
+    if (present) {
+        reappeared += 1;
+        console.error(`✗ WITHDRAWN, BUT BACK: ${schemaName} — ${what}`);
+    } else {
+        console.log(`✓ withdrawn: ${schemaName} — ${what}`);
+    }
+}
+const coverIdText = policyDoc.components.schemas.PolicyCover.properties.cover_id.description;
+if (/positional|#<ordinal>/.test(coverIdText)) {
+    reappeared += 1;
+    console.error("✗ WITHDRAWN, BUT BACK: PolicyCover.cover_id describes a positional fallback key");
+} else {
+    console.log("✓ withdrawn: PolicyCover.cover_id — the positional fallback key");
+}
+
 const total =
     CASES.length +
     LINE_CASES.length +
@@ -1096,6 +1638,7 @@ const total =
     POLICY_PAGE_CASES.length +
     POLICY_CASES.length +
     ARREARS_PAGE_CASES.length +
+    TRANSACTION_CASES.length +
     REQ_PAGE_CASES.length +
     REQUIREMENT_CASES.length +
     COMMISSION_LINE_CASES.length +
@@ -1104,4 +1647,5 @@ console.log(`\n${total - wronglyAccepted}/${total} invalid payloads correctly re
 console.log(
     `${ACCEPTANCE_CASES.length - wronglyRejected}/${ACCEPTANCE_CASES.length} valid payloads correctly accepted`,
 );
-process.exit(wronglyAccepted === 0 && wronglyRejected === 0 ? 0 : 1);
+console.log(`${WITHDRAWN.length + 1 - reappeared}/${WITHDRAWN.length + 1} withdrawn items still absent`);
+process.exit(wronglyAccepted === 0 && wronglyRejected === 0 && reappeared === 0 ? 0 : 1);
