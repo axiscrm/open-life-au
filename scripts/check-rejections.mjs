@@ -49,6 +49,7 @@ policyAjv.addSchema({ ...policyDoc, $id: "policy" }, "policy");
 const validatePage = policyAjv.getSchema("policy#/components/schemas/PolicyPage");
 const validatePolicy = policyAjv.getSchema("policy#/components/schemas/Policy");
 const validateArrearsPage = policyAjv.getSchema("policy#/components/schemas/ArrearsPage");
+const validateTransactionPage = policyAjv.getSchema("policy#/components/schemas/TransactionPage");
 
 // The requirements contract, likewise its own bundle and its own document.
 const REQ_BUNDLE = path.join(ROOT, "dist/requirements/openapi.yaml");
@@ -915,6 +916,24 @@ const POLICY_CASES = [
         why: "without a party or a relationship it nominates nobody, and still looks like a nomination",
         doc: { ...policyBase, beneficiaries: [{ nomination_type: "binding", share_percent: "100" }] },
     },
+    {
+        name: "a beneficiary party carrying a date of birth",
+        why: "a consumer rarely holds a beneficiary's client record, so the date of birth travels with nothing to match it to",
+        doc: {
+            ...policyBase,
+            parties: [{ party_id: "PT-2", role: "beneficiary", last_name: "Alvarez", date_of_birth: "1987-08-21" }],
+        },
+    },
+    {
+        name: "a non-binding nomination that says whether it lapses",
+        why: "lapsing is a property of a binding nomination; on any other kind it states something that cannot be true",
+        doc: { ...policyBase, beneficiaries: [{ party_id: "PT-2", nomination_type: "non_binding", lapsing: false }] },
+    },
+    {
+        name: "a lapsing flag with no nomination type",
+        why: "without the type there is no telling whether the flag means anything",
+        doc: { ...policyBase, beneficiaries: [{ party_id: "PT-2", lapsing: true }] },
+    },
 
     // ── Why a policy or benefit ended.
     {
@@ -931,6 +950,36 @@ const POLICY_CASES = [
         name: "an exit reason on a benefit with no status",
         why: "a reason for ending cannot be read without the status that says the benefit ended",
         doc: { ...policyBase, covers: [{ benefit_name: "Trauma Cover", exit_reason: "claim_trauma" }] },
+    },
+    {
+        name: "an exit reason on a status this version does not name",
+        why: "status is extensible, so the rule is an allowlist: a new live status such as a premium holiday must not take an exit reason",
+        doc: { ...policyBase, status: "premium_holiday", exit_reason: "owner_request" },
+    },
+    {
+        name: "a lapsed policy whose exit reason is the owner's request",
+        why: "the reason refines the status; a lapse is non-payment, and a report filtered on either is wrong",
+        doc: { ...policyBase, status: "lapsed", exit_reason: "owner_request" },
+    },
+    {
+        name: "a cancelled policy whose exit reason is non-payment",
+        why: "the same contradiction the other way round — a cancellation is the owner's request",
+        doc: { ...policyBase, status: "cancelled", exit_reason: "non_payment" },
+    },
+    {
+        name: "a terminated policy whose exit reason is non-payment",
+        why: "terminated is any OTHER reason; a non-payment exit is a lapse and belongs under that status",
+        doc: { ...policyBase, status: "terminated", exit_reason: "non_payment" },
+    },
+    {
+        name: "a lapsed benefit whose exit reason is the owner's request",
+        why: "the same consistency rule one level down",
+        doc: { ...policyBase, covers: [{ benefit_name: "Trauma Cover", status: "lapsed", exit_reason: "owner_request" }] },
+    },
+    {
+        name: "a cancelled benefit whose exit reason is non-payment",
+        why: "the same consistency rule one level down",
+        doc: { ...policyBase, covers: [{ benefit_name: "Trauma Cover", status: "cancelled", exit_reason: "non_payment" }] },
     },
 
     // ── What each benefit carries.
@@ -983,19 +1032,20 @@ const POLICY_CASES = [
         },
     },
     {
-        name: "a premium transaction with a negative amount",
-        why: "the type carries direction; a signed amount would make every consumer guess the insurer's sign convention",
+        name: "premium transactions carried on the policy record",
+        why: "the history is its own operation; inside the record every collected instalment reads as a policy change",
         doc: {
             ...policyBase,
-            premium_transactions: [{ occurred_on: "2026-07-15", transaction_type: "refund", amount: money("-20.00") }],
+            premium_transactions: [{ occurred_on: "2026-07-15", type: "payment", status: "received", amount: money("20.00") }],
         },
     },
     {
-        name: "a premium transaction with a malformed date",
-        why: "a dishonour that cannot be dated cannot be joined to the arrears entry it belongs to",
+        name: "a collection state on an arrears entry",
+        why: "it describes the payment method, not one failure — its one home is premium.collection_state",
         doc: {
             ...policyBase,
-            premium_transactions: [{ occurred_on: "2026-7-15", transaction_type: "dishonour", amount: money("20.00") }],
+            status: "in_arrears",
+            arrears: [{ dishonoured_on: "2026-07-15", amount_outstanding: money("96.20"), collection_state: "ceased" }],
         },
     },
 
@@ -1029,12 +1079,73 @@ const POLICY_CASES = [
         },
     },
     {
+        name: "a foreign address carrying a suburb",
+        why: "an overseas town is overseas.locality; two fields for one town leave a consumer to pick which it prints",
+        doc: {
+            ...policyBase,
+            policy_holder: { last_name: "Tanaka", address: { country: "NZ", suburb: "Hamilton", overseas: { locality: "Hamilton" } } },
+        },
+    },
+    {
         name: "a foreign address carrying an Australian postcode",
         why: "the invented value this structure exists to remove",
         doc: {
             ...policyBase,
             policy_holder: { last_name: "Tanaka", address: { country: "NZ", postcode: "2000" } },
         },
+    },
+];
+
+// The premium history, served by its own operation. A payment's outcome is the only status there is,
+// so both halves of that pairing are asserted — and a dishonour is a failed payment, not a type.
+const transactionPageBase = { policy_id: "P-1", since: "2026-01-01" };
+const TRANSACTION_CASES = [
+    {
+        name: "a transaction with a negative amount",
+        why: "the type carries direction; a signed amount would make every consumer guess the insurer's sign convention",
+        doc: { ...transactionPageBase, transactions: [{ occurred_on: "2026-07-15", type: "refund", amount: money("-20.00") }] },
+    },
+    {
+        name: "a transaction with a malformed date",
+        why: "a failed payment that cannot be dated cannot be joined to the arrears entry it belongs to",
+        doc: {
+            ...transactionPageBase,
+            transactions: [{ occurred_on: "2026-7-15", type: "payment", status: "failed", amount: money("20.00") }],
+        },
+    },
+    {
+        name: "a payment with no status",
+        why: "a collection attempt with no outcome cannot be read as collected or as failed",
+        doc: { ...transactionPageBase, transactions: [{ occurred_on: "2026-07-15", type: "payment", amount: money("20.00") }] },
+    },
+    {
+        name: "a status on a premium falling due",
+        why: "a demand has no outcome; a status on it invites a consumer to treat it as a collection",
+        doc: {
+            ...transactionPageBase,
+            transactions: [{ occurred_on: "2026-07-15", type: "premium_due", status: "received", amount: money("20.00") }],
+        },
+    },
+    {
+        name: "a dishonour sent as its own type, with a status",
+        why: "a dishonour is a payment whose status is failed; the removed type must not come back carrying one",
+        doc: {
+            ...transactionPageBase,
+            transactions: [{ occurred_on: "2026-07-15", type: "dishonour", status: "failed", amount: money("20.00") }],
+        },
+    },
+    {
+        name: "the retired transaction_type key",
+        why: "the field is `type`; a payload still on the draft name must fail, not validate empty",
+        doc: {
+            ...transactionPageBase,
+            transactions: [{ occurred_on: "2026-07-15", transaction_type: "payment", amount: money("20.00") }],
+        },
+    },
+    {
+        name: "a transaction page that does not say where it starts",
+        why: "a history cut at the lookback limit reads as months with no payment unless the start is stated",
+        doc: { policy_id: "P-1", transactions: [] },
     },
 ];
 
@@ -1062,6 +1173,7 @@ for (const [group, validator, cases] of [
     ["policy page", validatePage, POLICY_PAGE_CASES],
     ["policy record", validatePolicy, POLICY_CASES],
     ["arrears worklist", validateArrearsPage, ARREARS_PAGE_CASES],
+    ["premium history", validateTransactionPage, TRANSACTION_CASES],
     ["requirements page", validateReqPage, REQ_PAGE_CASES],
     ["requirement", validateRequirement, REQUIREMENT_CASES],
     ["commission line", validateCommLine, COMMISSION_LINE_CASES],
@@ -1309,13 +1421,89 @@ const ACCEPTANCE_CASES = [
     },
     {
         group: "arrears worklist",
-        name: "an unrecognised collection state",
+        name: "an unrecognised collection state on the payment method",
         why: "response enums are extensible; a new state must not abort the worklist",
         validator: validateArrearsPage,
         doc: {
             ...arrearsPageBase,
-            items: [{ ...arrearsItemBase, arrears: [{ ...arrearsItemBase.arrears[0], collection_state: "paused" }] }],
+            items: [
+                {
+                    ...arrearsItemBase,
+                    premium: { amount: money("96.20"), frequency: "monthly", payment_method: "direct_debit", collection_state: "paused" },
+                },
+            ],
         },
+    },
+    {
+        group: "policy record",
+        name: "a lapsed policy that lapsed for non-payment",
+        why: "the reason and the status agree, which is the pairing the rules exist to protect",
+        validator: validatePolicy,
+        doc: { ...policyBase, status: "lapsed", exit_reason: "non_payment" },
+    },
+    {
+        group: "policy record",
+        name: "an ended benefit reported with its end date, wording and an `other` reason",
+        why: "an ended benefit is present with a terminal status while reported, and `other` points at status_detail",
+        validator: validatePolicy,
+        doc: {
+            ...policyBase,
+            covers: [
+                policyBase.covers[0],
+                {
+                    benefit_name: "Trauma Cover",
+                    status: "terminated",
+                    status_detail: "Converted to a standalone policy",
+                    exit_reason: "other",
+                    terminated_on: "2026-03-12",
+                },
+            ],
+        },
+    },
+    {
+        group: "policy record",
+        name: "a binding nomination that does not lapse",
+        why: "the old non_lapsing value, now a property of a binding nomination",
+        validator: validatePolicy,
+        doc: { ...policyBase, beneficiaries: [{ party_id: "PT-2", nomination_type: "binding", lapsing: false }] },
+    },
+    {
+        group: "policy record",
+        name: "a beneficiary party with a name and no date of birth",
+        why: "name and relationship are what a nomination is confirmed on",
+        validator: validatePolicy,
+        doc: { ...policyBase, parties: [{ party_id: "PT-2", role: "beneficiary", first_name: "Casey", last_name: "Alvarez" }] },
+    },
+    {
+        group: "premium history",
+        name: "each transaction type, with a status on the payments only",
+        why: "the shape the rules allow, including a failed payment standing for a dishonour",
+        validator: validateTransactionPage,
+        doc: {
+            ...transactionPageBase,
+            transactions: [
+                { occurred_on: "2026-07-15", type: "payment", status: "failed", amount: money("96.20") },
+                { occurred_on: "2026-07-15", type: "premium_due", amount: money("96.20") },
+                { occurred_on: "2026-06-15", type: "payment", status: "pending", amount: money("96.20") },
+                { occurred_on: "2026-05-15", type: "payment", status: "received", amount: money("96.20") },
+                { occurred_on: "2026-04-20", type: "refund", amount: money("12.40") },
+                { occurred_on: "2026-04-01", type: "rebate", amount: money("8.10") },
+            ],
+        },
+    },
+    {
+        group: "premium history",
+        name: "an unrecognised transaction type with no status",
+        why: "response enums are extensible; a new type passes through as long as it does not claim a payment's outcome",
+        validator: validateTransactionPage,
+        doc: { ...transactionPageBase, transactions: [{ occurred_on: "2026-07-15", type: "adjustment", amount: money("1.00") }] },
+    },
+    {
+        group: "premium history",
+        name: "an empty history",
+        why: "no transactions since the stated date is an ordinary answer",
+        validator: validateTransactionPage,
+        doc: { ...transactionPageBase, transactions: [] },
     },
     {
         group: "requirements page",
@@ -1377,6 +1565,50 @@ for (const { group, name, why, validator, doc: candidate } of ACCEPTANCE_CASES) 
     }
 }
 
+// ── Withdrawn in review. Several of these are values in EXTENSIBLE response enums, which no payload
+// can be rejected for — an unknown value passes by design — so their removal is asserted on the
+// bundles themselves. Each was a second way of saying something the contract already says, or a
+// promise it should not make, and the likeliest way back in is a well-meant re-addition.
+const WITHDRAWN = [
+    [policyDoc, "Capabilities", ["properties", "fields", "properties", "cover_id_stable"], "the positional cover_id fallback's flag"],
+    [policyDoc, "Capabilities", ["properties", "fields", "properties", "premium_transactions"], "the in-record history's flag"],
+    [policyDoc, "Policy", ["properties", "premium_transactions"], "premium transactions on the policy record"],
+    [policyDoc, "Arrears", ["properties", "collection_state"], "collection state on each arrears entry"],
+    [policyDoc, "CollectionState", ["x-extensible-enum", "retry_pending"], "retry_pending, merged into retry_scheduled"],
+    [policyDoc, "NominationType", ["x-extensible-enum", "non_lapsing"], "non_lapsing, now `lapsing` on a binding nomination"],
+    [policyDoc, "DiscountType", ["x-extensible-enum", "preferred_lives"], "preferred_lives, a rating category"],
+    [policyDoc, "TransactionType", ["x-extensible-enum", "dishonour"], "dishonour, which is a failed payment"],
+    [reqDoc, "UnderwritingDecision", ["x-extensible-enum", "pending"], "pending, which an absent decision already says"],
+    [reqDoc, "LifeRole", ["x-extensible-enum", "payer"], "payer, who is not a life on an application"],
+    [reqDoc, "LifeRole", ["x-extensible-enum", "beneficiary"], "beneficiary, who is not a life on an application"],
+];
+let reappeared = 0;
+for (const [bundle, schemaName, route, what] of WITHDRAWN) {
+    const schema = bundle.components?.schemas?.[schemaName];
+    if (!schema) {
+        reappeared += 1;
+        console.error(`✗ ${schemaName} is missing from its bundle, so the withdrawal of ${what} cannot be checked`);
+        continue;
+    }
+    const last = route[route.length - 1];
+    let node = schema;
+    for (const key of route.slice(0, -1)) node = node?.[key];
+    const present = Array.isArray(node) ? node.includes(last) : node != null && Object.hasOwn(node, last);
+    if (present) {
+        reappeared += 1;
+        console.error(`✗ WITHDRAWN, BUT BACK: ${schemaName} — ${what}`);
+    } else {
+        console.log(`✓ withdrawn: ${schemaName} — ${what}`);
+    }
+}
+const coverIdText = policyDoc.components.schemas.PolicyCover.properties.cover_id.description;
+if (/positional|#<ordinal>/.test(coverIdText)) {
+    reappeared += 1;
+    console.error("✗ WITHDRAWN, BUT BACK: PolicyCover.cover_id describes a positional fallback key");
+} else {
+    console.log("✓ withdrawn: PolicyCover.cover_id — the positional fallback key");
+}
+
 const total =
     CASES.length +
     LINE_CASES.length +
@@ -1386,6 +1618,7 @@ const total =
     POLICY_PAGE_CASES.length +
     POLICY_CASES.length +
     ARREARS_PAGE_CASES.length +
+    TRANSACTION_CASES.length +
     REQ_PAGE_CASES.length +
     REQUIREMENT_CASES.length +
     COMMISSION_LINE_CASES.length +
@@ -1394,4 +1627,5 @@ console.log(`\n${total - wronglyAccepted}/${total} invalid payloads correctly re
 console.log(
     `${ACCEPTANCE_CASES.length - wronglyRejected}/${ACCEPTANCE_CASES.length} valid payloads correctly accepted`,
 );
-process.exit(wronglyAccepted === 0 && wronglyRejected === 0 ? 0 : 1);
+console.log(`${WITHDRAWN.length + 1 - reappeared}/${WITHDRAWN.length + 1} withdrawn items still absent`);
+process.exit(wronglyAccepted === 0 && wronglyRejected === 0 && reappeared === 0 ? 0 : 1);
