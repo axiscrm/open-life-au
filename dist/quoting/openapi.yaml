@@ -1476,6 +1476,13 @@ components:
           $ref: '#/components/schemas/RequiredFeatures'
         projection:
           $ref: '#/components/schemas/ProjectionRequest'
+        report_features:
+          description: |-
+            Ask each line to report what it offers against the standard feature vocabulary — see `features` on `QuoteLine`. Default `false`: the report is large, and most quotes are priced without anyone reading it.
+            NOT A FILTER. This changes what each line says about itself, never which lines are returned or what they cost; `required_features` is the filter.
+            Optional to implement. An implementation declaring `feature_reporting: false` that is asked anyway MUST price the quote normally, omit `features` from every line, and report it once in `resolved_options` with `option: report_features` and `unsupported_ignored` — the same handling as `projection`.
+          type: boolean
+          default: false
       examples:
         - client_reference: c:8f14e45fceea167a
           insured:
@@ -1680,6 +1687,69 @@ components:
               not:
                 contains:
                   const: half_yearly
+    MinimumPremiumAmounts:
+      title: MinimumPremiumAmounts
+      description: One frequency's minimum premium beside the premium the cover rated at. Both are all-in amounts on the same basis as `PremiumBreakdown.total`, so the two compare directly.
+      type: object
+      required:
+        - applied
+        - minimum
+        - rated
+      additionalProperties: false
+      properties:
+        applied:
+          description: Whether the minimum set the premium at this frequency — that is, whether `rated` is below `minimum`. Stated rather than left to comparison so a consumer does not reimplement the insurer's rounding.
+          type: boolean
+        minimum:
+          description: The insurer's minimum premium at this frequency.
+          $ref: '#/components/schemas/NonNegativeMoney'
+        rated:
+          description: What the cover rated at before the minimum was applied. Equal to `premiums[f].total` where `applied` is `false`.
+          $ref: '#/components/schemas/NonNegativeMoney'
+    MinimumPremium:
+      title: MinimumPremium
+      description: |-
+        The insurer's minimum premium for a line, and whether it set the price.
+        THE MINIMUM IS PART OF THE PRICE, NOT A DISCLOSURE. An insurer charges the greater of what the cover rates at and its minimum premium, so where the minimum applies, `premiums` MUST carry the minimum: at each frequency, `premiums[f].total` equals the greater of `rated` and `minimum` below. A line reported at its rated figure when the insurer will charge more promises a client a price that will not be honoured — and because a minimum bites on the smallest covers, it does so exactly where the line looks most competitive.
+        Carried beside the price, rather than only folded into it, because an adviser who remembers the rated figure — or sees it on another screen — needs to reconcile the two, and because a line priced at the floor responds to a change in cover differently: raising the sum insured may cost nothing until the rated premium passes the minimum.
+        THE UPLIFT IS INSIDE THE BREAKDOWN. Where the minimum raised a frequency, the difference between `minimum` and `rated` is carried within that frequency's `PremiumBreakdown` so its arithmetic invariant still holds exactly, attributed as the insurer attributes it. `cover_lines` are NOT adjusted, which is a further reason — beside the policy fee — that summing them does not reach the line total.
+        A MINIMUM IS NOT DERIVED BETWEEN FREQUENCIES, for the same reason as a premium: an insurer's monthly minimum is not its annual minimum over twelve. Report the frequencies the insurer states one for.
+      type: object
+      required:
+        - applied
+      additionalProperties: false
+      properties:
+        applied:
+          description: Whether the minimum raised the premium at ANY frequency in `premiums`. The summary a consumer badges a row on; the per-frequency detail is below.
+          type: boolean
+        frequencies:
+          description: The minimum and the rated premium at each frequency the insurer states a minimum for.
+          type: object
+          additionalProperties: false
+          properties:
+            weekly:
+              $ref: '#/components/schemas/MinimumPremiumAmounts'
+            fortnightly:
+              $ref: '#/components/schemas/MinimumPremiumAmounts'
+            monthly:
+              $ref: '#/components/schemas/MinimumPremiumAmounts'
+            quarterly:
+              $ref: '#/components/schemas/MinimumPremiumAmounts'
+            half_yearly:
+              $ref: '#/components/schemas/MinimumPremiumAmounts'
+            annual:
+              $ref: '#/components/schemas/MinimumPremiumAmounts'
+      examples:
+        - applied: true
+          frequencies:
+            annual:
+              applied: true
+              minimum:
+                amount: '500.00'
+                currency: AUD
+              rated:
+                amount: '486.16'
+                currency: AUD
     CoverTypeResponse:
       title: CoverTypeResponse
       description: |-
@@ -2162,40 +2232,104 @@ components:
           maxItems: 60
           items:
             $ref: '#/components/schemas/ProjectionYear'
-    Score:
-      title: Score
-      description: A research score from 0 to 100 inclusive, as a decimal string with at most two places.
-      type: string
-      pattern: ^(100(\.0{1,2})?|\d{1,2}(\.\d{1,2})?)$
-      examples:
-        - '0'
-        - '87.5'
-        - '100'
-    ResearchScores:
-      title: ResearchScores
+    ProductDisclosure:
+      title: ProductDisclosure
       description: |-
-        Third-party research ratings for a line, as published by a research house.
-        NOT THE INSURER'S OWN OPINION, and the standard is deliberate about that. An insurer that scored its own products here would be marking its own homework, so `provider` is REQUIRED and a consumer that cannot attribute a score should not display it. Scores are only comparable between lines rated by the same provider on the same dataset.
-        Optional throughout. Most insurers will not carry these at all; an aggregator or a research licensee may.
+        The disclosure document one product on a line is written under.
+        An EDITION, not a product: an insurer reissues a PDS, and a benefit, a definition or an exclusion can change between editions of a product with the same name. `effective_from` and `reference` are what make "the document this client was shown" reproducible months later — the same reasoning as `rate_table_version`.
       type: object
       required:
-        - provider
+        - title
       additionalProperties: false
       properties:
-        provider:
-          description: The research house whose ratings these are.
+        title:
+          description: The insurer's own title for the document.
+          type: string
+          maxLength: 200
+        product_name:
+          description: Which of the line's products this document covers, where the line was assembled from more than one. Matches an entry in `component_products`.
+          $ref: '#/components/schemas/ProductName'
+        supplementary:
+          description: Whether this is a supplementary disclosure document, which amends a PDS rather than replacing it. A line under a supplementary document is under the PDS it amends as well, and SHOULD list both.
+          type: boolean
+          default: false
+        reference:
+          description: 'The insurer''s own identifier for this edition — a document number or version string. RECOMMENDED: dates alone do not always identify an edition.'
           type: string
           maxLength: 120
-        dataset_version:
-          description: The provider's identifier for the dataset the scores came from. Scores move when a provider republishes, so without this a stored score cannot be reproduced or defended — the same reasoning as `rate_table_version`.
+        effective_from:
+          description: The date this edition took effect.
+          type: string
+          format: date
+        effective_to:
+          description: The date this edition ceased to apply. ABSENT MEANS CURRENT — an edition still in force has no end date, and an implementation MUST NOT supply a placeholder far-future date in its place, which a consumer would display as a real one.
+          type: string
+          format: date
+      examples:
+        - title: Protection Plan Product Disclosure Statement
+          reference: PDS-2024-12
+          effective_from: '2024-12-06'
+    LineFeature:
+      title: LineFeature
+      description: |-
+        What one line offers against one standard feature, as the insurer's disclosure document states it.
+        `feature` is a code from `taxonomy/product-features.yaml` — policy and cover features, and trauma conditions. For conditions the taxonomy's warning applies in full: the insurer's `wording` IS the definition, and two lines both reporting `cancer` as `included` are not thereby offering the same cover. A consumer placing two such entries side by side MUST show the wording, not only the status.
+      type: object
+      required:
+        - feature
+        - scope
+        - status
+      additionalProperties: false
+      properties:
+        feature:
+          description: The standard code.
           type: string
           maxLength: 64
-        feature_score:
-          description: The product's feature rating, 0 to 100, where higher is more comprehensive. A measure of what the product covers, independent of price.
-          $ref: '#/components/schemas/Score'
-        combined_score:
-          description: 'The provider''s blended rating of features against price, 0 to 100. Deliberately separate from `feature_score`: they answer different questions and a consumer sorting on the wrong one recommends the wrong product.'
-          $ref: '#/components/schemas/Score'
+        scope:
+          description: The cover type this answer is for, or `policy` for a policy-level feature. The same code can answer differently under two covers of one line.
+          type: string
+          maxLength: 40
+          examples:
+            - policy
+            - life
+            - trauma
+            - income_protection
+        insurer_feature:
+          description: The insurer's own code for this feature, where it has one — the code a consumer would send in `required_features` to reach it in the insurer's vocabulary.
+          type: string
+          maxLength: 64
+        status:
+          description: |-
+            RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through for display rather than failing.
+
+              * `included` — part of the cover AS PRICED on this line, whether built into the product
+                or added as an option the request asked for. The premium reflects it.
+              * `optional` — available on this product, but NOT in this line's price. Adding it changes
+                the premium, so a consumer MUST NOT present an `optional` feature as though the line
+                already carried it.
+              * `not_offered` — this product does not offer it at any price.
+          type: string
+          x-extensible-enum:
+            - included
+            - optional
+            - not_offered
+        wording:
+          description: 'The insurer''s own description or definition of this feature, as its disclosure document states it. Carried verbatim — line breaks are significant — and not summarised: where the feature is a condition, this is the definition a claim is assessed against.'
+          type: string
+          maxLength: 8000
+        detail:
+          description: A short adviser-facing note on this answer — the conditions on an `optional` feature, or the tier it is paid at. Not a substitute for `wording`.
+          type: string
+          maxLength: 300
+      examples:
+        - feature: terminal_illness_benefit
+          scope: life
+          status: included
+          wording: We will pay the life cover sum insured if the life insured is diagnosed with a terminal illness that is likely to lead to death within 24 months.
+        - feature: premium_waiver_on_disability
+          scope: policy
+          status: optional
+          detail: Available at an additional premium.
     LineDocument:
       title: LineDocument
       description: |-
@@ -2256,6 +2390,8 @@ components:
             maxItems: 0
           projection:
             not: {}
+          minimum_premium:
+            not: {}
           errors:
             minItems: 1
         required:
@@ -2303,7 +2439,11 @@ components:
           description: |-
             The price of this line at each payment frequency the insurer quotes. REQUIRED on a line where `all_needs_met` is `true`; MUST be absent otherwise.
             Which frequencies that is varies by insurer, and the ones it does not quote are named in `PremiumSet.not_quoted`. A consumer comparing lines across a panel therefore compares on `annual` or `monthly`, the two every line carries.
+            WHAT THE CLIENT PAYS, INCLUDING ANY MINIMUM PREMIUM. Where the cover rates below the insurer's minimum premium at a frequency, the figure here is the minimum — see `minimum_premium`, which says so and carries the rated figure beside it.
           $ref: '#/components/schemas/PremiumSet'
+        minimum_premium:
+          description: 'The insurer''s minimum premium for this line, and whether it set the price. RECOMMENDED on every priced line where the insurer has a minimum; MUST be present with `applied: true` wherever the minimum raised any frequency in `premiums`. MUST be absent on a declined line.'
+          $ref: '#/components/schemas/MinimumPremium'
         cover_lines:
           description: The priced covers making up this line, one per cover the insurer wrote. Includes covers the insurer added of its own accord where a product requires them.
           type: array
@@ -2367,9 +2507,27 @@ components:
         projection:
           description: This line's cost projected forward. Present only where the request asked for a projection and the insurer can produce one; a line where `all_needs_met` is `false` MUST NOT carry one, since there is no premium to project.
           $ref: '#/components/schemas/Projection'
-        research_scores:
-          description: Third-party research ratings for this line, where the insurer publishes them.
-          $ref: '#/components/schemas/ResearchScores'
+        product_disclosures:
+          description: |-
+            Which disclosure document each product on this line is written under, and the period it applies to. RECOMMENDED on every line.
+            Stated separately from `documents` because the identity of the PDS is a fact about the offer, while a link to it is a convenience that may be short-lived or absent. Two lines for the same product under different PDS editions are different offers — a benefit can be added or a definition narrowed between editions — and an adviser recording what was presented to a client needs the edition, not just the product name.
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/ProductDisclosure'
+          default: []
+        features:
+          description: |-
+            What this line offers against the standard feature vocabulary. Present only where the request set `report_features` and the implementation declares `feature_reporting`.
+            WHAT THE INSURER SAYS ITS PRODUCT DOES — NOT AN ASSESSMENT OF IT. Each entry is a fact the insurer publishes in its disclosure document: whether the feature is part of the cover as priced, available at extra cost, or not offered, with the insurer's own wording. Ratings, rankings, scores, strengths and limitations are opinions about a product rather than facts about it, belong to whoever forms them, and have no field here.
+            AN ABSENT CODE IS UNKNOWN, NOT `not_offered`. An implementation reports the codes it can answer for, and a consumer MUST NOT render a code missing from this array as "not offered": that is a claim about the insurer's range which the insurer did not make. The same distinction as `underwriting_reported`.
+            Comparing lines — "show only the features where these products differ" — is the consumer's work, done over these entries. It is not a request option, because an insurer answering for its own lines cannot know what they are being compared against.
+            Reported on declined lines as well as priced ones: a line declined for want of a required feature is the case where an adviser most wants to see what the product does offer.
+          type: array
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/LineFeature'
+          default: []
         documents:
           description: Documents and links relating to THIS line — the product disclosure statement, a branded quote report, a deep link into the insurer's own system to continue the application.
           type: array
@@ -2860,8 +3018,12 @@ components:
               description: Whether `required_features` is honoured. An implementation declaring `false` MUST reject a request carrying one with 422 rather than pricing it unfiltered — a filter silently not applied returns products the adviser expressly excluded.
               type: boolean
               default: false
-            research_scores:
-              description: Whether lines carry third-party research ratings.
+            feature_reporting:
+              description: Whether `report_features` is honoured, so lines carry `features`. An implementation declaring `true` reports the codes it can answer for, which need not be the whole vocabulary — see `QuoteLine.features` on why an absent code is unknown rather than `not_offered`.
+              type: boolean
+              default: false
+            minimum_premium:
+              description: Whether lines carry `minimum_premium`. `false` does not license pricing below an insurer's minimum — `premiums` is what the client pays either way — only omitting the detail beside it.
               type: boolean
               default: false
             documents:
