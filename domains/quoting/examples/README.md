@@ -230,6 +230,8 @@ shown can be identified later. No `effective_to` means the edition is current.
 
 **`features` states facts, not an assessment.** Terminal illness is `included`, meaning it is in this
 price. The disability premium waiver is `optional`, meaning it is available but NOT in this price.
-Guarantee of upgrade is `not_offered`. Any code missing from the array is unknown, which is not the
-same as "not offered". There are no scores, strengths or limitations, because the standard does not
+Guarantee of upgrade is `not_offered`. A fourth status, `available`, is for a source that records
+that a product HAS a feature without recording whether it is built in. Aggregated research data
+often doesn't record this, because a PDS lists built-in benefits and extra-cost options side by
+side. Any code missing from the array is unknown, which is not the same as "not offered". There are no scores, strengths or limitations, because the standard does not
 carry opinions about a product.

@@ -37,5 +37,6 @@ field (the one that declared it never populated it) and no consumer displayed it
 - **`QuoteRequest.report_features`**, **`QuoteLine.features`** and capability
   **`features.feature_reporting`.** On request, each line reports what it offers against the
   standard feature vocabulary: `included` (in this price), `optional` (available, not in this
-  price) or `not_offered`, with the insurer's own wording. A code missing from the report means
+  price), `available` (offered, but the source does not say whether it is in this price) or
+  `not_offered`, with the insurer's own wording. A code missing from the report means
   unknown, not "not offered".

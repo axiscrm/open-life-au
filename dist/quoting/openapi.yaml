@@ -2307,11 +2307,19 @@ components:
               * `optional` — available on this product, but NOT in this line's price. Adding it changes
                 the premium, so a consumer MUST NOT present an `optional` feature as though the line
                 already carried it.
+              * `available` — this product offers it, and the implementation cannot say whether it is
+                in this line's price. The honest answer where the source records that a product HAS a
+                feature without recording whether it is built in or an extra-cost option — which is
+                common, because a disclosure document lists both side by side. A consumer MUST NOT
+                present `available` as `included`, and SHOULD show the `wording`, which usually says.
               * `not_offered` — this product does not offer it at any price.
+
+            An implementation that CAN tell MUST NOT answer `available`: it is a statement of what is unknown, not a shorter way of saying `included`.
           type: string
           x-extensible-enum:
             - included
             - optional
+            - available
             - not_offered
         wording:
           description: 'The insurer''s own description or definition of this feature, as its disclosure document states it. Carried verbatim — line breaks are significant — and not summarised: where the feature is a condition, this is the definition a claim is assessed against.'

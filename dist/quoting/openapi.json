@@ -2724,11 +2724,12 @@
             "maxLength": 64
           },
           "status": {
-            "description": "RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through for display rather than failing.\n\n  * `included` — part of the cover AS PRICED on this line, whether built into the product\n    or added as an option the request asked for. The premium reflects it.\n  * `optional` — available on this product, but NOT in this line's price. Adding it changes\n    the premium, so a consumer MUST NOT present an `optional` feature as though the line\n    already carried it.\n  * `not_offered` — this product does not offer it at any price.",
+            "description": "RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through for display rather than failing.\n\n  * `included` — part of the cover AS PRICED on this line, whether built into the product\n    or added as an option the request asked for. The premium reflects it.\n  * `optional` — available on this product, but NOT in this line's price. Adding it changes\n    the premium, so a consumer MUST NOT present an `optional` feature as though the line\n    already carried it.\n  * `available` — this product offers it, and the implementation cannot say whether it is\n    in this line's price. The honest answer where the source records that a product HAS a\n    feature without recording whether it is built in or an extra-cost option — which is\n    common, because a disclosure document lists both side by side. A consumer MUST NOT\n    present `available` as `included`, and SHOULD show the `wording`, which usually says.\n  * `not_offered` — this product does not offer it at any price.\n\nAn implementation that CAN tell MUST NOT answer `available`: it is a statement of what is unknown, not a shorter way of saying `included`.",
             "type": "string",
             "x-extensible-enum": [
               "included",
               "optional",
+              "available",
               "not_offered"
             ]
           },
