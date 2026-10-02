@@ -1,0 +1,124 @@
+# Open Life Data Standards (AU) — Policy — the premium history of one policy.
+#
+# ITS OWN OPERATION, NOT A FIELD ON `Policy`. An earlier draft carried the history inside the policy
+# record, and that put a growing list into every row of a daily snapshot, most of which nobody reads,
+# and made every collected instalment a change to the policy. The history is fetched per policy when
+# someone is looking at one, and it does not touch `PolicyVersion`.
+#
+# NOT A SNAPSHOT, SO NO ABSENCE SEMANTICS. Like the commissions ledger, this deliberately does not use
+# `core/schemas/snapshot.yaml`: a transaction missing from a response has not been reversed. How far
+# back the history reaches is the implementation's choice, stated in `since`, and a consumer MUST NOT
+# read the absence of an older transaction as evidence it never happened.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+
+TransactionPage:
+  title: TransactionPage
+  description: >-
+    One page of a policy's premium transactions, most recent first.
+
+    Not a replacement for `arrears`. What is outstanding is stated there, and a consumer MUST NOT
+    derive arrears by netting these entries, which double-counts a fee the insurer has folded into
+    an outstanding amount and misses a retry the ledger has not yet posted.
+  type: object
+  required: [policy_id, since, transactions]
+  additionalProperties: false
+  properties:
+    policy_id:
+      description: >-
+        The policy these transactions belong to. Repeated on every page so a consumer can prove the
+        pages it assembled belong to one policy.
+      $ref: '../../../../core/schemas/identifiers.yaml#/PolicyNumber'
+    since:
+      description: >-
+        The earliest date this response covers, inclusive: the `since` requested, or the
+        implementation's own lookback limit where that is later, or that limit where no `since` was
+        sent. Echoed because a consumer asking for two years and silently given six months would
+        otherwise conclude that eighteen months passed without a payment.
+      type: string
+      format: date
+    transactions:
+      description: >-
+        The transactions on or after `since`. An empty array is an ordinary answer meaning none
+        occurred in that period.
+      type: array
+      items:
+        $ref: '#/PremiumTransaction'
+    page:
+      description: Continuation state.
+      $ref: '../../../../core/schemas/pagination.yaml#/PageInfo'
+
+PremiumTransaction:
+  title: PremiumTransaction
+  description: >-
+    One premium event on the policy.
+
+    Amounts are never negative: `type` carries the direction, so a refund is a positive amount of
+    type `refund` rather than a negative payment, and a consumer does not have to know which sign
+    convention an insurer chose.
+
+    `status` belongs to payments only, and the schema enforces both halves: a `payment` MUST carry
+    one, and every other type MUST NOT, because an instalment falling due or a rebate being credited
+    has no outcome to report. A dishonour is not a type of its own. It is a `payment` whose status is
+    `failed`, so that one attempt is one entry, whatever happened to it.
+  type: object
+  required: [occurred_on, type, amount]
+  additionalProperties: false
+  # `status` only beside `type: payment`, and required there. Both directions, because a payment with
+  # no outcome is an attempt nobody can read, and a status on a `premium_due` invites a consumer to
+  # treat a demand as a collection.
+  dependentSchemas:
+    status:
+      properties:
+        type:
+          const: payment
+  if:
+    properties:
+      type:
+        const: payment
+  then:
+    required: [status]
+    properties:
+      status: {}
+  properties:
+    transaction_id:
+      description: >-
+        The insurer's own identifier for the transaction, where it has one. Stable across calls, so
+        a consumer holding history can tell a re-reported transaction from a new one.
+      type: string
+      maxLength: 64
+    occurred_on:
+      description: >-
+        The date the transaction fell due or was processed. A failed payment SHOULD carry the same
+        date as the matching `arrears[].dishonoured_on`, so that the two can be joined.
+      type: string
+      format: date
+    type:
+      $ref: '#/TransactionType'
+    status:
+      $ref: '#/PaymentStatus'
+    amount:
+      $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+
+TransactionType:
+  title: TransactionType
+  description: >-
+    RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than
+    failing.
+      - `premium_due`  an instalment fell due
+      - `payment`      money collected, or an attempt to collect it — read `status`
+      - `refund`       money returned to the payer
+      - `rebate`       a rebate credited against the premium, such as a tax rebate on super-held cover
+  type: string
+  x-extensible-enum: [premium_due, payment, refund, rebate]
+
+PaymentStatus:
+  title: PaymentStatus
+  description: >-
+    The outcome of a `payment`. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised
+    value through rather than failing.
+      - `received`  collected
+      - `failed`    attempted and failed — a dishonour
+      - `pending`   attempted, and the outcome is not yet known
+  type: string
+  x-extensible-enum: [received, failed, pending]

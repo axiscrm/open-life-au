@@ -44,6 +44,12 @@ RequirementCategory:
                           — terms offered, a counter-offer, a warning that the application will be
                           closed. Not a request for evidence, and treating it as one is a common way
                           for an offer to expire unanswered.
+
+    Classify each requirement by what it asks for, from its own title or type, never from the
+    section or group the insurer's system files it under. Those groupings are an insurer's own
+    screen layout, and they routinely mix categories — a financial questionnaire and a report from
+    the client's usual doctor filed under one heading are `administrative` and `medical`
+    respectively, and routing both to one desk sends one of them to the wrong person.
   type: string
   enum: [medical, administrative, notification]
 

@@ -1,0 +1,72 @@
+{
+  "policy_id": "P-4471903",
+  "since": "2026-04-01",
+  "transactions": [
+    {
+      "transaction_id": "TX-9032",
+      "occurred_on": "2026-07-15",
+      "type": "payment",
+      "status": "failed",
+      "amount": {
+        "amount": "96.20",
+        "currency": "AUD"
+      }
+    },
+    {
+      "transaction_id": "TX-9031",
+      "occurred_on": "2026-07-15",
+      "type": "premium_due",
+      "amount": {
+        "amount": "96.20",
+        "currency": "AUD"
+      }
+    },
+    {
+      "transaction_id": "TX-9030",
+      "occurred_on": "2026-06-15",
+      "type": "payment",
+      "status": "failed",
+      "amount": {
+        "amount": "96.20",
+        "currency": "AUD"
+      }
+    },
+    {
+      "transaction_id": "TX-9029",
+      "occurred_on": "2026-06-15",
+      "type": "premium_due",
+      "amount": {
+        "amount": "96.20",
+        "currency": "AUD"
+      }
+    },
+    {
+      "transaction_id": "TX-9012",
+      "occurred_on": "2026-05-15",
+      "type": "payment",
+      "status": "received",
+      "amount": {
+        "amount": "96.20",
+        "currency": "AUD"
+      }
+    },
+    {
+      "transaction_id": "TX-9011",
+      "occurred_on": "2026-05-15",
+      "type": "premium_due",
+      "amount": {
+        "amount": "96.20",
+        "currency": "AUD"
+      }
+    },
+    {
+      "transaction_id": "TX-8990",
+      "occurred_on": "2026-04-20",
+      "type": "refund",
+      "amount": {
+        "amount": "12.40",
+        "currency": "AUD"
+      }
+    }
+  ]
+}

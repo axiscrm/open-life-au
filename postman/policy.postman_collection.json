@@ -85,7 +85,7 @@
                 {
                   "key": "limit",
                   "value": "250",
-                  "description": "Maximum policies per page. A server MAY return fewer; completion is signalled by `complete` and the absence of `page.next_cursor`, never by a short page.",
+                  "description": "Maximum records per page — policies, worklist rows or transactions. A server MAY return fewer; completion is signalled by `complete` and the absence of `page.next_cursor`, never by a short page.",
                   "disabled": true
                 }
               ]
@@ -124,6 +124,60 @@
               ]
             },
             "description": "Return a single policy by the insurer's own policy number.\nNot part of the daily pull — a consumer reconciling a book uses the snapshot. This exists for the case an adviser is looking at one client and wants the insurer's current record rather than whatever last night's run captured, and for investigating a discrepancy between the two.\nCarries the policy holder's personal information, so servers MUST send `Cache-Control: no-store`."
+          },
+          "response": []
+        },
+        {
+          "name": "Fetch one policy's premium history",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "",
+                "description": "Consumer-supplied correlation identifier. Echoed on the response.",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/policies/:policy_id/transactions?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "policies",
+                ":policy_id",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "since",
+                  "value": "",
+                  "description": "Return only transactions that occurred on or after this date. Omitted, the implementation returns as far back as it keeps. Either way the response's `since` states the date it actually starts from, which is later than this where the implementation's lookback is shorter.",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "description": "Continuation token from the previous page's `page.next_cursor`.",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "250",
+                  "description": "Maximum records per page — policies, worklist rows or transactions. A server MAY return fewer; completion is signalled by `complete` and the absence of `page.next_cursor`, never by a short page.",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "policy_id",
+                  "value": "P-4471902",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "Return the premium transactions on one policy — what fell due, what was collected or failed to be, and what was refunded or rebated — most recent first, paged.\n### Optional\nOPTIONAL — declare it in `capabilities.transactions.supported`, and reject it with `422` where unsupported rather than returning an empty history. An empty history means nothing happened in the period, which is not what an implementation that cannot answer should say.\n### A history, not a ledger, and not a snapshot\nHow far back it reaches is the implementation's choice, and the response's `since` says where it starts. A transaction absent from the response has not been reversed, and an older one absent from it may simply be older than the implementation keeps. This does not replace `arrears`: what is outstanding is stated on the policy, and a consumer MUST NOT derive it by netting these.\nTransactions are not changes to the policy record, and MUST NOT bump its `policy_version`.\n### Personal information\nA client's payment history. Servers MUST send `Cache-Control: no-store`."
           },
           "response": []
         },
@@ -181,7 +235,7 @@
                 {
                   "key": "limit",
                   "value": "250",
-                  "description": "Maximum policies per page. A server MAY return fewer; completion is signalled by `complete` and the absence of `page.next_cursor`, never by a short page.",
+                  "description": "Maximum records per page — policies, worklist rows or transactions. A server MAY return fewer; completion is signalled by `complete` and the absence of `page.next_cursor`, never by a short page.",
                   "disabled": true
                 }
               ]

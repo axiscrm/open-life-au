@@ -106,10 +106,45 @@ PolicyHolder:
 PostalAddress:
   title: PostalAddress
   description: >-
-    An Australian postal address as held on the policy. Every field optional: insurer exports vary in
-    how much they carry, and a partial address is still useful for matching.
+    A postal address as held on the policy. Every field optional: insurer exports vary in how much
+    they carry, and a partial address is still useful for matching.
+
+    Australian by default, and the Australian fields are unchanged: absent `country`, or `AU`, means
+    `suburb`, `state` and `postcode` apply exactly as before. An address outside Australia sets
+    `country` and carries its locality, region and postal code in `overseas` instead, and MUST omit
+    `suburb`, `state` and `postcode` — the schema rejects any of them beside a `country` other than
+    `AU`. The overseas town or city is `overseas.locality`. `line1` and `line2` are street lines and
+    apply to both.
+
+    Built this way, rather than by relaxing `state` and `postcode`, so that nothing a consumer
+    already validates changes. A consumer that reads only the Australian fields still gets an
+    Australian address or none — never a foreign postcode in a field it checks for four digits — and
+    an overseas client no longer has to be given an invented state and postcode to be represented
+    at all.
   type: object
   additionalProperties: false
+  # A foreign address with an Australian suburb, state or postcode is the invented value this structure
+  # exists to remove, so it is refused rather than tolerated. `suburb` included, because two fields for
+  # one town leave a consumer to pick which one it prints.
+  dependentSchemas:
+    country:
+      anyOf:
+        - properties:
+            country:
+              const: AU
+        - properties:
+            suburb:
+              not: {}
+            state:
+              not: {}
+            postcode:
+              not: {}
+    overseas:
+      required: [country]
+      properties:
+        country:
+          not:
+            const: AU
   properties:
     line1:
       type: string
@@ -118,10 +153,129 @@ PostalAddress:
       type: string
       maxLength: 200
     suburb:
+      description: Australian addresses only. An overseas address uses `overseas.locality`.
       type: string
       maxLength: 100
     state:
+      description: Australian addresses only.
       $ref: '../../../../core/schemas/cover-vocabulary.yaml#/AustralianState'
     postcode:
+      description: Australian addresses only.
       type: string
       pattern: '^\d{4}$'
+    country:
+      description: >-
+        ISO 3166-1 alpha-2, upper case. Omitted or `AU` means the Australian fields apply. REQUIRED
+        with `overseas`.
+
+        The pattern checks the shape only — `ZZ` passes it. A consumer SHOULD validate the value
+        against the ISO 3166-1 list itself; the list changes, and a standard that froze a copy of it
+        would reject a real country the day one is added.
+      type: string
+      pattern: '^[A-Z]{2}$'
+    overseas:
+      $ref: '#/OverseasAddress'
+
+OverseasAddress:
+  title: OverseasAddress
+  description: >-
+    The parts of an address outside Australia that the Australian fields cannot hold. Free text and
+    loosely bounded, deliberately: postal formats differ by country, and this standard is not the
+    place to validate them.
+  type: object
+  additionalProperties: false
+  properties:
+    locality:
+      description: The town or city.
+      type: string
+      maxLength: 100
+    region:
+      description: The state, province, county or equivalent, where the country uses one.
+      type: string
+      maxLength: 100
+    postal_code:
+      description: The postal code in the country's own format, as the insurer holds it.
+      type: string
+      maxLength: 20
+
+PolicyParty:
+  title: PolicyParty
+  description: >-
+    One person or entity the insurer records against the policy, in one role. Enough to MATCH the
+    party against a record the consumer already holds, and deliberately no more.
+
+    The same restraint as `PolicyHolder`, for the same reason, and stricter: this carries no contact
+    detail at all. A consumer needs a payer's or an owner's name and date of birth to find them in
+    its own records, and has no use for the insurer's copy of their phone number that justifies
+    publishing it. This MUST NOT be extended into a contact record.
+
+    A `beneficiary` MUST NOT carry `date_of_birth`, and the schema rejects it. A beneficiary is
+    matched far less often than the other roles — a consumer rarely holds a beneficiary's client
+    record, so the date of birth would mostly travel to consumers with nothing to match it against —
+    and the name and relationship are what an adviser needs to confirm a nomination with the owner.
+
+    ONE ENTRY PER ROLE. A person who both owns and pays for a policy appears twice, once as
+    `policy_owner` and once as `payer`, with the same `party_id`. A single entry with a list of
+    roles was the alternative, and it was rejected because the common consumer question is "who is
+    the payer?", which one entry per role answers with a filter and a list of roles answers with a
+    search inside every entry.
+  type: object
+  required: [role, last_name]
+  additionalProperties: false
+  # A beneficiary's date of birth is personal information with no matching use to justify it — see the
+  # description. Keyed on the date so that a new role value, unknown to this version, is unaffected.
+  dependentSchemas:
+    date_of_birth:
+      properties:
+        role:
+          not:
+            const: beneficiary
+  properties:
+    party_id:
+      description: >-
+        The insurer's own identifier for this party on this policy, where it has one. Referenced by
+        `covers[].life_party_id` and `beneficiaries[].party_id`, so an implementation populating
+        either of those MUST populate this.
+
+        Where the insurer holds the party as a client across policies, send the same value as
+        `PolicyHolder.client_id` would carry for them. Scoped to the issuing insurer, and MUST NOT be
+        compared across insurers.
+      type: string
+      maxLength: 64
+    role:
+      $ref: '#/PartyRole'
+    first_name:
+      description: Absent for an entity.
+      type: string
+      maxLength: 100
+    last_name:
+      description: >-
+        A person's family name, or an entity's full legal name — a company, a trust, a
+        superannuation trustee. Longer than `PolicyHolder.last_name` for that reason, and matching
+        `PolicyOwnership.owner_name`.
+
+        Natural case, for the reason given on `PolicyHolder.last_name`, and an entity's name as it is
+        legally registered. A consumer MUST NOT re-case either.
+      type: string
+      minLength: 1
+      maxLength: 255
+    date_of_birth:
+      description: >-
+        RFC 3339 full-date, for a person. Absent for an entity, and never sent for a `beneficiary`.
+        Name plus date of birth is the match, so a party without one can be displayed but SHOULD NOT
+        be attached to a client record on name alone.
+      type: string
+      format: date
+
+PartyRole:
+  title: PartyRole
+  description: >-
+    The role a party holds on the policy. RESPONSE-facing and extensible: a consumer MUST pass an
+    unrecognised value through rather than failing the page.
+      - `life_insured`  the person whose life or health the cover is on
+      - `policy_owner`  the legal owner — who can change the policy and who is paid on most claims
+      - `payer`         who the premium is collected from, where it is not the owner
+      - `beneficiary`   a person or entity nominated to receive a death benefit; the nomination
+                        itself is on `Policy.beneficiaries`
+  type: string
+  x-extensible-enum: [life_insured, policy_owner, payer, beneficiary]
