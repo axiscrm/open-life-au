@@ -1,0 +1,215 @@
+{
+  "quote_id": "q_01JQ9D8R2N5K7W3YC4ZE",
+  "quoted_at": "2026-09-29T10:02:11+10:00",
+  "valid_until": "2026-10-29T10:02:11+10:00",
+  "client_reference": "c:9a7e2b0c41d85f13",
+  "lines": [
+    {
+      "line_id": "ln_1",
+      "insurer_id": "example-mutual",
+      "brand_id": "example-mutual",
+      "product_name": "Protection Plan",
+      "component_products": [
+        "Protection Plan"
+      ],
+      "rate_table_version": "2026-07-01",
+      "all_needs_met": true,
+      "errors": [],
+      "commission": {
+        "basis": "level",
+        "dial_down_percent": "0"
+      },
+      "premiums": {
+        "monthly": {
+          "total": {
+            "amount": "45.00",
+            "currency": "AUD"
+          },
+          "premium_super": {
+            "amount": "0.00",
+            "currency": "AUD"
+          },
+          "premium_non_super": {
+            "amount": "45.00",
+            "currency": "AUD"
+          },
+          "stamp_duty_super": {
+            "amount": "0.00",
+            "currency": "AUD"
+          },
+          "stamp_duty_non_super": {
+            "amount": "0.00",
+            "currency": "AUD"
+          }
+        },
+        "annual": {
+          "total": {
+            "amount": "500.00",
+            "currency": "AUD"
+          },
+          "premium_super": {
+            "amount": "0.00",
+            "currency": "AUD"
+          },
+          "premium_non_super": {
+            "amount": "500.00",
+            "currency": "AUD"
+          },
+          "stamp_duty_super": {
+            "amount": "0.00",
+            "currency": "AUD"
+          },
+          "stamp_duty_non_super": {
+            "amount": "0.00",
+            "currency": "AUD"
+          }
+        },
+        "not_quoted": [
+          "weekly",
+          "fortnightly",
+          "quarterly",
+          "half_yearly"
+        ]
+      },
+      "minimum_premium": {
+        "applied": true,
+        "frequencies": {
+          "monthly": {
+            "applied": true,
+            "minimum": {
+              "amount": "45.00",
+              "currency": "AUD"
+            },
+            "rated": {
+              "amount": "43.91",
+              "currency": "AUD"
+            }
+          },
+          "annual": {
+            "applied": true,
+            "minimum": {
+              "amount": "500.00",
+              "currency": "AUD"
+            },
+            "rated": {
+              "amount": "486.16",
+              "currency": "AUD"
+            }
+          }
+        }
+      },
+      "cover_lines": [
+        {
+          "cover_id": "life-1",
+          "cover_type": "life",
+          "description": "Life Cover",
+          "sum_insured": {
+            "amount": "100000.00",
+            "currency": "AUD"
+          },
+          "ownership": "ordinary",
+          "structure": "stepped",
+          "premiums": {
+            "monthly": {
+              "total": {
+                "amount": "43.91",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "0.00",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "43.91",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "0.00",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "0.00",
+                "currency": "AUD"
+              }
+            },
+            "annual": {
+              "total": {
+                "amount": "486.16",
+                "currency": "AUD"
+              },
+              "premium_super": {
+                "amount": "0.00",
+                "currency": "AUD"
+              },
+              "premium_non_super": {
+                "amount": "486.16",
+                "currency": "AUD"
+              },
+              "stamp_duty_super": {
+                "amount": "0.00",
+                "currency": "AUD"
+              },
+              "stamp_duty_non_super": {
+                "amount": "0.00",
+                "currency": "AUD"
+              }
+            },
+            "not_quoted": [
+              "weekly",
+              "fortnightly",
+              "quarterly",
+              "half_yearly"
+            ]
+          }
+        }
+      ],
+      "resolved_occupation": {
+        "insurer_occupation_id": "OCC-2211",
+        "description": "Accountant — professional, no manual duties",
+        "match_confidence": "exact",
+        "ratings": {
+          "life": {
+            "supported": true,
+            "rating_class": "1"
+          }
+        }
+      },
+      "resolved_options": [
+        {
+          "cover_id": "policy",
+          "option": "commission",
+          "requested": "level",
+          "applied": "level",
+          "resolution": "as_requested"
+        }
+      ],
+      "product_disclosures": [
+        {
+          "title": "Protection Plan Product Disclosure Statement",
+          "product_name": "Protection Plan",
+          "reference": "PDS-2024-12",
+          "effective_from": "2024-12-06"
+        }
+      ],
+      "features": [
+        {
+          "feature": "terminal_illness_benefit",
+          "scope": "life",
+          "status": "included",
+          "wording": "We will pay the life cover sum insured if the life insured is diagnosed with a terminal illness that is likely to lead to death within 24 months, regardless of any treatment that might be undertaken."
+        },
+        {
+          "feature": "premium_waiver_on_disability",
+          "scope": "policy",
+          "status": "optional",
+          "detail": "Available at an additional premium; not included in this price."
+        },
+        {
+          "feature": "guarantee_of_upgrade",
+          "scope": "policy",
+          "status": "not_offered"
+        }
+      ]
+    }
+  ]
+}

@@ -207,3 +207,31 @@ The frequency loading is still visible in what *is* quoted: monthly annualises t
 annual premium of 1260.00, so dividing the annual figure by twelve would understate the monthly cost
 by about 4%. That rule did not change. What changed is that an insurer is no longer required to break
 it on the standard's behalf.
+
+### `life-at-minimum-premium-with-features.json`
+
+A small life cover that rates below the insurer's minimum premium, answering a request that set
+`report_features`.
+
+**`premiums` is the minimum, because that is what the client pays.** The cover rates at 486.16 a
+year against a 500.00 minimum, so the line says 500.00. `minimum_premium` records that the floor
+applied, at each frequency the insurer states one for, and the rated figure beside it. The rated
+figure is there so an adviser can reconcile the two. Nobody is meant to quote it: it is a price the
+insurer will not honour.
+
+- The monthly minimum is the insurer's own (45.00), **not** the annual minimum over twelve. It is the
+  frequency rule again.
+- `cover_lines` still show the RATED 486.16. The uplift sits inside the line's `PremiumBreakdown`,
+  which is where the arithmetic invariant is checked, and is one more reason summing cover lines does
+  not reach the line total.
+
+**`product_disclosures` names the edition**, not just the product, so the document this client was
+shown can be identified later. No `effective_to` means the edition is current.
+
+**`features` states facts, not an assessment.** Terminal illness is `included`, meaning it is in this
+price. The disability premium waiver is `optional`, meaning it is available but NOT in this price.
+Guarantee of upgrade is `not_offered`. A fourth status, `available`, is for a source that records
+that a product HAS a feature without recording whether it is built in. Aggregated research data
+often doesn't record this, because a PDS lists built-in benefits and extra-cost options side by
+side. Any code missing from the array is unknown, which is not the same as "not offered". There are no scores, strengths or limitations, because the standard does not
+carry opinions about a product.

@@ -133,6 +133,21 @@ QuoteRequest:
       $ref: '#/RequiredFeatures'
     projection:
       $ref: '#/ProjectionRequest'
+    report_features:
+      description: >-
+        Ask each line to report what it offers against the standard feature vocabulary — see
+        `features` on `QuoteLine`. Default `false`: the report is large, and most quotes are priced
+        without anyone reading it.
+
+        NOT A FILTER. This changes what each line says about itself, never which lines are
+        returned or what they cost; `required_features` is the filter.
+
+        Optional to implement. An implementation declaring `feature_reporting: false` that is asked
+        anyway MUST price the quote normally, omit `features` from every line, and report it once
+        in `resolved_options` with `option: report_features` and `unsupported_ignored` — the same
+        handling as `projection`.
+      type: boolean
+      default: false
   examples:
     - client_reference: 'c:8f14e45fceea167a'
       insured:

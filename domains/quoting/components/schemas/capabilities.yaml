@@ -250,8 +250,19 @@ Capabilities:
             silently not applied returns products the adviser expressly excluded.
           type: boolean
           default: false
-        research_scores:
-          description: Whether lines carry third-party research ratings.
+        feature_reporting:
+          description: >-
+            Whether `report_features` is honoured, so lines carry `features`. An implementation
+            declaring `true` reports the codes it can answer for, which need not be the whole
+            vocabulary — see `QuoteLine.features` on why an absent code is unknown rather than
+            `not_offered`.
+          type: boolean
+          default: false
+        minimum_premium:
+          description: >-
+            Whether lines carry `minimum_premium`. `false` does not license pricing below an
+            insurer's minimum — `premiums` is what the client pays either way — only omitting the
+            detail beside it.
           type: boolean
           default: false
         documents:
