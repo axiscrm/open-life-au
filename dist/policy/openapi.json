@@ -1492,17 +1492,17 @@
           "annual"
         ]
       },
-      "StructureResponse": {
-        "title": "StructureResponse",
-        "description": "RESPONSE-facing Structure. Same meaning as `Structure`, but extensible: a consumer MUST pass an unrecognised value through for display rather than failing, so that adding to the premium structures is a minor release rather than a major one.\nKnown values: [stepped, level_65, level_70, blended, level_55, level_60]. Tolerate anything when RECEIVING.\n`level_55` and `level_60` are RESPONSE-ONLY values: held level to age 55 and 60 respectively, then stepped, exactly as `level_65` is to 65. An in-force book may carry them, because it holds benefits written on level-to ages that no product on today's quote screen offers, and the policy contract has to be able to report them. They are deliberately absent from `Structure`, which governs what a quoting REQUEST may ask for: a consumer sending a quote validates against `Structure`, not this twin, and a request for `level_60` is refused with a 422 until the quoting contract decides otherwise. So a value read off a policy is not necessarily one that can be sent back in a quote.",
+      "InForceStructure": {
+        "title": "InForceStructure",
+        "description": "How an in-force benefit's premium behaves over its life. Same meaning as the core `StructureResponse`, and extensible in the same way: a consumer MUST pass an unrecognised value through for display rather than failing.\nKnown values: [stepped, level_55, level_60, level_65, level_70, blended].\n`level_55` and `level_60` are held level to age 55 and 60 respectively, then stepped, exactly as `level_65` is to 65. An in-force book carries them because it holds benefits written on level-to ages that no product on today's quote screen offers. They are deliberately a POLICY vocabulary and not added to the core `StructureResponse`, which the quoting contract shares: a quote response can only describe a structure a quote request could ask for, and the closed `Structure` request enum does not offer them. So a value read off a policy is not necessarily one that can be sent back in a quote.",
         "type": "string",
         "x-extensible-enum": [
           "stepped",
+          "level_55",
+          "level_60",
           "level_65",
           "level_70",
-          "blended",
-          "level_55",
-          "level_60"
+          "blended"
         ]
       },
       "PaymentMethod": {
@@ -1647,7 +1647,7 @@
             "$ref": "#/components/schemas/NonNegativeMoney"
           },
           "structure": {
-            "$ref": "#/components/schemas/StructureResponse"
+            "$ref": "#/components/schemas/InForceStructure"
           },
           "stamp_duty": {
             "description": "Stamp duty component, already included in `amount`.",
@@ -1912,7 +1912,7 @@
             "$ref": "#/components/schemas/OwnershipResponse"
           },
           "structure": {
-            "$ref": "#/components/schemas/StructureResponse"
+            "$ref": "#/components/schemas/InForceStructure"
           },
           "waiting_period": {
             "description": "For income-style benefits, in the insurer's own notation. Free text rather than the quoting contract's enum: this is a historical record of what was written, which may predate the product range currently sold.",

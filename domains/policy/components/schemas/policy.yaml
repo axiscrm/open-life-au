@@ -311,6 +311,25 @@ PolicyStatus:
   type: string
   enum: [in_force, in_arrears, pending, lapsed, cancelled, terminated]
 
+InForceStructure:
+  title: InForceStructure
+  description: >-
+    How an in-force benefit's premium behaves over its life. Same meaning as the core
+    `StructureResponse`, and extensible in the same way: a consumer MUST pass an unrecognised value
+    through for display rather than failing.
+
+    Known values: [stepped, level_55, level_60, level_65, level_70, blended].
+
+    `level_55` and `level_60` are held level to age 55 and 60 respectively, then stepped, exactly as
+    `level_65` is to 65. An in-force book carries them because it holds benefits written on level-to
+    ages that no product on today's quote screen offers. They are deliberately a POLICY vocabulary
+    and not added to the core `StructureResponse`, which the quoting contract shares: a quote
+    response can only describe a structure a quote request could ask for, and the closed `Structure`
+    request enum does not offer them. So a value read off a policy is not necessarily one that can be
+    sent back in a quote.
+  type: string
+  x-extensible-enum: [stepped, level_55, level_60, level_65, level_70, blended]
+
 PolicyOwnership:
   title: PolicyOwnership
   type: object
@@ -415,7 +434,7 @@ PolicyPremium:
       description: The annual cost. Read, not derived.
       $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
     structure:
-      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/StructureResponse'
+      $ref: '#/InForceStructure'
     stamp_duty:
       description: Stamp duty component, already included in `amount`.
       $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
@@ -620,7 +639,7 @@ PolicyCover:
       description: Where a single policy holds benefits under different ownership.
       $ref: '../../../../core/schemas/cover-vocabulary.yaml#/OwnershipResponse'
     structure:
-      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/StructureResponse'
+      $ref: '#/InForceStructure'
     waiting_period:
       description: >-
         For income-style benefits, in the insurer's own notation. Free text rather than the quoting
