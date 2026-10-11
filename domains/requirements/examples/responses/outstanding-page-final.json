@@ -35,6 +35,44 @@
           "phone": "0400 000 000"
         }
       ],
+      "covers": [
+        {
+          "cover_id": "APP-2026-004471-C1",
+          "benefit_name": "Life Cover",
+          "cover_type": "life",
+          "life_id": "L1",
+          "sum_insured": {
+            "amount": "1000000.00",
+            "currency": "AUD"
+          },
+          "premium": {
+            "amount": "121.60",
+            "currency": "AUD"
+          }
+        },
+        {
+          "cover_id": "APP-2026-004471-C2",
+          "benefit_name": "TPD Cover - Linked",
+          "cover_type": "tpd",
+          "life_id": "L1",
+          "sum_insured": {
+            "amount": "750000.00",
+            "currency": "AUD"
+          },
+          "premium": {
+            "amount": "60.80",
+            "currency": "AUD"
+          }
+        }
+      ],
+      "insurer_contacts": [
+        {
+          "role": "case_manager",
+          "name": "Alex Chen",
+          "phone": "1300 000 000",
+          "email": "newbusiness@insurer.example.com.au"
+        }
+      ],
       "distribution": {
         "adviser_code": "AC100",
         "adviser_name": "Sam Rivera",
@@ -101,6 +139,46 @@
           "first_name": "Anna",
           "last_name": "de Vries",
           "date_of_birth": "1980-09-30"
+        }
+      ],
+      "covers": [
+        {
+          "cover_id": "APP-2026-004502-C1",
+          "benefit_name": "Income Protection",
+          "cover_type": "income_protection",
+          "life_id": "L1",
+          "sum_insured": {
+            "amount": "6500.00",
+            "currency": "AUD"
+          },
+          "premium": {
+            "amount": "144.30",
+            "currency": "AUD"
+          },
+          "decision": "loading",
+          "decision_detail": "Accepted with a 50% loading on the income protection benefit."
+        },
+        {
+          "cover_id": "APP-2026-004502-C2",
+          "benefit_name": "Life Cover",
+          "cover_type": "life",
+          "life_id": "L1",
+          "sum_insured": {
+            "amount": "500000.00",
+            "currency": "AUD"
+          },
+          "premium": {
+            "amount": "48.90",
+            "currency": "AUD"
+          },
+          "decision": "standard"
+        }
+      ],
+      "insurer_contacts": [
+        {
+          "role": "underwriter",
+          "name": "Morgan Lee",
+          "email": "underwriting@insurer.example.com.au"
         }
       ],
       "distribution": {

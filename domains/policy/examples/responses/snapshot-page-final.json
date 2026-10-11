@@ -41,9 +41,40 @@
           "postcode": "2042"
         }
       },
+      "parties": [
+        {
+          "party_id": "PT-88213",
+          "role": "life_insured",
+          "first_name": "Jordan",
+          "last_name": "Alvarez",
+          "date_of_birth": "1985-03-14"
+        },
+        {
+          "party_id": "PT-00017",
+          "role": "policy_owner",
+          "last_name": "Example Super Fund"
+        },
+        {
+          "party_id": "PT-88214",
+          "role": "beneficiary",
+          "first_name": "Casey",
+          "last_name": "Alvarez"
+        }
+      ],
+      "beneficiaries": [
+        {
+          "party_id": "PT-88214",
+          "nomination_type": "binding",
+          "relationship": "Spouse",
+          "share_percent": "100",
+          "effective_on": "2024-03-01",
+          "expires_on": "2027-03-01"
+        }
+      ],
       "ownership": {
         "ownership_type": "super",
-        "owner_name": "Example Super Fund"
+        "owner_name": "Example Super Fund",
+        "owner_type": "super_trustee"
       },
       "distribution": {
         "adviser_code": "AC100",
@@ -80,7 +111,28 @@
           "currency": "AUD"
         },
         "payment_method": "superannuation_rollover",
-        "payment_method_detail": "Rollover from Example Super Fund"
+        "payment_method_detail": "Rollover from Example Super Fund",
+        "super_fund": {
+          "fund_name": "Example Super Fund",
+          "usi": "EXS0001AU",
+          "abn": "12345678901",
+          "member_number": "****4471"
+        },
+        "discounts": [
+          {
+            "discount_type": "multi_cover",
+            "name": "Multi-benefit discount",
+            "share_percent": "5",
+            "amount": {
+              "amount": "9.60",
+              "currency": "AUD"
+            },
+            "annualised": {
+              "amount": "115.20",
+              "currency": "AUD"
+            }
+          }
+        ]
       },
       "covers": [
         {
@@ -97,8 +149,10 @@
           },
           "status": "in_force",
           "ownership": "super",
-          "structure": "stepped",
-          "commenced_on": "2021-06-01"
+          "structure": "level_60",
+          "commenced_on": "2021-06-01",
+          "life_party_id": "PT-88213",
+          "indexation": "on"
         },
         {
           "cover_id": "P-4471902-B2",
@@ -115,7 +169,38 @@
           "status": "in_force",
           "ownership": "ordinary",
           "structure": "stepped",
-          "commenced_on": "2021-06-01"
+          "commenced_on": "2021-06-01",
+          "life_party_id": "PT-88213",
+          "linked_to_cover_id": "P-4471902-B1",
+          "link_type": "extension",
+          "indexation": "on",
+          "tpd_definition": "any_occupation",
+          "options": [
+            {
+              "feature": "life_buy_back_after_tpd",
+              "insurer_code": "LBB",
+              "name": "Life Buy-Back"
+            }
+          ],
+          "loadings": [
+            {
+              "basis": "pastime",
+              "percentage": "25",
+              "description": "Amateur motorcycle racing"
+            }
+          ],
+          "exclusions": [
+            {
+              "description": "No benefit is payable for disability arising from the lower back condition disclosed at application."
+            }
+          ]
+        }
+      ],
+      "options": [
+        {
+          "feature": "premium_waiver_on_disability",
+          "insurer_code": "PWD",
+          "name": "Premium Waiver on Disability"
         }
       ],
       "policy_version": 7
@@ -162,7 +247,8 @@
         },
         "structure": "stepped",
         "payment_method": "direct_debit",
-        "payment_method_detail": "Bank account ending 4417"
+        "payment_method_detail": "Bank account ending 4417",
+        "collection_state": "retry_scheduled"
       },
       "covers": [
         {
@@ -179,7 +265,9 @@
           },
           "status": "in_arrears",
           "waiting_period": "90 days",
-          "benefit_period": "To age 65"
+          "benefit_period": "To age 65",
+          "indexation": "off",
+          "income_protection_basis": "agreed_value"
         }
       ],
       "arrears": [

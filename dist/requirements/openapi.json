@@ -557,7 +557,7 @@
     "schemas": {
       "RequirementCategory": {
         "title": "RequirementCategory",
-        "description": "The broad kind of requirement, which is what decides WHO acts on it. This is coarse on purpose: a consumer routes on the category and displays the type, so a requirement whose type is unrecognised is still routed to the right desk rather than landing nowhere.\n  - `medical`         evidence about health — an examination, a test, a report from a doctor.\n                      Chased with the client and usually a medical provider, and the slowest to\n                      clear because a third party controls the timing.\n  - `administrative`  paperwork, authorities, identification and financial evidence. Usually\n                      within the adviser's or client's own control, and therefore the category\n                      where chasing actually works.\n  - `notification`    something the insurer has issued that awaits acknowledgement or a decision\n                      — terms offered, a counter-offer, a warning that the application will be\n                      closed. Not a request for evidence, and treating it as one is a common way\n                      for an offer to expire unanswered.",
+        "description": "The broad kind of requirement, which is what decides WHO acts on it. This is coarse on purpose: a consumer routes on the category and displays the type, so a requirement whose type is unrecognised is still routed to the right desk rather than landing nowhere.\n  - `medical`         evidence about health — an examination, a test, a report from a doctor.\n                      Chased with the client and usually a medical provider, and the slowest to\n                      clear because a third party controls the timing.\n  - `administrative`  paperwork, authorities, identification and financial evidence. Usually\n                      within the adviser's or client's own control, and therefore the category\n                      where chasing actually works.\n  - `notification`    something the insurer has issued that awaits acknowledgement or a decision\n                      — terms offered, a counter-offer, a warning that the application will be\n                      closed. Not a request for evidence, and treating it as one is a common way\n                      for an offer to expire unanswered.\n\nClassify each requirement by what it asks for, from its own title or type, never from the section or group the insurer's system files it under. Those groupings are an insurer's own screen layout, and they routinely mix categories — a financial questionnaire and a report from the client's usual doctor filed under one heading are `administrative` and `medical` respectively, and routing both to one desk sends one of them to the wrong person.",
         "type": "string",
         "enum": [
           "medical",
@@ -702,6 +702,189 @@
             "description": "Mobile preferred. Most chasing of an outstanding requirement starts as a text message, so a landline is materially less useful here than on a servicing record.",
             "type": "string",
             "maxLength": 50
+          }
+        }
+      },
+      "CoverTypeResponse": {
+        "title": "CoverTypeResponse",
+        "description": "RESPONSE-facing CoverType. Same meaning as `CoverType`, but extensible: a consumer MUST pass an unrecognised value through for display rather than failing, so that adding to the benefits is a minor release rather than a major one.\nKnown values: [life, tpd, trauma, income_protection, business_expenses, needle_stick, child_trauma]. Validate against `CoverType` when SENDING; tolerate anything when RECEIVING.",
+        "type": "string",
+        "x-extensible-enum": [
+          "life",
+          "tpd",
+          "trauma",
+          "income_protection",
+          "business_expenses",
+          "needle_stick",
+          "child_trauma"
+        ]
+      },
+      "Decimal": {
+        "title": "Decimal",
+        "description": "A fixed-point decimal amount serialised as a string, with at most two fractional digits. Scientific notation, thousands separators, currency symbols and leading `+` are not permitted. Implementations MUST NOT normalise `\"0.00\"` to `\"0\"` or vice versa when echoing a value back — but consumers MUST treat the two as numerically equal.",
+        "type": "string",
+        "pattern": "^-?\\d{1,12}(\\.\\d{1,2})?$",
+        "examples": [
+          "1234.56",
+          "0",
+          "-19.95"
+        ]
+      },
+      "Money": {
+        "title": "Money",
+        "description": "An amount of money. Currency is carried explicitly even though this standard is Australia-only, so a future market does not become a breaking change.",
+        "type": "object",
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Decimal"
+          },
+          "currency": {
+            "title": "CurrencyCode",
+            "description": "ISO 4217 alphabetic code. Only AUD is defined by this version of the standard.",
+            "type": "string",
+            "const": "AUD"
+          }
+        },
+        "examples": [
+          {
+            "amount": "1000000.00",
+            "currency": "AUD"
+          }
+        ]
+      },
+      "NonNegativeMoney": {
+        "title": "NonNegativeMoney",
+        "description": "Money that cannot be negative — sums insured, premiums, stamp duty, policy fees. A negative value here is always a defect, so it is rejected at the schema boundary rather than surfacing as a nonsensical premium.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Money"
+          },
+          {
+            "properties": {
+              "amount": {
+                "type": "string",
+                "pattern": "^\\d{1,12}(\\.\\d{1,2})?$"
+              }
+            }
+          }
+        ]
+      },
+      "UnderwritingDecision": {
+        "title": "UnderwritingDecision",
+        "description": "The underwriting outcome on one benefit. RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing the page.\n  - `standard`       accepted as applied for, at standard rates\n  - `loading`        accepted with a premium loading\n  - `exclusion`      accepted with an exclusion\n  - `revised_terms`  offered on terms other than those applied for, where the insurer does not\n                     say which kind, or where more than one applies — read `decision_detail`\n  - `declined`       the insurer will not write this benefit\n  - `postponed`      the insurer will not decide until a stated period or event has passed\n\nThere is no value for \"not yet decided\": an absent `decision` already says that, and a second way of saying it would leave a consumer checking for both.\nA decision other than `standard` normally awaits the client's acceptance, and the case carries a `counter_offer` requirement for it. The decision says WHAT was offered; the requirement is what ages and what is chased.",
+        "type": "string",
+        "x-extensible-enum": [
+          "standard",
+          "loading",
+          "exclusion",
+          "revised_terms",
+          "declined",
+          "postponed"
+        ]
+      },
+      "CaseCover": {
+        "title": "CaseCover",
+        "description": "One benefit applied for, and where underwriting has got to on it.",
+        "type": "object",
+        "required": [
+          "benefit_name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "cover_id": {
+            "description": "The insurer's own identifier for this benefit on the application, where it has one, and absent where it has none: no substitute is defined, and an implementation MUST NOT construct one. Where the application issues and the insurer keeps the identifier, the same value SHOULD become the benefit's `cover_id` in the policy contract, which is what lets a consumer carry a decision through to the benefit in force.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "benefit_name": {
+            "description": "The insurer's own name for the benefit, verbatim.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "cover_type": {
+            "description": "The benefit mapped onto the shared cover vocabulary, where one applies. Omit rather than guess.",
+            "$ref": "#/components/schemas/CoverTypeResponse"
+          },
+          "life_id": {
+            "description": "Which life on the case this benefit is on, matching a `life_id` in `lives`. On a joint application two benefits can share a name and belong to different people, and a decision that does not say whose it is has to be resolved by ringing the insurer.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "sum_insured": {
+            "description": "The amount applied for, or as offered where the insurer has revised it. For monthly-benefit covers this is the monthly amount.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "premium": {
+            "description": "The premium for this benefit as applied for or as offered, at the application's billing frequency.",
+            "$ref": "#/components/schemas/NonNegativeMoney"
+          },
+          "decision": {
+            "description": "The underwriting outcome on this benefit. Absent means no decision has been made yet.",
+            "$ref": "#/components/schemas/UnderwritingDecision"
+          },
+          "decision_detail": {
+            "description": "The insurer's own wording for the decision, verbatim — the loading applied, the exclusion offered, why a benefit was postponed. What an adviser reads to the client, so it MUST NOT be dropped in favour of `decision`.",
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      },
+      "InsurerContactRole": {
+        "title": "InsurerContactRole",
+        "description": "RESPONSE-facing and extensible: a consumer MUST pass an unrecognised value through rather than failing.\n  - `underwriter`   assessing the risk\n  - `case_manager`  managing the application through to issue — who to chase about requirements",
+        "type": "string",
+        "x-extensible-enum": [
+          "underwriter",
+          "case_manager"
+        ]
+      },
+      "InsurerContact": {
+        "title": "InsurerContact",
+        "description": "One of the insurer's staff on this case. At least one way of reaching them MUST be present, since a contact with only a role tells an adviser nothing they can act on. A shared team mailbox with no named person is a legitimate contact.",
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "phone"
+            ]
+          },
+          {
+            "required": [
+              "email"
+            ]
+          }
+        ],
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/InsurerContactRole"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
           }
         }
       },
@@ -938,6 +1121,22 @@
             "minItems": 1,
             "items": {
               "$ref": "#/components/schemas/InsuredLife"
+            }
+          },
+          "covers": {
+            "description": "The benefits applied for, each with its own underwriting decision. Optional.\nPer benefit because underwriting decides per benefit: one application routinely carries a life benefit accepted at standard rates beside an income benefit offered with an exclusion, and `status` can only say one thing about the whole case. A consumer that reads the case status alone tells the adviser the application is fine, or that it is not, and is wrong about one of the two benefits either way.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/CaseCover"
+            }
+          },
+          "insurer_contacts": {
+            "description": "The insurer's own staff handling this case — who an adviser rings about it. Optional. These are the insurer's working contacts, published to the adviser who wrote the business, and nothing about the client.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/InsurerContact"
             }
           },
           "distribution": {
@@ -1258,6 +1457,16 @@
               },
               "contact_details": {
                 "description": "Whether `email` and `phone` are populated on each life.",
+                "type": "boolean",
+                "default": false
+              },
+              "cover_decisions": {
+                "description": "Whether cases carry `covers` with a decision per benefit. `false` means the case `status` is the only outcome a consumer can see, even where the benefits on one case have been decided differently.",
+                "type": "boolean",
+                "default": false
+              },
+              "insurer_contacts": {
+                "description": "Whether cases carry `insurer_contacts`.",
                 "type": "boolean",
                 "default": false
               }
