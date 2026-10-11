@@ -788,6 +788,16 @@ CoverLine:
       description: The insurer's own name for this cover as written.
       type: string
       maxLength: 200
+    insurer_product_id:
+      description: >-
+        The product this cover was written on, from `products` in the capability document.
+        RECOMMENDED wherever the insurer publishes products for the cover — it is what lets a
+        consumer show which product a line is on and offer the others — and REQUIRED where the
+        request named one in `insurer_products`, so the consumer can confirm the product it asked
+        for is the product that priced.
+      type: string
+      minLength: 1
+      maxLength: 128
     sum_insured:
       description: >-
         The lump sum actually written, which may differ from the amount requested where the insurer

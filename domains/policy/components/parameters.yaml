@@ -86,6 +86,18 @@ ExpectedLapseBefore:
     type: string
     format: date
 
+Since:
+  name: since
+  in: query
+  description: >-
+    Return only transactions that occurred on or after this date. Omitted, the implementation
+    returns as far back as it keeps. Either way the response's `since` states the date it actually
+    starts from, which is later than this where the implementation's lookback is shorter.
+  required: false
+  schema:
+    type: string
+    format: date
+
 PolicyIdPath:
   name: policy_id
   in: path
@@ -115,7 +127,7 @@ Limit:
   name: limit
   in: query
   description: >-
-    Maximum policies per page. A server MAY return fewer; completion is signalled by `complete`
+    Maximum records per page — policies, worklist rows or transactions. A server MAY return fewer; completion is signalled by `complete`
     and the absence of `page.next_cursor`, never by a short page.
   required: false
   schema:

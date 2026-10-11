@@ -181,3 +181,33 @@ StructureResponse:
     Known values: [stepped, level_65, level_70, blended]. Validate against `Structure` when SENDING; tolerate anything when RECEIVING.
   type: string
   x-extensible-enum: [stepped, level_65, level_70, blended]
+
+TpdDefinitionResponse:
+  title: TpdDefinitionResponse
+  description: >-
+    RESPONSE-facing TpdDefinition: the test of total and permanent disability a benefit was WRITTEN
+    on. Same meaning as `TpdDefinition`, but extensible — a consumer MUST pass an unrecognised value
+    through for display rather than failing.
+
+    Known values: [own_occupation, any_occupation, home_duties, adl]. `prefer` is absent on
+    purpose: it is a request to let the insurer choose, and an in-force benefit has already been
+    written on one definition or another. An implementation that cannot say which MUST omit the
+    field rather than send `prefer`.
+  type: string
+  x-extensible-enum: [own_occupation, any_occupation, home_duties, adl]
+
+IncomeProtectionBasis:
+  title: IncomeProtectionBasis
+  description: >-
+    How an income-style benefit is assessed at claim. RESPONSE-facing and extensible: a consumer
+    MUST pass an unrecognised value through rather than failing.
+
+    Carried because it decides what a claim pays. An agreed-value benefit pays the amount fixed at
+    application; an indemnity benefit pays against income proven at claim time, which can be
+    materially less than the sum insured a consumer is displaying. The values are the same concepts
+    as the `agreed_value` and `indemnity_option` cover features in `taxonomy/product-features.yaml`,
+    stated here as the basis a benefit IS written on rather than a feature a product offers.
+      - `agreed_value`  the monthly benefit was fixed on income evidence supplied at application
+      - `indemnity`     the monthly benefit is assessed against income at the time of claim
+  type: string
+  x-extensible-enum: [agreed_value, indemnity]

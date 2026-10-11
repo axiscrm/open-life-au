@@ -113,6 +113,17 @@ Capabilities:
           description: Whether `email` and `phone` are populated on each life.
           type: boolean
           default: false
+        cover_decisions:
+          description: >-
+            Whether cases carry `covers` with a decision per benefit. `false` means the case
+            `status` is the only outcome a consumer can see, even where the benefits on one case
+            have been decided differently.
+          type: boolean
+          default: false
+        insurer_contacts:
+          description: Whether cases carry `insurer_contacts`.
+          type: boolean
+          default: false
 
     incremental:
       description: >-
