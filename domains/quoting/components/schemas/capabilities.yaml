@@ -414,8 +414,13 @@ CoverCapability:
         ABSENT OR SINGLE-PRODUCT MEANS NOTHING TO CHOOSE, and a consumer SHOULD NOT offer a
         product switch for that brand and cover. An id space a consumer cannot enumerate is one it
         cannot use, so an implementation that accepts `insurer_products` MUST publish the ids here.
+
+        WHY THE CEILING IS HIGH. It is per cover across EVERY brand an endpoint prices, and real
+        ranges publish each ownership and benefit-split arrangement as its own product — one
+        aggregated range lists 144 life products. A ceiling below that forces an implementation
+        to publish a truncated list, and a product left off it cannot be chosen at all.
       type: array
-      maxItems: 100
+      maxItems: 1000
       items:
         $ref: '#/InsurerProduct'
     features:
