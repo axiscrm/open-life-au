@@ -208,9 +208,48 @@ CoverBase:
       $ref: '../../../../core/schemas/identifiers.yaml#/CoverId'
     link_type:
       $ref: '#/LinkType'
+    insurer_products:
+      description: >-
+        Price this cover on a particular product of the insurer's range, per brand: a map of
+        `brand_id` to an `insurer_product_id` published in `products` on this cover in the
+        capability document. A brand absent from the map is priced on the insurer's own choice of
+        product, which is the ordinary case.
+
+        The same shape as `insurer_occupation_id` and `insurer_commission_id`: the insurer's own
+        identifier, from a list it publishes, for a choice the portable vocabulary cannot name.
+        Per brand because a product belongs to one brand, and one request routinely prices
+        several.
+
+        THREE ANSWERS, AND NONE OF THEM IS A SILENT DEFAULT.
+          * An id the insurer does not publish for this cover and brand MUST be rejected with 422
+            `unsupported-value`. An engine handed an unknown product commonly prices its default
+            instead and says nothing, which puts a premium for a product nobody chose in front of
+            the adviser.
+          * A published product that cannot write this configuration declines the line —
+            `all_needs_met: false`, with the reason in `errors` — rather than falling back to
+            another product.
+          * Otherwise the cover is written on it, and `CoverLine.insurer_product_id` says so.
+
+        An extension is written on its parent's product, so this MUST NOT be set on a cover with
+        `linked_to`; choose the parent's product instead. A server MUST answer one with 422
+        `invalid-combination`. Not schema-enforced — see the note at the end of `CoverBase`.
+      type: object
+      minProperties: 1
+      maxProperties: 20
+      additionalProperties:
+        type: string
+        minLength: 1
+        maxLength: 128
+      examples:
+        - { brand-a: 'INCOME-SUPPORT' }
   dependentRequired:
     linked_to: [link_type]
     link_type: [linked_to]
+  # "No product choice on an extension" is NOT enforced here. A `dependentSchemas` clause keyed on
+  # `linked_to` is the natural form, but under the `unevaluatedProperties: false` the covers
+  # compose with, the bundled validators then treat EVERY property of every cover as unevaluated
+  # and reject valid requests wholesale. Stated normatively on `insurer_products` and tested by
+  # the conformance suite instead, like the extension-amount rule on `linked_to`.
 
 # ---------------------------------------------------------------------------------------------
 # The covers

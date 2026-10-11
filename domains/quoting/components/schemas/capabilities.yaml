@@ -258,6 +258,12 @@ Capabilities:
             `not_offered`.
           type: boolean
           default: false
+        product_selection:
+          description: >-
+            Whether `insurer_products` is honoured. An implementation declaring `true` MUST publish
+            `products` on every cover it accepts a choice for.
+          type: boolean
+          default: false
         minimum_premium:
           description: >-
             Whether lines carry `minimum_premium`. `false` does not license pricing below an
@@ -399,6 +405,19 @@ CoverCapability:
         - waiting_period: ['4w', '8w', '13w', '26w']
           benefit_period: ['2y', '5y', 'age_65']
           tpd_definition: [own_occupation, any_occupation]
+    products:
+      description: >-
+        The products this insurer can write THIS cover on, per brand, addressable in a request by
+        `insurer_products`. Publish it where a brand has more than one product for the cover — an
+        income protection and an income support product, say — so a consumer can offer the choice.
+
+        ABSENT OR SINGLE-PRODUCT MEANS NOTHING TO CHOOSE, and a consumer SHOULD NOT offer a
+        product switch for that brand and cover. An id space a consumer cannot enumerate is one it
+        cannot use, so an implementation that accepts `insurer_products` MUST publish the ids here.
+      type: array
+      maxItems: 100
+      items:
+        $ref: '#/InsurerProduct'
     features:
       description: >-
         Named product features that may be required for this cover via `required_features`.
@@ -454,6 +473,40 @@ CoverCapability:
           # No standard equivalent — the insurer's own code is the only way to name it.
           - code: NEO_FUNERAL_ADV
             name: Funeral advancement
+
+InsurerProduct:
+  title: InsurerProduct
+  description: >-
+    One product a brand can write a cover on. The id is the insurer's own and is scoped to the
+    brand and the cover it is published under.
+  type: object
+  required: [brand_id, insurer_product_id, name]
+  additionalProperties: false
+  properties:
+    brand_id:
+      $ref: '../../../../core/schemas/identifiers.yaml#/BrandId'
+    insurer_product_id:
+      type: string
+      minLength: 1
+      maxLength: 128
+    name:
+      description: The insurer's own name for the product, for display in a product picker.
+      type: string
+      maxLength: 200
+    default:
+      description: >-
+        Whether this is the product the insurer writes the cover on when the request names none.
+        At most one per brand and cover.
+      type: boolean
+      default: false
+  examples:
+    - brand_id: brand-a
+      insurer_product_id: INCOME-PROTECTION
+      name: Income Protection
+      default: true
+    - brand_id: brand-a
+      insurer_product_id: INCOME-SUPPORT
+      name: Income Support
 
 InsurerCommissionOption:
   title: InsurerCommissionOption

@@ -113,6 +113,11 @@ const CASES = [
         },
     },
     {
+        name: "an empty product choice",
+        why: "an empty map says nothing and is indistinguishable from a dropped one",
+        doc: { insured, covers: [life({ insurer_products: {} })] },
+    },
+    {
         name: "money sent as a JSON number",
         why: "amounts are decimal strings; a float drifts by cents",
         doc: { insured, covers: [life({ sum_insured: { amount: 1000000, currency: "AUD" } })] },
@@ -949,6 +954,13 @@ for (const [group, validator, cases] of [
  * in the market unrepresentable.
  */
 const ACCEPTANCE_CASES = [
+    {
+        group: "quoting request",
+        name: "a product choice on a standalone cover",
+        why: "the ordinary use: one brand's income support product instead of its default",
+        validator: validateRequest,
+        doc: { insured, covers: [life({ insurer_products: { "brand-a": "LIFE-PLUS" } })] },
+    },
     {
         group: "commission line",
         name: "a negative amount (a clawback)",
