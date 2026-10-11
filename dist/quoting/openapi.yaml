@@ -942,6 +942,30 @@ components:
           $ref: '#/components/schemas/CoverId'
         link_type:
           $ref: '#/components/schemas/LinkType'
+        insurer_products:
+          description: |-
+            Price this cover on a particular product of the insurer's range, per brand: a map of `brand_id` to an `insurer_product_id` published in `products` on this cover in the capability document. A brand absent from the map is priced on the insurer's own choice of product, which is the ordinary case.
+            The same shape as `insurer_occupation_id` and `insurer_commission_id`: the insurer's own identifier, from a list it publishes, for a choice the portable vocabulary cannot name. Per brand because a product belongs to one brand, and one request routinely prices several.
+            THREE ANSWERS, AND NONE OF THEM IS A SILENT DEFAULT.
+              * An id the insurer does not publish for this cover and brand MUST be rejected with 422
+                `unsupported-value`. An engine handed an unknown product commonly prices its default
+                instead and says nothing, which puts a premium for a product nobody chose in front of
+                the adviser.
+              * A published product that cannot write this configuration declines the line —
+                `all_needs_met: false`, with the reason in `errors` — rather than falling back to
+                another product.
+              * Otherwise the cover is written on it, and `CoverLine.insurer_product_id` says so.
+
+            An extension is written on its parent's product, so this MUST NOT be set on a cover with `linked_to`; choose the parent's product instead. A server MUST answer one with 422 `invalid-combination`. Not schema-enforced — see the note at the end of `CoverBase`.
+          type: object
+          minProperties: 1
+          maxProperties: 20
+          additionalProperties:
+            type: string
+            minLength: 1
+            maxLength: 128
+          examples:
+            - brand-a: INCOME-SUPPORT
       dependentRequired:
         linked_to:
           - link_type
@@ -1881,6 +1905,11 @@ components:
           description: The insurer's own name for this cover as written.
           type: string
           maxLength: 200
+        insurer_product_id:
+          description: The product this cover was written on, from `products` in the capability document. RECOMMENDED wherever the insurer publishes products for the cover — it is what lets a consumer show which product a line is on and offer the others — and REQUIRED where the request named one in `insurer_products`, so the consumer can confirm the product it asked for is the product that priced.
+          type: string
+          minLength: 1
+          maxLength: 128
         sum_insured:
           description: The lump sum actually written, which may differ from the amount requested where the insurer applied a cap or a product minimum. Any such difference MUST also appear in `resolved_options` as `substituted`. Present on every cover EXCEPT income protection and business expenses.
           $ref: '#/components/schemas/NonNegativeMoney'
@@ -2718,6 +2747,38 @@ components:
         - basis: upfront
           max_age_next_birthday: 61
         - basis: level
+    InsurerProduct:
+      title: InsurerProduct
+      description: One product a brand can write a cover on. The id is the insurer's own and is scoped to the brand and the cover it is published under.
+      type: object
+      required:
+        - brand_id
+        - insurer_product_id
+        - name
+      additionalProperties: false
+      properties:
+        brand_id:
+          $ref: '#/components/schemas/BrandId'
+        insurer_product_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        name:
+          description: The insurer's own name for the product, for display in a product picker.
+          type: string
+          maxLength: 200
+        default:
+          description: Whether this is the product the insurer writes the cover on when the request names none. At most one per brand and cover.
+          type: boolean
+          default: false
+      examples:
+        - brand_id: brand-a
+          insurer_product_id: INCOME-PROTECTION
+          name: Income Protection
+          default: true
+        - brand_id: brand-a
+          insurer_product_id: INCOME-SUPPORT
+          name: Income Support
     CoverCapability:
       title: CoverCapability
       description: What one cover type supports. `supported_options` carries VALUE SETS rather than a list of field names, so an insurer can narrow an enum — three waiting periods out of seven — without the standard needing a new version.
@@ -2802,6 +2863,14 @@ components:
               tpd_definition:
                 - own_occupation
                 - any_occupation
+        products:
+          description: |-
+            The products this insurer can write THIS cover on, per brand, addressable in a request by `insurer_products`. Publish it where a brand has more than one product for the cover — an income protection and an income support product, say — so a consumer can offer the choice.
+            ABSENT OR SINGLE-PRODUCT MEANS NOTHING TO CHOOSE, and a consumer SHOULD NOT offer a product switch for that brand and cover. An id space a consumer cannot enumerate is one it cannot use, so an implementation that accepts `insurer_products` MUST publish the ids here.
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/InsurerProduct'
         features:
           description: |-
             Named product features that may be required for this cover via `required_features`.
@@ -3028,6 +3097,10 @@ components:
               default: false
             feature_reporting:
               description: Whether `report_features` is honoured, so lines carry `features`. An implementation declaring `true` reports the codes it can answer for, which need not be the whole vocabulary — see `QuoteLine.features` on why an absent code is unknown rather than `not_offered`.
+              type: boolean
+              default: false
+            product_selection:
+              description: Whether `insurer_products` is honoured. An implementation declaring `true` MUST publish `products` on every cover it accepts a choice for.
               type: boolean
               default: false
             minimum_premium:
