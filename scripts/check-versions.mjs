@@ -97,10 +97,24 @@ for (const contract of contracts()) {
         // `extra-files` is what rewrites `info.version` on release. Without it the published
         // document keeps the previous version forever while the git tag moves — and the
         // `# x-release-please-version` marker in the file promises otherwise.
-        if (!(pkg["extra-files"] ?? []).includes("openapi.yaml")) {
+        const extra = pkg["extra-files"] ?? [];
+        if (!extra.includes("openapi.yaml")) {
             problems.push(
                 `${name}: release-please-config.json does not list openapi.yaml in extra-files, ` +
                     "so info.version will not be updated on release",
+            );
+        }
+        // The committed bundle must move in the same commit, or CI's dist/ drift check fails the
+        // release PR. The YAML bundle relies on the marker scripts/mark-dist-version.mjs adds.
+        const distYaml = `/dist/${name}/openapi.yaml`;
+        const distJson = `/dist/${name}/openapi.json`;
+        if (!extra.includes(distYaml)) {
+            problems.push(`${name}: release-please-config.json extra-files is missing "${distYaml}"`);
+        }
+        if (!extra.some((f) => f?.type === "json" && f.path === distJson && f.jsonpath === "$.info.version")) {
+            problems.push(
+                `${name}: release-please-config.json extra-files is missing ` +
+                    `{ "type": "json", "path": "${distJson}", "jsonpath": "$.info.version" }`,
             );
         }
         if (!pkg.component) {
