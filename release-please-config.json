@@ -19,7 +19,13 @@
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "extra-files": [
-        "openapi.yaml"
+        "openapi.yaml",
+        "/dist/quoting/openapi.yaml",
+        {
+          "type": "json",
+          "path": "/dist/quoting/openapi.json",
+          "jsonpath": "$.info.version"
+        }
       ]
     },
     "domains/policy": {
@@ -29,7 +35,13 @@
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "extra-files": [
-        "openapi.yaml"
+        "openapi.yaml",
+        "/dist/policy/openapi.yaml",
+        {
+          "type": "json",
+          "path": "/dist/policy/openapi.json",
+          "jsonpath": "$.info.version"
+        }
       ]
     },
     "domains/requirements": {
@@ -39,7 +51,13 @@
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "extra-files": [
-        "openapi.yaml"
+        "openapi.yaml",
+        "/dist/requirements/openapi.yaml",
+        {
+          "type": "json",
+          "path": "/dist/requirements/openapi.json",
+          "jsonpath": "$.info.version"
+        }
       ]
     },
     "domains/commissions": {
@@ -49,7 +67,13 @@
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "extra-files": [
-        "openapi.yaml"
+        "openapi.yaml",
+        "/dist/commissions/openapi.yaml",
+        {
+          "type": "json",
+          "path": "/dist/commissions/openapi.json",
+          "jsonpath": "$.info.version"
+        }
       ]
     }
   }
