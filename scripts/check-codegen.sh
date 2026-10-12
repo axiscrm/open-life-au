@@ -12,7 +12,7 @@
 # Hence the assertions. Counting files is not enough: one generator exits 0 having written nothing,
 # and another writes plenty while quietly dropping schemas.
 #
-# Usage: scripts/check-codegen.sh <typescript|python|java|ruby|go|csharp>
+# Usage: scripts/check-codegen.sh <typescript|python|java|ruby|go|csharp|rust>
 
 set -euo pipefail
 
@@ -105,6 +105,18 @@ symbols_for() {
     policy)       echo "$POLICY_SYMBOLS" ;;
     requirements) echo "$REQUIREMENTS_SYMBOLS" ;;
     commissions)  echo "$COMMISSIONS_SYMBOLS" ;;
+    *)            echo "" ;;
+  esac
+}
+
+# `<examples subdirectory>:<schema>` pairs for the Rust round-trip — the same pairing
+# scripts/validate-examples.mjs validates against, so every worked example is exercised.
+rust_suites_for() {
+  case "$1" in
+    quoting)      echo "requests:QuoteRequest responses:QuoteResponse" ;;
+    policy)       echo "responses:PolicyPage arrears:ArrearsPage transactions:TransactionPage" ;;
+    requirements) echo "responses:RequirementsPage" ;;
+    commissions)  echo "responses:LinePage" ;;
     *)            echo "" ;;
   esac
 }
@@ -319,8 +331,66 @@ case "$LANG_TARGET" in
     echo "✓ csharp: Money.Amount is string"
     ;;
 
+  rust)
+    # Server stubs only, via rust-axum. The `rust` client target is not usable against quoting: it
+    # wraps each cover in a `#[serde(tag = "cover_type")]` enum AND keeps `cover_type` as a required
+    # field of the variant, so serde consumes the tag and then fails every request with "missing
+    # field `cover_type`". See docs/generators/rust.md.
+    #
+    # rust-axum itself needs scripts/rust-axum.mjs either side of it — webhooks stripped before, and
+    # discriminant defaults and regex literals repaired after. Without it three of the four crates do
+    # not compile and the fourth silently puts "LifeCover" on the wire. These are the same steps the
+    # doc tells implementers to run, so the recipe they follow is the one tested here.
+    for contract in $CONTRACTS; do
+      rm -rf "$OUT/rust-axum-$contract"
+      node "$ROOT/scripts/rust-axum.mjs" prepare "$ROOT/dist/$contract/openapi.json" > "$OUT/rust-axum-$contract.json"
+      npx --yes $OG generate \
+        -i "$OUT/rust-axum-$contract.json" -g rust-axum -o "$OUT/rust-axum-$contract" --skip-validate-spec \
+        --additional-properties=packageName=openlife_$contract
+      node "$ROOT/scripts/rust-axum.mjs" patch "$ROOT/dist/$contract/openapi.json" "$OUT/rust-axum-$contract"
+      # rust-axum writes every model into one models.rs, so the floor is low; the symbol check is
+      # what carries the weight.
+      assert_files "$OUT/rust-axum-$contract" "*.rs" 5 "rust server stubs (rust-axum, $contract)"
+    done
+    for contract in $CONTRACTS; do
+      assert_symbols "rust $contract" "$OUT/rust-axum-$contract/src" $(symbols_for "$contract")
+    done
+    echo "✓ rust: discriminant defaults and regex literals patched"
+
+    grep -qE "pub amount: String" "$OUT/rust-axum-quoting/src/models.rs" \
+      || { echo "✗ rust: Money.amount is not a String — decimal precision lost"; exit 1; }
+    echo "✓ rust: Money.amount is String"
+
+    # Compiling is the only way to see whether the patches worked, so do it wherever there is a
+    # toolchain. CI always has one; a contributor without Rust still gets everything above.
+    if cargo --version >/dev/null 2>&1; then
+      export CARGO_TARGET_DIR="$OUT/rust-target"
+      for contract in $CONTRACTS; do
+        crate="$OUT/rust-axum-$contract"
+        mkdir -p "$crate/tests"
+        {
+          cat "$ROOT/scripts/check-codegen-rust.rs"
+          echo
+          echo "#[test]"
+          echo "fn examples_round_trip() {"
+          echo "    let mut failures = vec![];"
+          for suite in $(rust_suites_for "$contract"); do
+            echo "    failures.extend(round_trip::<openlife_$contract::models::${suite#*:}>(\"${suite%%:*}\"));"
+          done
+          echo "    assert!(failures.is_empty(), \"\\n{}\", failures.join(\"\\n\\n\"));"
+          echo "}"
+        } > "$crate/tests/examples.rs"
+        OPENLIFE_EXAMPLES="$ROOT/domains/$contract/examples" \
+          cargo test --quiet --manifest-path "$crate/Cargo.toml" --test examples
+        echo "✓ rust $contract: compiles, and every example round-trips through the generated models"
+      done
+    else
+      echo "· rust compile and round-trip skipped — no cargo on PATH"
+    fi
+    ;;
+
   *)
-    echo "usage: scripts/check-codegen.sh <typescript|python|java|ruby|go|csharp>"
+    echo "usage: scripts/check-codegen.sh <typescript|python|java|ruby|go|csharp|rust>"
     exit 2
     ;;
 esac

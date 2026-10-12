@@ -12,3 +12,6 @@ site/
 # insurers, per-insurer coverage, extract volumes. The provenance gate does not scan tmp/, so
 # nothing else would catch it on the way in.
 tmp/
+
+# Git worktrees for parallel branches (git worktree add .claude/worktrees/<name>).
+.claude/worktrees/

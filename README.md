@@ -128,22 +128,23 @@ npm run docs        # build the published site into site/ — every contract, pl
 npm run postman     # regenerate the collections
 npm run audit       # dependency advisories, via the reviewed-exceptions gate
 
-# Generators — slower, so not part of `verify`. CI runs all six in parallel on every change.
+# Generators — slower, so not part of `verify`. CI runs all seven in parallel on every change.
 #
-# FIVE OF THE SIX NEED A JDK, not just the Java one: openapi-generator is a Java tool behind an
-# npm wrapper and it also emits Ruby, Go, C# and one of the three TypeScript options. It does NOT
+# SIX OF THE SEVEN NEED A JDK, not just the Java one: openapi-generator is a Java tool behind an
+# npm wrapper and it also emits Ruby, Go, C#, Rust and one of the three TypeScript options. It does NOT
 # need those languages installed — only Java. `.java-version` pins 21 to match CI; honoured by
 # jenv, asdf and mise, and ignored harmlessly otherwise.
 #
 # On macOS, beware /usr/bin/java: it is a STUB that exists on PATH and reports "Unable to locate a
 # Java Runtime" when called. `java -version` tells you the truth; `command -v java` does not.
-npm run codegen               # all six, sequentially
+npm run codegen               # all seven, sequentially
 npm run codegen:typescript    # needs Node, and a JDK for the typescript-fetch option
 npm run codegen:python        # needs uv (or adapt to pipx/pip) — the only one with no JDK
 npm run codegen:java          # needs a JDK
 npm run codegen:csharp        # needs a JDK
 npm run codegen:go            # needs a JDK
 npm run codegen:ruby          # needs a JDK
+npm run codegen:rust          # needs a JDK; also compiles and round-trips if cargo is on PATH
 ```
 
 The codegen checks exist because a valid OpenAPI document is not the same as a usable one, and this
@@ -168,7 +169,7 @@ fails if it drifts from source.
 
 ## Generating stubs and clients
 
-The contract is plain OpenAPI 3.1, so any generator will work. These six are run against every change
+The contract is plain OpenAPI 3.1, so any generator will work. These seven are run against every change
 in CI, each with the exact flags needed — and the flags matter: every one is there because a default
 produced something wrong.
 
@@ -184,6 +185,7 @@ too, which uses the same envelope and the same absence rule.
 | Python | [docs/generators/python.md](docs/generators/python.md) | Pydantic models, or a full client package |
 | Go | [docs/generators/go.md](docs/generators/go.md) | `net/http` or Gin stubs + a client |
 | Ruby | [docs/generators/ruby.md](docs/generators/ruby.md) | a client gem |
+| Rust | [docs/generators/rust.md](docs/generators/rust.md) | axum stubs to implement, via a fix-up script |
 
 Each guide stands alone — prerequisites, fetching the contract, the command, and the traps specific
 to that toolchain. See [docs/generators/](docs/generators/) for the comparison, including which

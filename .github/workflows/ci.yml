@@ -120,14 +120,14 @@ jobs:
   # lint or schema validation catches that; only running the generators does.
   #
   # Every language the standard documents runs on every PR. They are matrix entries, so this is
-  # parallel and costs wall-clock roughly one generator run, not six.
+  # parallel and costs wall-clock roughly one generator run, not seven.
   codegen:
     name: 🏭 Generators (${{ matrix.lang }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        lang: [typescript, python, java, ruby, go, csharp]
+        lang: [typescript, python, java, ruby, go, csharp, rust]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -138,7 +138,7 @@ jobs:
       - run: npm run bundle
 
       # A JDK is needed by far more than the Java job: openapi-generator is a Java tool behind an
-      # npm wrapper, and it is what generates Ruby, Go, C# — and one of the three TypeScript
+      # npm wrapper, and it is what generates Ruby, Go, C#, Rust — and one of the three TypeScript
       # options. Python is the only entry that does not need it.
       - uses: actions/setup-java@v4
         if: matrix.lang != 'python'
@@ -147,6 +147,12 @@ jobs:
           java-version: '21'
       - uses: astral-sh/setup-uv@v5
         if: matrix.lang == 'python'
+
+      # Rust is the one entry that compiles its output: the defect it guards against only shows up
+      # when a real payload is deserialised and serialised again. The generated crates are edition
+      # 2024 (Rust 1.85+), so install current stable rather than trusting the runner image's copy.
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.lang == 'rust'
 
       - name: Generate
         run: npm run codegen:${{ matrix.lang }}
