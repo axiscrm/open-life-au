@@ -21,15 +21,16 @@ snapshot and has no absence semantics at all — see [that contract's README](..
 | C# / .NET | [csharp.md](csharp.md) | ASP.NET Core controllers | RestSharp or `HttpClient` |
 | Go | [go.md](go.md) | `net/http` or Gin | ✓ |
 | Ruby | [ruby.md](ruby.md) | — client models only, see the page | Faraday gem |
+| Rust | [rust.md](rust.md) | axum traits, plus a fix-up script | — models only, see the page |
 
 Plus [policy.md](policy.md) — cross-language notes on generating from and consuming the policy
 contract.
 
-### Why these six, and what is missing
+### Why these seven, and what is missing
 
 Java and C# first, because that is what large Australian insurers and their policy administration
-platforms actually run. TypeScript and Python next, for the digital and data teams. Go and Ruby for
-newer platforms and smaller shops.
+platforms actually run. TypeScript and Python next, for the digital and data teams. Go, Ruby and Rust
+for newer platforms and smaller shops.
 
 Deliberately absent, and the reasoning, so you can tell us if we have it wrong:
 
@@ -38,7 +39,7 @@ Deliberately absent, and the reasoning, so you can tell us if we have it wrong:
   this contract behaves differently there.
 - **PHP** — `php-symfony`, `php-slim4` and others all work. Not documented because we have not seen
   demand; say the word and it takes an afternoon.
-- **Rust, Elixir, Scala** — supported by openapi-generator, unlikely in this market.
+- **Elixir, Scala** — supported by openapi-generator, unlikely in this market.
 
 If you need a language that is not here, open an issue. The contract is plain OpenAPI 3.1 and
 openapi-generator covers roughly fifty targets, so the answer is usually "yes, and here are the two
@@ -73,14 +74,15 @@ Whether you get a single module or a package is a property of the generator, not
 | `datamodel-code-generator` | one `.py` module — it mirrors its input, so one document gives one module even if you pass a directory to `--output` |
 | `openapi-python-client` | a package, one module per model |
 | `openapi-generator` (Java, C#, Go, Ruby) | a package, one class or file per model |
+| `openapi-generator -g rust-axum` | a crate with every model in one `models.rs` |
 
 So single-file output is never something you are stuck with — in both TypeScript and Python there is
 a multi-file generator documented alongside the single-file one.
 
 Two things need more than their own language runtime. `@hey-api/openapi-ts` requires a
 **TypeScript 5.x** peer (7.x breaks it). And **openapi-generator requires a JDK** — it is a Java tool
-behind an npm wrapper, and it is what generates Java, C#, Go, Ruby *and* one of the three TypeScript
-options. Python is the only language here that needs nothing but itself.
+behind an npm wrapper, and it is what generates Java, C#, Go, Ruby, Rust *and* one of the three
+TypeScript options. Python is the only language here that needs nothing but itself.
 
 ## Documentation comes through — make sure you keep it
 
@@ -157,6 +159,6 @@ that used to work.
    generator exits `0` having written nothing, and another writes plenty while dropping schemas.
 3. Add the language to the `codegen` matrix in
    [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml). Every documented language runs on
-   every pull request; they are matrix entries, so six generators cost roughly the wall-clock of one.
+   every pull request; they are matrix entries, so seven generators cost roughly the wall-clock of one.
 4. Note any flag you needed and what the default did wrong. That sentence is the most valuable part
    of the page.
