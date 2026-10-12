@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Open Life Policy API (AU)
-  version: 0.1.0 # x-release-please-version
+  version: 0.1.1 # x-release-please-version
   summary: A vendor-neutral contract for retrieving in-force Australian life policy data.
   description: |
     A contract an insurer implements so that adviser software can retrieve the policies written under
