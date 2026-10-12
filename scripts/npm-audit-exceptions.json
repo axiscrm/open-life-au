@@ -36,6 +36,20 @@
       "severity": "high",
       "reason": "Arbitrary code execution when the template string expanded by faker's `fake` helper is attacker-controlled. Patched in 10.5.0, and prism-http 5.16.0 is on 10.6.0; the flagged copy is the @faker-js/faker 5.5.3 pinned by postman-collection, which only expands Postman `{{$random*}}` variables and is never handed one of ours. An override cannot fix it: forcing a patched 10.x makes postman-collection throw at load, because its dynamic-variable table calls v5 namespaces (`faker.address.city` among 118 others) that v10 removed.",
       "expires": "2026-11-06"
+    },
+    {
+      "advisory": "GHSA-vfj7-8cjw-p6xm",
+      "package": "braces",
+      "severity": "high",
+      "reason": "Stack-exhaustion denial of service when braces expands a deeply nested pattern. No patched release exists (every version up to 3.0.3 is affected). The copy is braces 3.0.3 under chokidar 3.6.0, which prism-cli uses only to watch the document it was started on; scripts/mock.mjs starts it on a bundle in dist/, so the only pattern braces ever sees is a path in this repository. Dev-only, never published. Re-check at expiry for a patched braces or a chokidar 4 (which dropped braces) in prism-cli.",
+      "expires": "2026-11-06"
+    },
+    {
+      "advisory": "GHSA-hp3w-g68c-fv3c",
+      "package": "sprintf-js",
+      "severity": "moderate",
+      "reason": "Denial of service through an unbounded precision specifier in a format string. No patched release exists (every version up to 1.1.3 is affected). The copy is sprintf-js 1.0.3, reached as json-schema-faker → json-schema-ref-parser 6.1.0 → js-yaml 3.15.2 → argparse 1.0.10, and argparse calls it only to format command-line help. js-yaml loads argparse only in its own `bin/js-yaml.js` CLI, which nothing here runs; json-schema-ref-parser imports the library. Dev-only, never published.",
+      "expires": "2026-11-06"
     }
   ]
 }
