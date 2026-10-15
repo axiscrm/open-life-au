@@ -1,7 +1,7 @@
 # Requirements contract
 
 Outstanding underwriting requirements on life applications — what an application is waiting on, and
-who it is waiting on. `v0.1.0` — draft, open for comment.
+who it is waiting on. Draft, open for comment; the current version is in [`version.txt`](version.txt).
 
 - Contract: [`openapi.yaml`](openapi.yaml) · bundled at [`dist/requirements/openapi.yaml`](../../dist/requirements/openapi.yaml)
 - The vocabulary: [`core/schemas/requirement-vocabulary.yaml`](../../core/schemas/requirement-vocabulary.yaml)
