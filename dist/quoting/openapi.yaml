@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Open Life Quoting API (AU)
-  version: 0.2.0 # x-release-please-version
+  version: 0.2.1 # x-release-please-version
   summary: A vendor-neutral contract for pricing Australian life risk cover.
   description: |
     A contract an insurer implements so that adviser software can obtain quotes directly, in one

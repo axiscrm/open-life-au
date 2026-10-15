@@ -1,7 +1,7 @@
 {
   "core": "0.2.0",
-  "domains/quoting": "0.2.0",
-  "domains/policy": "0.1.1",
-  "domains/requirements": "0.1.1",
-  "domains/commissions": "0.1.0"
+  "domains/quoting": "0.2.1",
+  "domains/policy": "0.1.2",
+  "domains/requirements": "0.1.2",
+  "domains/commissions": "0.1.1"
 }
