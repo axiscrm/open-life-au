@@ -4,7 +4,8 @@ The per-language pages cover the mechanics — prerequisites, flags, traps. Ever
 to every contract; you change one input path and one package name:
 
 ```bash
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/policy/openapi.yaml
+curl --create-dirs -o policy/openapi.yaml \
+  https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/policy/openapi.yaml
 ```
 
 This page covers what is **different** about generating from policy, and the one piece of client
@@ -25,32 +26,33 @@ deliberate. Do not try to merge them into one package: the shared names (`Money`
 
 ```bash
 # TypeScript
-npx openapi-typescript@7 quoting.yaml --default-non-nullable=false -o src/quoting.d.ts
-npx openapi-typescript@7 policy.yaml  --default-non-nullable=false -o src/policy.d.ts
+npx openapi-typescript@7 quoting/openapi.yaml --default-non-nullable=false -o src/quoting.d.ts
+npx openapi-typescript@7 policy/openapi.yaml  --default-non-nullable=false -o src/policy.d.ts
 
 # Python
 uvx --from datamodel-code-generator datamodel-codegen \
-  --input policy.yaml --input-file-type openapi \
+  --input policy/openapi.yaml --input-file-type openapi \
   --output openlife/policy_models.py --output-model-type pydantic_v2.BaseModel \
   --use-standard-collections --use-union-operator --field-constraints --use-annotated \
   --use-schema-description --use-field-description --target-python-version 3.12
 
 # Java
 npx @openapitools/openapi-generator-cli@2 generate \
-  -i policy.yaml -g spring -o ./generated-policy-server \
+  -i policy/openapi.yaml -g spring -o ./generated-policy-server \
   -p interfaceOnly=true,useSpringBoot3=true,useJakartaEe=true,openApiNullable=false \
   --additional-properties=apiPackage=au.org.openlife.policy.api,modelPackage=au.org.openlife.policy.model
 ```
 
-C#, Go and Ruby follow the same substitution — see their pages.
+C#, Go, Ruby and Rust follow the same substitution — see their pages.
 
 ## The `webhooks` block
 
-The policy contract declares three optional webhooks using OpenAPI 3.1's native `webhooks` object.
-Most generators ignore it, some emit receiver stubs, none require you to use it.
+The policy contract declares three optional webhooks using OpenAPI 3.1's native `webhooks` object
+(requirements declares two and commissions one, in the same way). Most generators ignore it, some
+emit receiver stubs, none require you to use it.
 
-One thing to know if you are reading the source rather than `dist/`: each webhook operation carries a
-meaningless `x-openlife-webhook: true` extension. **It must stay.** openapi-generator's Spring target
+One thing to know if you are reading the source rather than `dist/`: each webhook operation, in
+every contract, carries a meaningless `x-openlife-webhook: true` extension. **It must stay.** openapi-generator's Spring target
 dereferences `Operation.getExtensions()` without a null check when processing webhooks, and a webhook
 operation with no extensions returns null — producing a NullPointerException that aborts the entire
 run and emits nothing at all. Verified against 7.24.0: without the extension, 0 files; with it, a

@@ -21,23 +21,25 @@ Node 20 or later. The two alternatives each add one thing, noted in their sectio
 
 ## Get the contracts
 
-Both are self-contained — every `$ref` already resolved — so these two files are all you need. You do
-not need to clone this repository.
+Each is self-contained — every `$ref` already resolved — so these files are all you need. You do not
+need to clone this repository. Every bundle is named `openapi.yaml`, so each gets its own directory:
 
 ```bash
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/quoting/openapi.yaml
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/policy/openapi.yaml
+for c in quoting policy requirements commissions; do
+  curl --create-dirs -o "$c/openapi.yaml" \
+    "https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/$c/openapi.yaml"
+done
 ```
 
-Generate them as two separate packages. Every command below shows quoting; substitute
-`policy/openapi.yaml` and a different package name for the other. See
-[policy.md](policy.md) for what differs — in particular the snapshot walk, which is the one piece of
-client logic that is dangerous to get wrong.
+Generate each as its own package. Every command below shows quoting; substitute
+`policy/openapi.yaml` (or `requirements`, `commissions`) and a different package name for the
+others. See [policy.md](policy.md) for what differs — in particular the snapshot walk, which is the
+one piece of client logic that is dangerous to get wrong.
 
 ## Option 1 — `openapi-typescript` (types only)
 
 ```bash
-npx openapi-typescript@7 openapi.yaml \
+npx openapi-typescript@7 quoting/openapi.yaml \
   --default-non-nullable=false \
   -o src/openlife-quoting.d.ts
 ```
@@ -139,7 +141,7 @@ you start, and pin it; a floating `typescript@latest` will break this the day 7 
 
 ```bash
 npm i -D @hey-api/openapi-ts typescript@5
-npx @hey-api/openapi-ts -i openapi.yaml -o src/client
+npx @hey-api/openapi-ts -i quoting/openapi.yaml -o src/client
 ```
 
 Sixteen files:
@@ -195,7 +197,7 @@ output to match the Java house style.
 
 ```bash
 npx @openapitools/openapi-generator-cli@2 generate \
-  -i openapi.yaml -g typescript-fetch -o ./src/client \
+  -i quoting/openapi.yaml -g typescript-fetch -o ./src/client \
   -p supportsES6=true,modelPropertyNaming=original
 ```
 
@@ -277,8 +279,8 @@ native port does not expose the same surface. Install `typescript@5` and pin it 
 **`can't resolve reference … .yaml#/Something`** during generation
 
 You pointed it at a split source rather than a bundled file, or it picked up a `redocly.yaml` that
-did. Generate from `dist/quoting/openapi.yaml` or `dist/policy/openapi.yaml` — those have every
-`$ref` already resolved.
+did. Generate from a `dist/<contract>/openapi.yaml` bundle — those have every `$ref` already
+resolved.
 
 **`Cannot find module './sdk.gen'`** (hey-api)
 

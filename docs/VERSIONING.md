@@ -1,14 +1,39 @@
 # Versioning
 
-Each contract in this repository versions independently. `quoting-v0.1.0` and `commissions-v0.1.0`
+Each contract in this repository versions independently. `quoting-v0.2.0` and `policy-v0.1.1`
 are separate release trains, so an insurer implementing quoting is never asked to care that another
 contract moved. Releases are cut by release-please from conventional commits; see
 `release-please-config.json`.
 
-Four contracts and `core` version separately, and a contract's version is written in four places —
+Four contracts and `core` version separately. A contract's version is recorded in
 `domains/<name>/version.txt`, `info.version` in its `openapi.yaml`, `.release-please-manifest.json`
-and `release-please-config.json`. `npm run versions` asserts they agree, because release-please only
-keeps them in step when it runs and it is currently parked to manual dispatch.
+and `release-please-config.json`, and is carried into both bundles in `dist/<name>/`.
+`npm run versions` asserts the first four agree and that the config's `extra-files` lists the source
+and both bundles, because release-please only keeps them in step when it runs and it is parked to
+manual dispatch.
+
+## Cutting a release
+
+1. Run the **📦 Release** workflow by hand from the Actions tab (`release-please.yml` has no `push`
+   trigger, deliberately).
+2. release-please opens one release PR covering every contract with releasable commits since its last
+   tag. `feat` and `fix` commits are releasable, and so is a breaking `!`; `chore` is not, so use it
+   for anything that must not move a version.
+3. That PR bumps `version.txt`, `info.version`, both `dist/` bundles and the manifest, and writes each
+   contract's `CHANGELOG.md`. It is opened with `GITHUB_TOKEN`, so CI waits for a maintainer to approve
+   the workflow run.
+4. Merging it tags `<contract>-v<version>` and creates a GitHub release per contract.
+
+## What is published, and where
+
+- **`dist/` on `main`** — the bundles implementers generate from. `main` can be ahead of the last
+  release; the same path under a tag (`.../open-life-au/quoting-v0.2.0/dist/...`) is the released
+  contract.
+- **The reference site** — <https://axiscrm.github.io/open-life-au/>, rebuilt from `main` by
+  `docs-deploy.yml`. Each page's banner says whether it is the tagged release or ahead of it.
+- **GitHub releases** — one per contract tag, with that contract's changelog.
+
+Nothing is published to a package registry. The generated SDKs are recipes, not artefacts.
 
 ## Semantics
 

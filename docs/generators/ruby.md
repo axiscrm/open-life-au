@@ -23,24 +23,26 @@ ruby -v         # 3.0+
 
 ## Get the contracts
 
-Both are self-contained — every `$ref` already resolved — so these two files are all you need. You do
-not need to clone this repository.
+Each is self-contained — every `$ref` already resolved — so these files are all you need. You do not
+need to clone this repository. Every bundle is named `openapi.yaml`, so each gets its own directory:
 
 ```bash
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/quoting/openapi.yaml
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/policy/openapi.yaml
+for c in quoting policy requirements commissions; do
+  curl --create-dirs -o "$c/openapi.yaml" \
+    "https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/$c/openapi.yaml"
+done
 ```
 
-Generate them as two separate packages. Every command below shows quoting; substitute
-`policy/openapi.yaml` and a different package name for the other. See
-[policy.md](policy.md) for what differs — in particular the snapshot walk, which is the one piece of
-client logic that is dangerous to get wrong.
+Generate each as its own package. Every command below shows quoting; substitute
+`policy/openapi.yaml` (or `requirements`, `commissions`) and a different package name for the
+others. See [policy.md](policy.md) for what differs — in particular the snapshot walk, which is the
+one piece of client logic that is dangerous to get wrong.
 
 ## Generate
 
 ```bash
 npx @openapitools/openapi-generator-cli@2 generate \
-  -i openapi.yaml -g ruby -o ./openlife_quoting \
+  -i quoting/openapi.yaml -g ruby -o ./openlife_quoting \
   --additional-properties=gemName=openlife_quoting,moduleName=OpenLifeQuoting
 ```
 

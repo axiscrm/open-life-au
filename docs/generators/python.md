@@ -19,24 +19,26 @@ plain `pip install` into a virtualenv work identically.
 
 ## Get the contracts
 
-Both are self-contained — every `$ref` already resolved — so these two files are all you need. You do
-not need to clone this repository.
+Each is self-contained — every `$ref` already resolved — so these files are all you need. You do not
+need to clone this repository. Every bundle is named `openapi.yaml`, so each gets its own directory:
 
 ```bash
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/quoting/openapi.yaml
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/policy/openapi.yaml
+for c in quoting policy requirements commissions; do
+  curl --create-dirs -o "$c/openapi.yaml" \
+    "https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/$c/openapi.yaml"
+done
 ```
 
-Generate them as two separate packages. Every command below shows quoting; substitute
-`policy/openapi.yaml` and a different package name for the other. See
-[policy.md](policy.md) for what differs — in particular the snapshot walk, which is the one piece of
-client logic that is dangerous to get wrong.
+Generate each as its own package. Every command below shows quoting; substitute
+`policy/openapi.yaml` (or `requirements`, `commissions`) and a different package name for the
+others. See [policy.md](policy.md) for what differs — in particular the snapshot walk, which is the
+one piece of client logic that is dangerous to get wrong.
 
 ## Option 1 — Pydantic models
 
 ```bash
 uvx --from datamodel-code-generator datamodel-codegen \
-  --input openapi.yaml --input-file-type openapi \
+  --input quoting/openapi.yaml --input-file-type openapi \
   --output openlife_quoting/models.py \
   --output-model-type pydantic_v2.BaseModel \
   --use-standard-collections --use-union-operator \
@@ -144,7 +146,7 @@ For generated route stubs rather than hand-written ones, see
 ## Option 2 — a full client package
 
 ```bash
-uvx --from openapi-python-client openapi-python-client generate --path openapi.yaml
+uvx --from openapi-python-client openapi-python-client generate --path quoting/openapi.yaml
 ```
 
 You get a package with a configured `httpx` client, one module per model, and typed calls per
@@ -190,12 +192,12 @@ honour appears there as `unsupported_ignored`, and the premium does not include 
 You are generating from a copy of the contract taken before this was fixed. Confirm with
 [Am I on the current contract?](README.md#am-i-on-the-current-contract) and re-download.
 
-Note that `info.version` will not help you here — it reads `0.1.0` in both the broken and the fixed
-file, because the contract has not had its first release yet. A quick local tell: the fixed file
-contains the phrase `A subset of`, which the old one does not.
+A copy whose `info.version` still reads `0.1.0` predates the first release and is stale either way.
+A quick local tell for this particular fix: the fixed file contains the phrase `A subset of`, which
+the old one does not.
 
 ```bash
-grep -q "A subset of" openapi.yaml && echo "current" || echo "STALE — re-download"
+grep -q "A subset of" quoting/openapi.yaml && echo "current" || echo "STALE — re-download"
 ```
 
 The cause, for the record: those three covers narrowed a shared enum with

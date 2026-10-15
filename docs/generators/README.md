@@ -51,16 +51,19 @@ traps specific to that toolchain. Start at the one you need — there is nothing
 
 ## What you generate from
 
-Two self-contained files, every `$ref` already resolved. You do not need to clone this repository:
+One self-contained file per contract, every `$ref` already resolved. You do not need to clone this
+repository. Every bundle is named `openapi.yaml`, so give each its own directory:
 
 ```bash
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/quoting/openapi.yaml
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/policy/openapi.yaml
+for c in quoting policy requirements commissions; do
+  curl --create-dirs -o "$c/openapi.yaml" \
+    "https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/$c/openapi.yaml"
+done
 ```
 
-Generate two packages, not one. The contracts share `core/` schemas by `$ref`, so `Money`, `Problem`
-and `CoverType` are identical in both today — but they version independently and will drift, so
-merging the generated output stores up a conflict.
+Generate one package per contract, not one for all. The contracts share `core/` schemas by `$ref`, so
+`Money` and `Problem` are identical across them today — but they version independently and will
+drift, so merging the generated output stores up a conflict.
 
 ## One file or many?
 
@@ -104,13 +107,14 @@ a project, and then outlives the version it came from.
 
 ```bash
 curl -s https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/quoting/openapi.yaml \
-  | diff - openapi.yaml && echo "current" || echo "STALE — re-download"
+  | diff - quoting/openapi.yaml && echo "current" || echo "STALE — re-download"
 ```
 
-A caveat worth knowing while the contract is pre-1.0: `info.version` reads `0.1.0` and will not move
-until the first release, so **the version field cannot tell you whether your copy is current**. The
-`diff` above is the only reliable answer today. Once releases begin, `info.version` tracks the
-`quoting-v*` tag and comparing it is enough.
+`info.version` tracks the contract's release tag (`quoting-v0.2.0` → `0.2.0`), but releases are cut
+by hand and `main` can carry changes made since, under the same version. So **the version field
+cannot tell you whether your copy matches `main`** — the `diff` above can. If you want a fixed
+target instead, download from the tag rather than `main`:
+`https://raw.githubusercontent.com/axiscrm/open-life-au/quoting-v0.2.0/dist/quoting/openapi.yaml`.
 
 If you have pulled a copy into your own repository, pin the refresh rather than the file: fetch it in
 your build, or record the commit you took it from.
@@ -120,8 +124,8 @@ your build, or record the commit you took it from.
 Tell us. That is a defect in the contract, not in your setup — and we would rather hear it from you
 than have you work around it silently.
 
-This has already happened twice, and both were found by running generators rather than by reading
-the schema. Neither was visible to linting or schema validation.
+This has already happened three times, and all three were found by running generators rather than
+by reading the schema. None was visible to linting or schema validation.
 
 **The cover discriminant was pinned with `const`.** That is correct JSON Schema and reads better
 than the alternative. But a discriminator is resolved through each variant's *allowable values*,
@@ -145,8 +149,9 @@ meaningless `x-openlife-webhook: true` on each webhook operation, which must not
 
 Because of these, CI does not merely check that generation succeeded. It asserts the load-bearing
 schemas **survived** into every generator's output for **every contract** — all seven covers for
-quoting, and `Policy`/`PolicyPage`/`PolicyHolder`/`Arrears` for policy. Counting files would have
-passed two of the three bugs above.
+quoting, `Policy`/`PolicyPage`/`PolicyHolder`/`Arrears` and their pages for policy, the case and its
+requirements for requirements, and the statement and its lines for commissions. Counting files would
+have passed two of the three bugs above.
 
 ## Adding a generator to this set
 
@@ -155,8 +160,9 @@ that used to work.
 
 1. Add a page in this directory following the same shape.
 2. Add a case to [`scripts/check-codegen.sh`](../../scripts/check-codegen.sh), asserting output
-   exists **and** that `assert_all_covers` passes. Do not settle for a file count: more than one
-   generator exits `0` having written nothing, and another writes plenty while dropping schemas.
+   exists **and** that `assert_symbols` finds every contract's `symbols_for` list in it. Do not
+   settle for a file count: more than one generator exits `0` having written nothing, and another
+   writes plenty while dropping schemas.
 3. Add the language to the `codegen` matrix in
    [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml). Every documented language runs on
    every pull request; they are matrix entries, so seven generators cost roughly the wall-clock of one.
