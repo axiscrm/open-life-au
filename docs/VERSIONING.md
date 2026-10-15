@@ -5,12 +5,14 @@ are separate release trains, so an insurer implementing quoting is never asked t
 contract moved. Releases are cut by release-please from conventional commits; see
 `release-please-config.json`.
 
-Four contracts and `core` version separately. A contract's version is recorded in
-`domains/<name>/version.txt`, `info.version` in its `openapi.yaml`, `.release-please-manifest.json`
-and `release-please-config.json`, and is carried into both bundles in `dist/<name>/`.
-`npm run versions` asserts the first four agree and that the config's `extra-files` lists the source
-and both bundles, because release-please only keeps them in step when it runs and it is parked to
-manual dispatch.
+Four contracts and `core` version separately. A contract's version is recorded in three places —
+`domains/<name>/version.txt`, `info.version` in its `openapi.yaml`, and
+`.release-please-manifest.json` — and is carried into both bundles in `dist/<name>/`.
+`npm run versions` asserts those three agree. Separately, it checks `release-please-config.json`:
+that the contract has a package entry there at all (without one it is never released), and that the
+entry's `extra-files` lists the source `openapi.yaml` and both bundles. The config holds no version
+of its own. The check exists because release-please only keeps these in step when it runs, and it
+is parked to manual dispatch.
 
 ## Cutting a release
 
@@ -22,7 +24,9 @@ manual dispatch.
 3. That PR bumps `version.txt`, `info.version`, both `dist/` bundles and the manifest, and writes each
    contract's `CHANGELOG.md`. It is opened with `GITHUB_TOKEN`, so CI waits for a maintainer to approve
    the workflow run.
-4. Merging it tags `<contract>-v<version>` and creates a GitHub release per contract.
+4. Merge it, then **run the 📦 Release workflow by hand again**. Merging does nothing on its own —
+   the workflow has no `push` trigger — and it is this post-merge run that tags
+   `<contract>-v<version>` and creates a GitHub release per contract.
 
 ## What is published, and where
 
