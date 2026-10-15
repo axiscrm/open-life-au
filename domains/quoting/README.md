@@ -1,6 +1,7 @@
 # Quoting contract
 
-Pricing Australian life risk cover directly from an insurer. Draft, open for comment; the current version is in [`version.txt`](version.txt).
+Pricing Australian life risk cover directly from an insurer. Draft, open for comment; the current version is in
+[`version.txt`](version.txt). Changes: [`CHANGELOG.md`](CHANGELOG.md).
 
 - Contract: [`openapi.yaml`](openapi.yaml) · bundled at [`dist/quoting/openapi.yaml`](../../dist/quoting/openapi.yaml)
 - Worked requests and responses: [`examples/`](examples/README.md)

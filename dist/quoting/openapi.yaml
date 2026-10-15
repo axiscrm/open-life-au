@@ -1444,7 +1444,7 @@ components:
            protection or business expenses is requested — rule 1 cannot be applied without it, and an
            insurer that prices anyway is guessing.
 
-        Rules 2 and 4 are enforced by this schema. Rules 1 and 3 are normative but no schema validator enforces them, so an implementation must test them itself: JSON Schema cannot compare a benefit against an income, nor a cover against a sibling's employment status.
+        Rule 4 is enforced by this schema. Rules 1, 2 and 3 are normative but this schema does not enforce them, so an implementation must test them itself. JSON Schema cannot compare a benefit against an income (rule 1) or one cover's amount against another's (rule 2).
       type: object
       required:
         - insured
