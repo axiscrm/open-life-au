@@ -24,9 +24,10 @@ info:
     These guard against failures that are **silent** — they produce a plausible number rather than
     an error, so nobody notices until a client complains.
 
-    1. **All six payment frequencies on every priced line.** Sub-annual premiums carry a frequency
-       loading, so the monthly premium is not the annual over twelve. A consumer that divides will
-       understate the cost and nothing will look wrong.
+    1. **Return every frequency you sell, as the insurer prices it.** Every priced line carries
+       `monthly` and `annual`; any other frequency is either returned or listed in `not_quoted`.
+       Sub-annual premiums carry a frequency loading, so the monthly premium is not the annual over
+       twelve. A consumer that divides will understate the cost and nothing will look wrong.
     2. **Never price what you could not assemble.** If some requested covers cannot be written,
        return the line with `all_needs_met: false`, populated `errors` and no premium. A partial
        policy priced as though complete reads as the best offer on the table.
@@ -66,7 +67,7 @@ info:
     ## Conformance
 
     An implementation need not offer every cover or every option value. Declare what you offer in
-    `GET /capabilities` and the conformance suite tests you against that declaration. What is not
+    `GET /capabilities`; you are held to that declaration, not to the whole standard. What is not
     optional is the five rules above.
 
   license:

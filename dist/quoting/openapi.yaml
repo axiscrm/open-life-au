@@ -22,9 +22,10 @@ info:
     These guard against failures that are **silent** — they produce a plausible number rather than
     an error, so nobody notices until a client complains.
 
-    1. **All six payment frequencies on every priced line.** Sub-annual premiums carry a frequency
-       loading, so the monthly premium is not the annual over twelve. A consumer that divides will
-       understate the cost and nothing will look wrong.
+    1. **Return every frequency you sell, as the insurer prices it.** Every priced line carries
+       `monthly` and `annual`; any other frequency is either returned or listed in `not_quoted`.
+       Sub-annual premiums carry a frequency loading, so the monthly premium is not the annual over
+       twelve. A consumer that divides will understate the cost and nothing will look wrong.
     2. **Never price what you could not assemble.** If some requested covers cannot be written,
        return the line with `all_needs_met: false`, populated `errors` and no premium. A partial
        policy priced as though complete reads as the best offer on the table.
@@ -64,7 +65,7 @@ info:
     ## Conformance
 
     An implementation need not offer every cover or every option value. Declare what you offer in
-    `GET /capabilities` and the conformance suite tests you against that declaration. What is not
+    `GET /capabilities`; you are held to that declaration, not to the whole standard. What is not
     optional is the five rules above.
   license:
     name: Apache-2.0
@@ -168,7 +169,7 @@ paths:
       description: |-
         Describe the covers, option values, brands, campaigns and optional features this implementation offers.
         A consumer calls this once and caches it. It drives which controls an adviser is offered, so an unsupported combination can be prevented rather than rejected after the fact.
-        This is the mechanism that makes a partial implementation conformant: an insurer that writes four covers and three waiting periods declares exactly that, and the conformance suite tests it against what it declared rather than against the whole standard.
+        This is the mechanism that makes a partial implementation conformant: an insurer that writes four covers and three waiting periods declares exactly that, and is held to what it declared rather than to the whole standard.
         Consumers MUST NOT treat this document as authoritative. Hand-maintained capability documents drift from the pricing engine, so the runtime paths — 422 `unsupported-value` and `resolved_options` — stay mandatory regardless of what is declared here.
       tags:
         - Discovery
@@ -264,6 +265,7 @@ paths:
       summary: Resolve a baseline occupation to this insurer's own
       description: |-
         Given an ABS OSCA code and the qualifiers that sit beneath it, return the insurer's own occupations that correspond, most confident first.
+        The reference's `description` is display text and is never matched on. To find an occupation by name, search the insurer's list with `GET /occupations?q=`.
         ### Why this endpoint exists
         An adviser picks an occupation once, from one picker, and expects to compare every insurer on the panel. Each insurer rates its own list, so something has to bridge the two. Putting the bridge here — inside the insurer, which is the only party that knows its own manual — avoids making anyone else the custodian of a mapping they cannot maintain.
         ### An empty result is a real answer
@@ -796,7 +798,7 @@ components:
           - a benefit ABSENT from a map carries no loading on that axis;
           - a benefit present with a value of `'0'` carries an EXPLICIT nil loading.
 
-        The two are NOT interchangeable. An implementation MUST NOT normalise a `'0'` into an omission or an omission into a `'0'`, and MUST NOT reject `'0'` as pointless — a consumer sends it to state positively that this benefit is not loaded, which is a different instruction from declining to say. JSON Schema cannot express this constraint, which is precisely why it is stated here and tested by the conformance suite.
+        The two are NOT interchangeable. An implementation MUST NOT normalise a `'0'` into an omission or an omission into a `'0'`, and MUST NOT reject `'0'` as pointless — a consumer sends it to state positively that this benefit is not loaded, which is a different instruction from declining to say. JSON Schema cannot express this constraint, which is precisely why it is stated here: no schema validator will catch a breach, so an implementation must test it itself.
         Keys are `CoverType` values, restricted to the five benefits a loading can attach to. Needle stick and child trauma have no loading axis and MUST be rejected as keys.
         A key names a cover TYPE, so it applies to EVERY cover of that type in the request. Where a request holds two covers of one type and they need different loadings, set `loadings` on the individual covers instead — a cover-level entry replaces the policy-level one for that cover.
         A key naming a cover type not present in `covers` MUST be rejected with 422 `invalid-combination` rather than silently ignored: it is far more likely to be a mistake than an intention.
@@ -938,7 +940,7 @@ components:
         linked_to:
           description: |-
             The `cover_id` of the parent cover, when this cover is held as an extension of it. MUST reference a cover present in the same request, MUST NOT be self-referential, and the graph of links MUST be acyclic. Absent means the cover is standalone.
-            AN EXTENSION MUST NOT EXCEED WHAT IT EXTENDS. Paying an extension benefit reduces its parent by the same amount, so a `sum_insured` larger than the parent's describes a reduction that cannot happen. This is impossible at every insurer, not merely declined by some, so a server MUST answer it with 422 `invalid-combination` rather than with a declined line. JSON Schema cannot compare two members of the same array, which is why it is stated here and tested by the conformance suite.
+            AN EXTENSION MUST NOT EXCEED WHAT IT EXTENDS. Paying an extension benefit reduces its parent by the same amount, so a `sum_insured` larger than the parent's describes a reduction that cannot happen. This is impossible at every insurer, not merely declined by some, so a server MUST answer it with 422 `invalid-combination` rather than with a declined line. JSON Schema cannot compare two members of the same array, so no schema validator enforces this: it is normative as stated here, and an implementation must test it itself.
           $ref: '#/components/schemas/CoverId'
         link_type:
           $ref: '#/components/schemas/LinkType'
@@ -1442,7 +1444,7 @@ components:
            protection or business expenses is requested — rule 1 cannot be applied without it, and an
            insurer that prices anyway is guessing.
 
-        Rules 2 and 4 are enforced by this schema. Rules 1 and 3 are stated normatively and tested by the conformance suite: JSON Schema cannot compare a benefit against an income, nor a cover against a sibling's employment status.
+        Rules 2 and 4 are enforced by this schema. Rules 1 and 3 are normative but no schema validator enforces them, so an implementation must test them itself: JSON Schema cannot compare a benefit against an income, nor a cover against a sibling's employment status.
       type: object
       required:
         - insured
@@ -1601,6 +1603,7 @@ components:
           total == premium_super + stamp_duty_super + premium_non_super + stamp_duty_non_super
 
         exactly, to the cent, with no tolerance. `policy_fee` is INCLUDED within `total` and within whichever premium component bears it — it is not a further addition. Keeping the fee outside the total is a recurring source of comparison tables that understate the real cost.
+        Implementations SHOULD test `total` against the insurer's own figure for the premium, not only against the sum of the components: a component dropped on both sides of the sum (a missing non-super side, say) still satisfies the invariant while understating the price.
         The super/non-super split is a genuine split, not a bucketing: one cover can carry both sides at once where it is written under a linked ownership structure.
       type: object
       required:
@@ -1646,7 +1649,7 @@ components:
         WHY NOT ALL SIX, WHICH THIS SCHEMA USED TO REQUIRE. The reasoning for requiring six was that a consumer given one frequency cannot derive the others, and that reasoning is sound — it is the ordering rule below and it still binds. The conclusion did not follow. An insurer that does not sell a weekly premium has no weekly premium to return, and requiring one obliges it to invent a figure by dividing: the very arithmetic this schema forbids the consumer, made worse by arriving with the authority of a quote. Sub-monthly billing in particular is not universal in this market, and a standard that cannot express its absence forces every insurer without it to fabricate.
         The two that remain required are the two that are not substitutable. `monthly` is what most policies are actually billed at and what an adviser presents. `annual` is what comparison, annualisation and projection totals are computed from. An insurer that can price a product at all can price it at both.
         A CONSUMER MUST NOT DERIVE AN ABSENT FREQUENCY, and this is the rule the whole schema is shaped around. Sub-annual premiums carry a frequency loading, so `weekly x 52 >= fortnightly x 26 >= monthly x 12 >= quarterly x 4 >= half_yearly x 2 >= annual`. A frequency absent here is not purchasable at any price, so dividing `annual` produces a number that is both wrong and unbuyable while looking entirely normal. Offer the frequencies that are present; offer no control for the ones that are not.
-        ROUNDING. The ordering holds on the UNROUNDED amounts. Once each frequency is rounded to the cent the products can cross by up to one cent per period — a $1,000 annual premium at zero loading gives monthly 83.33 (annualising to 999.96) and quarterly 250.00 (1,000.00), so monthly annualises BELOW quarterly. A consumer checking the ordering MUST therefore allow a tolerance of `periods x $0.01`; a conformance test without it fails every honest zero-loading insurer.
+        ROUNDING. The ordering holds on the UNROUNDED amounts. Once each frequency is rounded to the cent the products can cross by up to one cent per period — a $1,000 annual premium at zero loading gives monthly 83.33 (annualising to 999.96) and quarterly 250.00 (1,000.00), so monthly annualises BELOW quarterly. A consumer checking the ordering MUST therefore allow a tolerance of `periods x $0.01`; a check without it fails every honest zero-loading insurer.
         An insurer that levies no frequency loading returns sets whose annualised totals are equal within that tolerance; that is valid.
       type: object
       required:
@@ -1934,7 +1937,7 @@ components:
             The remuneration basis THIS cover was written on. REQUIRED wherever it differs from the line's — omitted, this cover is on the line's basis.
             The case it exists for is an insurer that writes the requested basis on most of a policy but not on one benefit, typically because that benefit is being written above the age at which the basis is offered. The line is still a real offer and should still be priced; what cannot happen is the difference going unreported, because the affected cover's premium is then lower than the line's declared basis accounts for and the discrepancy looks like a product difference.
             THIS IS THE ONLY PER-COVER COMMISSION CHANNEL IN THE CONTRACT, and deliberately one-way: the insurer reports the exception, the consumer cannot request it. `CommissionRequest` sets out why — no engine examined applies remuneration per benefit, and the one that could be forced to went on reporting the policy basis regardless.
-            JSON Schema cannot compare this against the parent line's value, so the requirement is normative here and tested by the conformance suite.
+            JSON Schema cannot compare this against the parent line's value, so the requirement is normative here but no schema validator enforces it; an implementation must test it itself.
           $ref: '#/components/schemas/AppliedCommission'
         linked_to:
           description: Echoed from the request where this cover was written as an extension.
@@ -2454,7 +2457,7 @@ components:
         product_name:
           $ref: '#/components/schemas/ProductName'
         component_products:
-          description: The insurer's own names for each product this line was assembled from, where a line combines more than one. Display only.
+          description: The insurer's own names for every product this line was assembled from — one entry where the line is a single product. Display only.
           type: array
           items:
             $ref: '#/components/schemas/ProductName'
@@ -3212,7 +3215,9 @@ components:
           $ref: '#/components/schemas/PageInfo'
     OccupationMatchRequest:
       title: OccupationMatchRequest
-      description: Ask the insurer which of its own occupations corresponds to a baseline reference.
+      description: |-
+        Ask the insurer which of its own occupations corresponds to a baseline reference.
+        Matching is on the reference's codes (`osca`, `anzsco`, `insurer_occupation_id`, `employment_basis`) and `qualifiers` only. Its `description` is display text and is NEVER matched on: a server MUST NOT use it to find candidates. A consumer that has only an occupation's name searches the insurer's list with `GET /occupations?q=` instead.
       type: object
       required:
         - occupation

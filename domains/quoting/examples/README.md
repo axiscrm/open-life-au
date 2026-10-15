@@ -124,7 +124,7 @@ This adviser is saying three different things at once:
 
 An implementation that "tidies" the trauma zero into an omission, or rejects it as pointless, has
 silently changed the instruction. JSON Schema cannot express the difference between an absent key and
-a present zero, which is exactly why the conformance suite tests it.
+a present zero, so no schema validator will catch it — test it in your own implementation.
 
 ### `child-trauma-and-minimal-life.json`
 

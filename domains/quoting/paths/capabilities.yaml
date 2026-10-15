@@ -11,8 +11,8 @@ get:
     an unsupported combination can be prevented rather than rejected after the fact.
 
     This is the mechanism that makes a partial implementation conformant: an insurer that writes
-    four covers and three waiting periods declares exactly that, and the conformance suite tests
-    it against what it declared rather than against the whole standard.
+    four covers and three waiting periods declares exactly that, and is held to what it declared
+    rather than to the whole standard.
 
     Consumers MUST NOT treat this document as authoritative. Hand-maintained capability documents
     drift from the pricing engine, so the runtime paths — 422 `unsupported-value` and

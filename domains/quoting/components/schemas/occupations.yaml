@@ -71,6 +71,12 @@ OccupationMatchRequest:
   title: OccupationMatchRequest
   description: >-
     Ask the insurer which of its own occupations corresponds to a baseline reference.
+
+    Matching is on the reference's codes (`osca`, `anzsco`, `insurer_occupation_id`,
+    `employment_basis`) and `qualifiers` only. Its `description` is display text and is NEVER
+    matched on: a server MUST NOT use it to find candidates. A consumer
+    that has only an occupation's name searches the insurer's list with `GET /occupations?q=`
+    instead.
   type: object
   required: [occupation]
   additionalProperties: false
