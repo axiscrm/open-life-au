@@ -3,7 +3,7 @@ openapi: 3.1.0
 info:
   title: Open Life Commissions API (AU)
   # Kept in step with the commissions-v* git tag by release-please — do not edit by hand.
-  version: 0.1.0 # x-release-please-version
+  version: 0.1.1 # x-release-please-version
   summary: >-
     A vendor-neutral contract for retrieving Australian life insurance commission statements and
     their lines.

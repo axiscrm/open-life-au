@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Open Life Requirements API (AU)
-  version: 0.1.1 # x-release-please-version
+  version: 0.1.2 # x-release-please-version
   summary: A vendor-neutral contract for retrieving outstanding underwriting requirements on Australian life applications.
   description: |
     A contract an insurer implements so that adviser software can see what its applications are
