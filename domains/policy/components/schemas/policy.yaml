@@ -418,8 +418,8 @@ PolicyPremium:
   description: >-
     What the policy costs as currently billed. Unlike a quote, this is a single frequency — the one
     the policy is actually paid at — because a policy has one billing arrangement, not six.
-    `annualised` is supplied rather than derived, for the same reason quoting returns all six
-    frequencies: frequency loadings mean the annual figure is not the billed amount times the number
+    `annualised` is supplied rather than derived, for the same reason quoting returns each
+    frequency as priced: frequency loadings mean the annual figure is not the billed amount times the number
     of periods.
   type: object
   required: [amount, frequency]

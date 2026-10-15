@@ -203,8 +203,8 @@ CoverBase:
         parent by the same amount, so a `sum_insured` larger than the parent's describes a
         reduction that cannot happen. This is impossible at every insurer, not merely declined by
         some, so a server MUST answer it with 422 `invalid-combination` rather than with a declined
-        line. JSON Schema cannot compare two members of the same array, which is why it is stated
-        here and tested by the conformance suite.
+        line. JSON Schema cannot compare two members of the same array, so no schema validator
+        enforces this: it is normative as stated here, and an implementation must test it itself.
       $ref: '../../../../core/schemas/identifiers.yaml#/CoverId'
     link_type:
       $ref: '#/LinkType'
@@ -248,8 +248,8 @@ CoverBase:
   # "No product choice on an extension" is NOT enforced here. A `dependentSchemas` clause keyed on
   # `linked_to` is the natural form, but under the `unevaluatedProperties: false` the covers
   # compose with, the bundled validators then treat EVERY property of every cover as unevaluated
-  # and reject valid requests wholesale. Stated normatively on `insurer_products` and tested by
-  # the conformance suite instead, like the extension-amount rule on `linked_to`.
+  # and reject valid requests wholesale. Stated normatively on `insurer_products` instead, and left
+  # to implementations to test, like the extension-amount rule on `linked_to`.
 
 # ---------------------------------------------------------------------------------------------
 # The covers

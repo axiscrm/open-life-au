@@ -132,8 +132,8 @@ QuoteLine:
       $ref: '../../../../core/schemas/identifiers.yaml#/ProductName'
     component_products:
       description: >-
-        The insurer's own names for each product this line was assembled from, where a line
-        combines more than one. Display only.
+        The insurer's own names for every product this line was assembled from — one entry where
+        the line is a single product. Display only.
       type: array
       items:
         $ref: '../../../../core/schemas/identifiers.yaml#/ProductName'
@@ -587,7 +587,7 @@ PremiumSet:
     the products can cross by up to one cent per period — a $1,000 annual premium at zero loading gives
     monthly 83.33 (annualising to 999.96) and quarterly 250.00 (1,000.00), so monthly annualises BELOW
     quarterly. A consumer checking the ordering MUST therefore allow a tolerance of
-    `periods x $0.01`; a conformance test without it fails every honest zero-loading insurer.
+    `periods x $0.01`; a check without it fails every honest zero-loading insurer.
 
     An insurer that levies no frequency loading returns sets whose annualised totals are equal within
     that tolerance; that is valid.
@@ -670,6 +670,10 @@ PremiumBreakdown:
     exactly, to the cent, with no tolerance. `policy_fee` is INCLUDED within `total` and within
     whichever premium component bears it — it is not a further addition. Keeping the fee outside
     the total is a recurring source of comparison tables that understate the real cost.
+
+    Implementations SHOULD test `total` against the insurer's own figure for the premium, not
+    only against the sum of the components: a component dropped on both sides of the sum (a
+    missing non-super side, say) still satisfies the invariant while understating the price.
 
     The super/non-super split is a genuine split, not a bucketing: one cover can carry both sides
     at once where it is written under a linked ownership structure.
@@ -848,7 +852,7 @@ CoverLine:
         to went on reporting the policy basis regardless.
 
         JSON Schema cannot compare this against the parent line's value, so the requirement is
-        normative here and tested by the conformance suite.
+        normative here but no schema validator enforces it; an implementation must test it itself.
       $ref: '#/AppliedCommission'
     linked_to:
       description: Echoed from the request where this cover was written as an extension.

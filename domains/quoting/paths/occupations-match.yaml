@@ -7,6 +7,9 @@ post:
     Given an ABS OSCA code and the qualifiers that sit beneath it, return the insurer's own
     occupations that correspond, most confident first.
 
+    The reference's `description` is display text and is never matched on. To find an occupation
+    by name, search the insurer's list with `GET /occupations?q=`.
+
     ### Why this endpoint exists
 
     An adviser picks an occupation once, from one picker, and expects to compare every insurer on

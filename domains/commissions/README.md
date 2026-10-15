@@ -1,6 +1,7 @@
 # Commissions contract
 
-Commission statements and their lines. `v0.1.0` — draft, open for comment, not yet released.
+Commission statements and their lines. Draft, open for comment, not yet released; the version is in
+[`version.txt`](version.txt).
 
 - Contract: [`openapi.yaml`](openapi.yaml) · bundled at [`dist/commissions/openapi.yaml`](../../dist/commissions/openapi.yaml)
 - The vocabulary: [`core/schemas/commission-vocabulary.yaml`](../../core/schemas/commission-vocabulary.yaml)

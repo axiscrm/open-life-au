@@ -74,8 +74,10 @@ info:
 
     Insurer records differ enormously in what they carry — some code their requirements, most do not;
     some set deadlines, most do not; almost none say which life on a joint application an item
-    belongs to. Declare what you populate in `GET /capabilities` and the conformance suite tests you
-    against that. What is not optional is the snapshot being complete and consistent.
+    belongs to. Declare what you populate in `GET /capabilities`; for the optional parts it lists
+    (record fields, the incremental feed and webhooks) you are held to that declaration rather
+    than to everything the contract allows. What is not optional is the snapshot being complete and
+    consistent.
 
   license:
     name: Apache-2.0

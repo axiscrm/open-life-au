@@ -140,8 +140,8 @@ CI asserts on every change that `Money.amount` is still generated as `String`.
 **The router answers malformed requests itself, and not in the contract's shape.** A body that
 does not deserialise gets axum's `422`; one that fails the generated validators gets a `400` with a
 plain-text message. Neither is the `application/problem+json` `invalid-request` the contract
-specifies, and your trait method never runs. If you are running the conformance suite, wrap the
-router in a layer that rewrites those responses.
+specifies, and your trait method never runs. To meet the contract, wrap the router in a layer that
+rewrites those responses.
 
 **Numbers the schema types as `number` come back as `f64`.** An occupation qualifier sent as `40`
 re-serialises as `40.0`. Numerically identical, and the contract allows either — but a consumer that
