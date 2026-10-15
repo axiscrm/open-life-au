@@ -31,15 +31,19 @@ point of advice, across a panel of insurers, in a single market. There is no NGD
 adopting ACORD would mean authoring that profile — the same design work, with less freedom and a
 narrower audience.
 
+That argument is about quoting. The policy, requirements and commissions contracts added since sit
+inside the in-force and new-business ground described above, so for them the case rests on access,
+market specificity and weight rather than on scope.
+
 **Market specificity.** The hard parts of this contract are Australian: stamp duty levied per
 state and split by superannuation ownership; the superannuation/ordinary/SMSF ownership forms and
 the linked structures over them; occupation rating against an ABS classification. These are not
 international concepts, and a global standard should not be expected to carry them.
 
 **Weight.** ACORD-aligned specifications tend toward hundreds of operations and deeply nested,
-polymorphic schemas, because they serve many markets and many use cases. This contract is four
-operations, and that is the point: an insurer's team should be able to read the whole thing in an
-afternoon and estimate the work honestly.
+polymorphic schemas, because they serve many markets and many use cases. The quoting contract is
+four operations and none of the others has more than five — and that is the point: an insurer's team
+should be able to read the whole thing in an afternoon and estimate the work honestly.
 
 ## Where we have deliberately aligned
 

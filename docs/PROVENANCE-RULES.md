@@ -56,8 +56,11 @@ alternative is worth more than a clever rule with a bypass in it — the moment 
 recognise "acceptable" uses of `§`, it stops being a reliable signal.
 
 A short allowlist covers the files whose subject genuinely *is* the relationship to an aggregator
-or a specific insurer — currently the ACORD relationship note and the gap analysis. Every entry on
-that list is a place a reviewer has to read by hand, so keep it short.
+or a specific insurer — currently this file, the ACORD relationship note and
+`taxonomy/PRODUCT-FEATURES-PROVENANCE.md`, which names the issuers of the documents the feature
+vocabulary was read from. Every entry on that list is a place a reviewer has to read by hand, so keep
+it short. The gate also fails on an entry whose file no longer exists, so a removed file cannot leave
+a standing exemption behind.
 
 ## If the gate fires
 

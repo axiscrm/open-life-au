@@ -1,6 +1,7 @@
 # Policy contract
 
-In-force policy data, arrears and status changes. Draft, open for comment; the current version is in [`version.txt`](version.txt).
+In-force policy data, arrears and status changes. Draft, open for comment; the current version is in
+[`version.txt`](version.txt). Changes: [`CHANGELOG.md`](CHANGELOG.md).
 
 - Contract: [`openapi.yaml`](openapi.yaml) · bundled at [`dist/policy/openapi.yaml`](../../dist/policy/openapi.yaml)
 - Generating and consuming it: [`docs/generators/policy.md`](../../docs/generators/policy.md)

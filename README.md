@@ -9,13 +9,14 @@ Four contracts:
 
 | Contract | Status | Reference | What it covers |
 |---|---|---|---|
-| [**quoting**](domains/quoting/) | `v0.1.0` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/quoting/) | Pricing life, TPD, trauma, income protection, business expenses, needle stick and child trauma cover |
-| [**policy**](domains/policy/) | `v0.1.0` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/policy/) | In-force policy data, the arrears worklist, and status changes |
-| [**requirements**](domains/requirements/) | `v0.1.0` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/requirements/) | Outstanding underwriting requirements on applications |
-| [**commissions**](domains/commissions/) | `v0.1.0` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/commissions/) | Commission statements and their lines |
+| [**quoting**](domains/quoting/) | `v0.2.0` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/quoting/) | Pricing life, TPD, trauma, income protection, business expenses, needle stick and child trauma cover |
+| [**policy**](domains/policy/) | `v0.1.1` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/policy/) | In-force policy data, the arrears worklist, and status changes |
+| [**requirements**](domains/requirements/) | `v0.1.1` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/requirements/) | Outstanding underwriting requirements on applications |
+| [**commissions**](domains/commissions/) | `v0.1.0` — draft, not yet released | [docs](https://axiscrm.github.io/open-life-au/commissions/) | Commission statements and their lines |
 
-Licensed Apache-2.0. Everything here is a draft published for insurers to argue with — see
-[Contributing](#contributing).
+Each contract is released on its own and tagged `<contract>-v<version>` (`quoting-v0.2.0`), with
+its own CHANGELOG — see [`docs/VERSIONING.md`](docs/VERSIONING.md). Licensed Apache-2.0. Everything
+here is a draft published for insurers to argue with — see [Contributing](#contributing).
 
 ## Why
 
@@ -46,7 +47,10 @@ not, and `npm run rejections` asserts it.
 [OSCA](https://abs.gov.au/statistics/classifications/osca-occupation-standard-classification-australia/latest-release)
 code plus risk qualifiers; the insurer matches it to its own occupation, prices on that, and echoes
 back what it matched. Nobody in the value chain owns the taxonomy — the ABS does. See
-[`taxonomy/OCCUPATION-PROVENANCE.md`](taxonomy/OCCUPATION-PROVENANCE.md).
+[`taxonomy/OCCUPATION-PROVENANCE.md`](taxonomy/OCCUPATION-PROVENANCE.md). `POST /occupations:match`
+matches on a code, an insurer occupation id or an employment basis, never on the adviser's wording:
+`description` is display-only, so a request carrying nothing else is refused. A consumer holding only
+wording searches `GET /occupations?q=` and chooses the row itself.
 
 **Privacy as a constraint.** No name, no address, no contact details, no health data, and `Insured`
 is a closed schema so there is nowhere to put them. Age next birthday is preferred over date of
@@ -95,16 +99,18 @@ core/schemas/       shared by every contract — money, identifiers, problems, o
                     the snapshot envelope, distribution, and the cover/requirement/commission
                     vocabularies
 core/http/          shared responses and headers, referenced by every contract
-taxonomy/           the occupation baseline and the risk qualifiers layered over it
+taxonomy/           the occupation baseline, the risk qualifiers layered over it, and the
+                    product-feature vocabulary
 domains/quoting/    the quoting contract: openapi.yaml, paths/, components/, examples/
 domains/policy/     the policy contract: snapshot pull, arrears worklist, optional webhooks
 domains/requirements/  outstanding underwriting requirements, snapshot-first
 domains/commissions/   commission statements and lines — a ledger, deliberately not a snapshot
 dist/               committed bundles — this is what implementers consume
-docs/               concepts, versioning, provenance rules
+docs/               versioning, provenance rules, migration notes, the ACORD relationship
 docs/generators/    one self-contained guide per language
 postman/            generated collections, one per contract
-scripts/            validation, rejection and provenance gates
+scripts/            the bundle, site, Postman and mock tooling, and the validation, rejection,
+                    version and provenance gates
 ```
 
 `core/` is pure JSON Schema 2020-12 with no OpenAPI-only keywords, so the same schemas back the
@@ -120,7 +126,8 @@ envelope there would have invited a consumer to delete its own financial history
 
 ```bash
 npm ci
-npm run verify      # lint, versions, bundle, examples, rejections, provenance
+npm run verify      # lint, versions, dist/ drift, examples, rejections, Postman drift, provenance
+                    # (rebuilds dist/ and postman/ in place, then fails if either changed)
 npm run mock        # mock every contract at once — :4010 quoting, :4011 policy, :4012 requirements, :4013 commissions
 npm run mock:policy # or just one
 npm run mock:check  # send every Postman collection request at the running mocks
@@ -191,15 +198,18 @@ Each guide stands alone — prerequisites, fetching the contract, the command, a
 to that toolchain. See [docs/generators/](docs/generators/) for the comparison, including which
 generators produce a single file versus a package, and how to add another.
 
-You generate from `dist/quoting/openapi.yaml`, a single self-contained file. No need to clone this
-repository:
+You generate from `dist/<contract>/openapi.yaml`, a single self-contained file per contract. No
+need to clone this repository. Every bundle is named `openapi.yaml`, so give each its own directory:
 
 ```bash
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/quoting/openapi.yaml
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/policy/openapi.yaml
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/requirements/openapi.yaml
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/commissions/openapi.yaml
+for c in quoting policy requirements commissions; do
+  curl --create-dirs -o "$c/openapi.yaml" \
+    "https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/$c/openapi.yaml"
+done
 ```
+
+`main` can carry changes that have not been released yet. To build against a release, replace
+`main` in the URL with its tag — `quoting-v0.2.0`.
 
 If a generator misbehaves, that is a defect in the contract rather than in your setup — please tell
 us. It has happened three times already, and every time the fix was ours; see
