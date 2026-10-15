@@ -23,8 +23,8 @@ import process from "node:process";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 
-/** Directories that become published artefacts. */
-const SCANNED = ["core", "domains", "taxonomy", "dist", "postman", "reference-impl", "docs"];
+/** Directories (and the root README) that become published artefacts. */
+const SCANNED = ["core", "domains", "taxonomy", "dist", "postman", "docs", "README.md"];
 
 /**
  * Vendor names and the section-symbol citation style that indicates text lifted from a vendor
@@ -55,6 +55,10 @@ const TEXT_EXT = new Set([".yaml", ".yml", ".json", ".md", ".js", ".mjs", ".ts",
 
 function* walk(dir) {
     if (!fs.existsSync(dir)) return;
+    if (fs.statSync(dir).isFile()) {
+        if (TEXT_EXT.has(path.extname(dir))) yield dir;
+        return;
+    }
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
         const abs = path.join(dir, entry.name);

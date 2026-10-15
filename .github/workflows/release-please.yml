@@ -37,6 +37,8 @@ jobs:
       quoting_tag_name: ${{ steps.release.outputs['domains/quoting--tag_name'] }}
       core_release_created: ${{ steps.release.outputs['core--release_created'] }}
       policy_release_created: ${{ steps.release.outputs['domains/policy--release_created'] }}
+      requirements_release_created: ${{ steps.release.outputs['domains/requirements--release_created'] }}
+      commissions_release_created: ${{ steps.release.outputs['domains/commissions--release_created'] }}
     steps:
       # Plain GITHUB_TOKEN, deliberately — no GitHub App.
       #

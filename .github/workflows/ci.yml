@@ -91,7 +91,7 @@ jobs:
       - name: Start every mock
         run: |
           nohup node scripts/mock.mjs > /tmp/prism.log 2>&1 &
-          for port in 4010 4011 4012; do
+          for port in 4010 4011 4012 4013; do
             for _ in $(seq 1 40); do
               curl -sf -o /dev/null "http://127.0.0.1:$port/capabilities" \
                 -H 'Authorization: Bearer test' && break
