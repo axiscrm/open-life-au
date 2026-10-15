@@ -6,18 +6,20 @@ any code.
 | Collection | Contract | Requests | Mock port |
 |---|---|---|---|
 | [`quoting.postman_collection.json`](quoting.postman_collection.json) | [quoting](../domains/quoting/) | 4 | 4010 |
-| [`policy.postman_collection.json`](policy.postman_collection.json) | [policy](../domains/policy/) | 4 | 4011 |
+| [`policy.postman_collection.json`](policy.postman_collection.json) | [policy](../domains/policy/) | 5 | 4011 |
 | [`requirements.postman_collection.json`](requirements.postman_collection.json) | [requirements](../domains/requirements/) | 3 | 4012 |
 | [`commissions.postman_collection.json`](commissions.postman_collection.json) | [commissions](../domains/commissions/) | 4 | 4013 |
 
 <details>
 <summary>What is in each</summary>
 
-**Quoting** — `POST /quotes` (body: life cover with a linked TPD rider, held in super) ·
+**Quoting** — `POST /quotes` (body: life cover held in super, with a linked TPD extension held
+outside it) ·
 `GET /capabilities` · `GET /occupations` · `POST /occupations:match`
 
 **Policy** — `GET /policies` (the book snapshot) · `GET /policies/{policy_id}` ·
-`GET /arrears` (the dishonour worklist) · `GET /capabilities`
+`GET /policies/{policy_id}/transactions` · `GET /arrears` (the dishonour worklist) ·
+`GET /capabilities`
 
 **Requirements** — `GET /cases` (everything outstanding) · `GET /cases/{case_id}` ·
 `GET /capabilities`
@@ -53,11 +55,11 @@ any code.
 
 3. **Send.** Collection-level auth is already `Bearer {{accessToken}}` and every request inherits it.
 
-Requests with a path parameter — `GET /policies/{policy_id}`, `GET /cases/{case_id}`,
-`GET /statements/{statement_id}` — arrive with a worked example already filled in under the request's
-*Path Variables*. Required query parameters are pre-filled too: `GET /statements` needs a period, so
-it ships with one. Everything can be sent as-is against the mock and edited for a real
-implementation.
+Requests with a path parameter — `GET /policies/{policy_id}` and its `/transactions`,
+`GET /cases/{case_id}`, `GET /statements/{statement_id}` and its `/lines` — arrive with a worked
+example already filled in under the request's *Path Variables*. Required query parameters are
+pre-filled too: `GET /statements` needs a period, so it ships with one. Everything can be sent as-is
+against the mock and edited for a real implementation.
 
 ## Running against the mock
 

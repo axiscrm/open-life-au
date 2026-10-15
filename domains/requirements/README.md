@@ -1,7 +1,7 @@
 # Requirements contract
 
 Outstanding underwriting requirements on life applications — what an application is waiting on, and
-who it is waiting on. `v0.1.0` — draft, open for comment.
+who it is waiting on. `v0.1.1` — draft, open for comment. Changes: [`CHANGELOG.md`](CHANGELOG.md).
 
 - Contract: [`openapi.yaml`](openapi.yaml) · bundled at [`dist/requirements/openapi.yaml`](../../dist/requirements/openapi.yaml)
 - The vocabulary: [`core/schemas/requirement-vocabulary.yaml`](../../core/schemas/requirement-vocabulary.yaml)
@@ -39,8 +39,8 @@ it MUST NOT be dropped in favour of the type.
 ## Shape
 
 **Snapshot-first, and here that is not a preference.** `GET /cases` returns everything currently
-outstanding, paged. Every contract in this standard is snapshot-first for good reasons; this is the
-only one with no workable alternative.
+outstanding, paged. The policy contract is snapshot-first by preference; this one has no workable
+alternative.
 
 Insurers emit requirements as *events*: a notice when an item is raised, and — sometimes, from some
 insurers — another when it is met. A list built from those is only as good as the messages it never

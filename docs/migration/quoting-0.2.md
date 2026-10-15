@@ -1,6 +1,9 @@
 # Quoting 0.1 → 0.2
 
-One removal and three additions. Only the removal is breaking.
+This note covers the last change before 0.2.0 was cut: one removal and three additions, of which
+only the removal is breaking. 0.2.0 also carries earlier breaking changes, each listed in full in
+the [quoting CHANGELOG](../../domains/quoting/CHANGELOG.md) and summarised under
+[Also in 0.2.0](#also-in-020).
 
 ## Removed: `research_scores`
 
@@ -40,3 +43,27 @@ field (the one that declared it never populated it) and no consumer displayed it
   price), `available` (offered, but the source does not say whether it is in this price) or
   `not_offered`, with the insurer's own wording. A code missing from the report means
   unknown, not "not offered".
+
+## Also in 0.2.0
+
+Breaking, from earlier in the cycle:
+
+- **Commission.** The basis is set once, in `policy.commission`; `commission` on a cover in a request
+  is now rejected. Every line with `all_needs_met: true` must carry `commission`, and a per-cover
+  difference is reported in `CoverLine.commission`.
+- **Frequencies.** `PremiumSet` requires only `monthly` and `annual`. The other four appear where
+  the insurer quotes them and are named in `not_quoted` where it does not. Never derive them.
+- **Waiting periods.** `WaitingPeriod` gains eight values in weeks and months (`2w` … `26w`, `1m`,
+  `3m`, `6m`), so an exhaustive mapping needs a row or an explicit refusal for each.
+- **Percentages** are decimal strings (`'25'`, not `25`).
+- **`annual_income`** is required on the insured when income protection or business expenses is
+  requested.
+- **Required features** take a portable vocabulary
+  ([`taxonomy/product-features.yaml`](../../taxonomy/product-features.yaml)) beside the insurer's own
+  codes, and an unrecognised code is reported on the line as `unrecognised` rather than rejecting the
+  request with `422`.
+
+Additive: product selection. `GET /capabilities` publishes each cover's products
+(`CoverCapability.products`, flagged by `features.product_selection`), a request may name one per
+brand in `insurer_products`, and `CoverLine.insurer_product_id` reports the product a cover was
+written on.

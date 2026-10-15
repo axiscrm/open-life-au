@@ -4,7 +4,7 @@ Every file here is a **literally valid payload**. Post one at the mock (`npm run
 removed and it will be accepted:
 
 ```bash
-curl -X POST http://localhost:4010/quotes \
+curl -X POST http://127.0.0.1:4010/quotes \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer test' \
   --data @requests/life-with-linked-tpd-in-super.json
@@ -124,7 +124,8 @@ This adviser is saying three different things at once:
 
 An implementation that "tidies" the trauma zero into an omission, or rejects it as pointless, has
 silently changed the instruction. JSON Schema cannot express the difference between an absent key and
-a present zero, which is exactly why the conformance suite tests it.
+a present zero, which is exactly why the rule is stated in prose and has to be tested against an
+implementation rather than a schema.
 
 ### `child-trauma-and-minimal-life.json`
 
@@ -145,12 +146,14 @@ One request, two lines — the shape consumers most often get wrong.
 
 **Line 1 is a real offer.** Check the arithmetic:
 
-- In every frequency the four components sum **exactly** to `total`.
+- In every frequency the four components sum **exactly** to `total`. An implementation should also
+  test its totals against the insurer's own figures: a `total` built by adding the components meets
+  this rule by construction, so it cannot catch a fee or a stamp duty left out of a component.
 - `policy_fee` is already inside `total`. It is not a further addition, and it is reported separately
   only because it belongs to no single cover — which is why summing `cover_lines` will never reach
   the line total.
-- The frequency loading is visible: weekly annualises to 1238.12 against an annual premium of
-  1197.00. Dividing the annual figure by twelve would understate the monthly cost by about 3%, and
+- The frequency loading is visible: weekly annualises to 2013.96 against an annual premium of
+  1947.00. Dividing the annual figure by twelve would understate the monthly cost by about 3%, and
   nothing in the response would look wrong.
 
 **And it says what it was priced on.** `commission` is required on any line carrying a premium, so a

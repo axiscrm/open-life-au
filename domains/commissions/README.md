@@ -1,6 +1,6 @@
 # Commissions contract
 
-Commission statements and their lines. `v0.1.0` — draft, open for comment.
+Commission statements and their lines. `v0.1.0` — draft, open for comment, not yet released.
 
 - Contract: [`openapi.yaml`](openapi.yaml) · bundled at [`dist/commissions/openapi.yaml`](../../dist/commissions/openapi.yaml)
 - The vocabulary: [`core/schemas/commission-vocabulary.yaml`](../../core/schemas/commission-vocabulary.yaml)
@@ -14,8 +14,8 @@ statements change shape.
 
 ## A ledger, not a snapshot — the one thing to understand first
 
-The other three contracts in this standard are **snapshots**: they describe a current state, and
-their central rule is that a record which has disappeared is gone. That rule is what removes
+The policy and requirements contracts are **snapshots**: they describe a current state, and their
+central rule is that a record which has disappeared is gone. That rule is what removes
 tombstones and makes a failed run self-correcting.
 
 **It is exactly wrong here.** A commission statement is a ledger entry — issued once, for a period,

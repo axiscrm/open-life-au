@@ -17,24 +17,26 @@ node -v          # 20+
 
 ## Get the contracts
 
-Both are self-contained — every `$ref` already resolved — so these two files are all you need. You do
-not need to clone this repository.
+Each is self-contained — every `$ref` already resolved — so these files are all you need. You do not
+need to clone this repository. Every bundle is named `openapi.yaml`, so each gets its own directory:
 
 ```bash
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/quoting/openapi.yaml
-curl -O https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/policy/openapi.yaml
+for c in quoting policy requirements commissions; do
+  curl --create-dirs -o "$c/openapi.yaml" \
+    "https://raw.githubusercontent.com/axiscrm/open-life-au/main/dist/$c/openapi.yaml"
+done
 ```
 
-Generate them as two separate packages. Every command below shows quoting; substitute
-`policy/openapi.yaml` and a different package name for the other. See
-[policy.md](policy.md) for what differs — in particular the snapshot walk, which is the one piece of
-client logic that is dangerous to get wrong.
+Generate each as its own package. Every command below shows quoting; substitute
+`policy/openapi.yaml` (or `requirements`, `commissions`) and a different package name for the
+others. See [policy.md](policy.md) for what differs — in particular the snapshot walk, which is the
+one piece of client logic that is dangerous to get wrong.
 
 ## Generate the server interfaces
 
 ```bash
 npx @openapitools/openapi-generator-cli@2 generate \
-  -i openapi.yaml -g spring -o ./generated-server \
+  -i quoting/openapi.yaml -g spring -o ./generated-server \
   -p interfaceOnly=true,useSpringBoot3=true,useTags=true,useJakartaEe=true,openApiNullable=false \
   --additional-properties=apiPackage=au.org.openlife.quoting.api,modelPackage=au.org.openlife.quoting.model
 ```
@@ -79,7 +81,7 @@ optional parameters; both are worth honouring — see the nuances below.
 
 ```bash
 npx @openapitools/openapi-generator-cli@2 generate \
-  -i openapi.yaml -g java -o ./generated-client --library native \
+  -i quoting/openapi.yaml -g java -o ./generated-client --library native \
   -p openApiNullable=false,useJakartaEe=true \
   --additional-properties=apiPackage=au.org.openlife.quoting.api,modelPackage=au.org.openlife.quoting.model
 ```
@@ -184,8 +186,8 @@ one shared token is the difference between an investigation and a guess.
 null`**
 
 You are generating from a copy of the contract taken before this was fixed. Confirm with
-[Am I on the current contract?](README.md#am-i-on-the-current-contract) and re-download — note that
-`info.version` cannot tell you, since it reads `0.1.0` in both.
+[Am I on the current contract?](README.md#am-i-on-the-current-contract) and re-download. The fix
+predates the first release, so a copy whose `info.version` still reads `0.1.0` is stale.
 
 For the record, since it is a useful thing to recognise in your own specs: the cover discriminant
 was originally pinned with `const`, which is correct JSON Schema. But openapi-generator resolves a
