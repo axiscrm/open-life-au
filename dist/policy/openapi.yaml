@@ -69,8 +69,10 @@ info:
     ## Conformance
 
     Insurer records differ in what they carry. Declare what you populate in `GET /capabilities`;
-    you are held to that declaration, not to the whole contract. What is not optional is the snapshot being
-    complete and consistent — everything else in this contract depends on it.
+    for the optional parts it lists (record fields, operations, the incremental feed and webhooks)
+    you are held to that declaration rather than to everything the contract allows. What is not
+    optional is the snapshot being complete and consistent — everything else in this contract
+    depends on it.
   license:
     name: Apache-2.0
     identifier: Apache-2.0
