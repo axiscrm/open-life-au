@@ -22,9 +22,9 @@ info:
     These guard against failures that are **silent** — they produce a plausible number rather than
     an error, so nobody notices until a client complains.
 
-    1. **Return every frequency you sell, as the insurer prices it.** Every priced line carries
-       `monthly` and `annual`, and every other frequency the insurer sells. A frequency left out is
-       unquoted, and SHOULD be named in `not_quoted`.
+    1. **Return every frequency you quote, as the insurer prices it.** Every priced line carries
+       `monthly` and `annual`, and every other frequency the insurer quotes for that line. A
+       frequency left out is unquoted, and SHOULD be named in `not_quoted`.
        Sub-annual premiums carry a frequency loading, so the monthly premium is not the annual over
        twelve. A consumer that divides will understate the cost and nothing will look wrong.
     2. **Never price what you could not assemble.** If some requested covers cannot be written,
@@ -104,8 +104,8 @@ paths:
         ### Three things a consumer must not do
         - **Do not derive a frequency.** `annual / 12` is not the monthly premium, because sub-annual
           premiums carry a frequency loading. Every line carries `monthly` and `annual`; the other four
-          appear only where the insurer quotes them, and the ones it does not are named in
-          `premiums.not_quoted`. An absent frequency cannot be bought at any price, so a derived figure
+          appear only where the insurer quotes them; one it does not quote is absent, and SHOULD be
+          named in `premiums.not_quoted`. An absent frequency cannot be bought at any price, so a derived figure
           is both wrong and unpurchasable.
         - **Do not price a failed line.** A line with `all_needs_met: false` carries no `premiums` and
           is not an offer. It exists so the adviser can see that this insurer was asked and could not

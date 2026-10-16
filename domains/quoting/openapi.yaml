@@ -24,9 +24,9 @@ info:
     These guard against failures that are **silent** — they produce a plausible number rather than
     an error, so nobody notices until a client complains.
 
-    1. **Return every frequency you sell, as the insurer prices it.** Every priced line carries
-       `monthly` and `annual`, and every other frequency the insurer sells. A frequency left out is
-       unquoted, and SHOULD be named in `not_quoted`.
+    1. **Return every frequency you quote, as the insurer prices it.** Every priced line carries
+       `monthly` and `annual`, and every other frequency the insurer quotes for that line. A
+       frequency left out is unquoted, and SHOULD be named in `not_quoted`.
        Sub-annual premiums carry a frequency loading, so the monthly premium is not the annual over
        twelve. A consumer that divides will understate the cost and nothing will look wrong.
     2. **Never price what you could not assemble.** If some requested covers cannot be written,
