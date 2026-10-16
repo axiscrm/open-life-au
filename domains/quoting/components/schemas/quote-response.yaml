@@ -7,9 +7,9 @@
 #      is not the annual premium over twelve; insurers apply a frequency loading, so anyone who
 #      divides understates the cost and nothing in the response looks wrong. `monthly` and `annual`
 #      are required on every priced line; the other four are returned where the insurer quotes them
-#      and named in `not_quoted` where it does not. An insurer that does not sell a weekly premium
-#      must say so rather than invent one, because a divided figure carrying the authority of a
-#      quote is worse than the same arithmetic done by the consumer.
+#      and left out where it does not (SHOULD be named in `not_quoted`). An insurer that does not
+#      sell a weekly premium must leave it out rather than invent one, because a divided figure
+#      carrying the authority of a quote is worse than the same arithmetic done by the consumer.
 #   2. A line that could not be assembled is flagged, never priced. An insurer that can meet some
 #      of the requested covers but not all of them must say so, because a partial policy shown at
 #      its lower premium reads as a better offer than a complete one.
@@ -165,8 +165,8 @@ QuoteLine:
         The price of this line at each payment frequency the insurer quotes. REQUIRED on a line where
         `all_needs_met` is `true`; MUST be absent otherwise.
 
-        Which frequencies that is varies by insurer, and the ones it does not quote are named in
-        `PremiumSet.not_quoted`. A consumer comparing lines across a panel therefore compares on
+        Which frequencies that is varies by insurer. One it does not quote is absent, and SHOULD be
+        named in `PremiumSet.not_quoted`. A consumer comparing lines across a panel therefore compares on
         `annual` or `monthly`, the two every line carries.
 
         WHAT THE CLIENT PAYS, INCLUDING ANY MINIMUM PREMIUM. Where the cover rates below the
@@ -560,8 +560,8 @@ PremiumSet:
   title: PremiumSet
   description: >-
     The same line priced at each payment frequency the insurer quotes. `monthly` and `annual` are
-    REQUIRED. The other four are present where the insurer quotes them and named in `not_quoted`
-    where it does not.
+    REQUIRED. The other four are present where the insurer quotes them; one that is absent is
+    unquoted, and SHOULD be named in `not_quoted`.
 
     WHY NOT ALL SIX, WHICH THIS SCHEMA USED TO REQUIRE. The reasoning for requiring six was that a
     consumer given one frequency cannot derive the others, and that reasoning is sound — it is the

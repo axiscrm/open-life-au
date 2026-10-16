@@ -30,7 +30,7 @@ format.
 ## The rules that matter most
 
 The five rules in the contract's `info.description` guard against failures that are silent: a
-plausible number rather than an error. In short: return every frequency as the insurer prices it,
+plausible number rather than an error. In short: return every frequency quoted, as the insurer prices it,
 never price what could not be assembled, report every option not applied, echo what was rated, and
 say which commission basis was priced. Read them in [`openapi.yaml`](openapi.yaml) before
 implementing.

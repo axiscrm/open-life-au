@@ -22,8 +22,9 @@ info:
     These guard against failures that are **silent** — they produce a plausible number rather than
     an error, so nobody notices until a client complains.
 
-    1. **Return every frequency you sell, as the insurer prices it.** Every priced line carries
-       `monthly` and `annual`; any other frequency is either returned or listed in `not_quoted`.
+    1. **Return every frequency you quote, as the insurer prices it.** Every priced line carries
+       `monthly` and `annual`, and every other frequency the insurer quotes for that line. A
+       frequency left out is unquoted, and SHOULD be named in `not_quoted`.
        Sub-annual premiums carry a frequency loading, so the monthly premium is not the annual over
        twelve. A consumer that divides will understate the cost and nothing will look wrong.
     2. **Never price what you could not assemble.** If some requested covers cannot be written,
@@ -103,8 +104,8 @@ paths:
         ### Three things a consumer must not do
         - **Do not derive a frequency.** `annual / 12` is not the monthly premium, because sub-annual
           premiums carry a frequency loading. Every line carries `monthly` and `annual`; the other four
-          appear only where the insurer quotes them, and the ones it does not are named in
-          `premiums.not_quoted`. An absent frequency cannot be bought at any price, so a derived figure
+          appear only where the insurer quotes them; one it does not quote is absent, and SHOULD be
+          named in `premiums.not_quoted`. An absent frequency cannot be bought at any price, so a derived figure
           is both wrong and unpurchasable.
         - **Do not price a failed line.** A line with `all_needs_met: false` carries no `premiums` and
           is not an offer. It exists so the adviser can see that this insurer was asked and could not
@@ -1645,7 +1646,7 @@ components:
     PremiumSet:
       title: PremiumSet
       description: |-
-        The same line priced at each payment frequency the insurer quotes. `monthly` and `annual` are REQUIRED. The other four are present where the insurer quotes them and named in `not_quoted` where it does not.
+        The same line priced at each payment frequency the insurer quotes. `monthly` and `annual` are REQUIRED. The other four are present where the insurer quotes them; one that is absent is unquoted, and SHOULD be named in `not_quoted`.
         WHY NOT ALL SIX, WHICH THIS SCHEMA USED TO REQUIRE. The reasoning for requiring six was that a consumer given one frequency cannot derive the others, and that reasoning is sound — it is the ordering rule below and it still binds. The conclusion did not follow. An insurer that does not sell a weekly premium has no weekly premium to return, and requiring one obliges it to invent a figure by dividing: the very arithmetic this schema forbids the consumer, made worse by arriving with the authority of a quote. Sub-monthly billing in particular is not universal in this market, and a standard that cannot express its absence forces every insurer without it to fabricate.
         The two that remain required are the two that are not substitutable. `monthly` is what most policies are actually billed at and what an adviser presents. `annual` is what comparison, annualisation and projection totals are computed from. An insurer that can price a product at all can price it at both.
         A CONSUMER MUST NOT DERIVE AN ABSENT FREQUENCY, and this is the rule the whole schema is shaped around. Sub-annual premiums carry a frequency loading, so `weekly x 52 >= fortnightly x 26 >= monthly x 12 >= quarterly x 4 >= half_yearly x 2 >= annual`. A frequency absent here is not purchasable at any price, so dividing `annual` produces a number that is both wrong and unbuyable while looking entirely normal. Offer the frequencies that are present; offer no control for the ones that are not.
@@ -2478,7 +2479,7 @@ components:
         premiums:
           description: |-
             The price of this line at each payment frequency the insurer quotes. REQUIRED on a line where `all_needs_met` is `true`; MUST be absent otherwise.
-            Which frequencies that is varies by insurer, and the ones it does not quote are named in `PremiumSet.not_quoted`. A consumer comparing lines across a panel therefore compares on `annual` or `monthly`, the two every line carries.
+            Which frequencies that is varies by insurer. One it does not quote is absent, and SHOULD be named in `PremiumSet.not_quoted`. A consumer comparing lines across a panel therefore compares on `annual` or `monthly`, the two every line carries.
             WHAT THE CLIENT PAYS, INCLUDING ANY MINIMUM PREMIUM. Where the cover rates below the insurer's minimum premium at a frequency, the figure here is the minimum — see `minimum_premium`, which says so and carries the rated figure beside it.
           $ref: '#/components/schemas/PremiumSet'
         minimum_premium:
@@ -2969,7 +2970,7 @@ components:
         frequencies:
           description: |-
             Which payment frequencies this insurer quotes and bills at. `monthly` and `annual` are always among them, because `PremiumSet` requires both on every priced line.
-            THIS NOW MATCHES THE RESPONSE, where an earlier version of this standard said it did not. `PremiumSet` used to require all six frequencies whatever an insurer actually sold, so this field described billing while the response described something else — and an insurer with no weekly product had to return a weekly premium anyway. The response now carries the frequencies the insurer quotes and names the rest in `PremiumSet.not_quoted`, so the two agree and this field is the pre-quote form of the same fact.
+            THIS NOW MATCHES THE RESPONSE, where an earlier version of this standard said it did not. `PremiumSet` used to require all six frequencies whatever an insurer actually sold, so this field described billing while the response described something else — and an insurer with no weekly product had to return a weekly premium anyway. The response now carries the frequencies the insurer quotes and leaves out the rest, which it SHOULD name in `PremiumSet.not_quoted`, so the two agree and this field is the pre-quote form of the same fact.
             Read it the way the rest of this document is read: a hint that lets a consumer build the frequency control before the first pricing call, not an authority. `PremiumSet` on the line is what actually governs, and a consumer MUST NOT derive a frequency it finds here but not there.
           type: array
           items:
