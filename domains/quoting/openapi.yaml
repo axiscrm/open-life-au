@@ -25,7 +25,8 @@ info:
     an error, so nobody notices until a client complains.
 
     1. **Return every frequency you sell, as the insurer prices it.** Every priced line carries
-       `monthly` and `annual`; any other frequency is either returned or listed in `not_quoted`.
+       `monthly` and `annual`, and every other frequency the insurer sells. A frequency left out is
+       unquoted, and SHOULD be named in `not_quoted`.
        Sub-annual premiums carry a frequency loading, so the monthly premium is not the annual over
        twelve. A consumer that divides will understate the cost and nothing will look wrong.
     2. **Never price what you could not assemble.** If some requested covers cannot be written,
