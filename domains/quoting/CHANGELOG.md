@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/axiscrm/open-life-au/compare/quoting-v0.2.1...quoting-v0.2.2) (2026-10-16)
+
+
+### Bug Fixes
+
+* **quoting:** not_quoted is a SHOULD wherever the contract restates it ([#15](https://github.com/axiscrm/open-life-au/issues/15)) ([0452226](https://github.com/axiscrm/open-life-au/commit/0452226100e858b39f9ac0d82e57af93e26f689a))
+
 ## [0.2.1](https://github.com/axiscrm/open-life-au/compare/quoting-v0.2.0...quoting-v0.2.1) (2026-10-15)
 
 
