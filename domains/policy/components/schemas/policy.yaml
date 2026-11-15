@@ -11,7 +11,7 @@ Policy:
   title: Policy
   description: One policy as the insurer holds it, with all of its benefits.
   type: object
-  required: [policy_id, insurer_id, status, policy_holder, covers]
+  required: [policy_id, insurer_id, status, policy_holder, premium, covers]
   additionalProperties: false
   # One representation for arrears, not two. Without this an insurer could report a behind-on-premium
   # policy as `in_force` with a populated `arrears` block — defensible, since the policy is still on
@@ -23,9 +23,9 @@ Policy:
         status:
           const: in_arrears
     # A reason for ending is only valid on a status that has ended. An ALLOWLIST of the terminal
-    # statuses rather than a denylist of the live ones, because `status` is extensible: a denylist
-    # accepts an exit reason on every status added later, including a live one such as a premium
-    # holiday, while an allowlist fails closed and a new terminal status is added here in the release
+    # statuses rather than a denylist of the live ones, because `status` grows by release and holds
+    # `other`: a denylist accepts an exit reason on every status added later, and on `other`, which
+    # may be a live state such as a premium holiday, while an allowlist fails closed and a new terminal status is added here in the release
     # that names it. The likeliest defect it catches is a cover's exit reason copied onto its policy.
     exit_reason:
       required: [status]
@@ -63,6 +63,21 @@ Policy:
               exit_reason:
                 not:
                   enum: [non_payment, owner_request]
+  # A benefit with no `status` is read as `in_force`, which only holds on a live policy. On an ended
+  # policy each benefit states its own, so a consumer never records a live benefit on a dead policy.
+  if:
+    required: [status]
+    properties:
+      status:
+        enum: [lapsed, cancelled, terminated]
+  then:
+    properties:
+      covers:
+        items:
+          required: [status]
+          properties:
+            status:
+              $ref: '#/PolicyStatus'
   properties:
     policy_id:
       description: >-
@@ -83,7 +98,7 @@ Policy:
       $ref: '../../../../core/schemas/identifiers.yaml#/ProductName'
 
     status:
-      $ref: '#/PolicyStatusResponse'
+      $ref: '#/PolicyStatus'
     status_detail:
       description: The insurer's own wording for the status, where it carries more than the enum does.
       type: string
@@ -91,7 +106,7 @@ Policy:
     exit_reason:
       description: >-
         Why the policy ended. Only valid where `status` is `lapsed`, `cancelled` or `terminated`,
-        and the schema rejects it on any other status, including one this version does not name.
+        and the schema rejects it on any other status, including `other`.
 
         It REFINES the status and MUST be consistent with it: a `lapsed` policy did not end at the
         owner's request, and a `cancelled` one did not end for non-payment. The schema rejects those
@@ -157,8 +172,8 @@ Policy:
     covers:
       description: >-
         The benefits held under this policy. At least one — a policy with no benefits is not a
-        policy. Where a benefit maps onto the shared cover vocabulary the insurer SHOULD populate
-        `cover_type`; `benefit_name` always carries its own product wording.
+        policy. Every benefit carries a `cover_type`, `other` where none fits; `benefit_name` always
+        carries its own product wording.
 
         A benefit that has ENDED while the insurer still reports it is sent here, present, with a
         terminal `status`, its `terminated_on` and, where known, its `exit_reason` — a trauma benefit
@@ -285,17 +300,6 @@ PolicyVersion:
   type: integer
   minimum: 1
 
-PolicyStatusResponse:
-  title: PolicyStatusResponse
-  description: >-
-    RESPONSE-facing policy status. Extensible: an insurer may report a state this version does not name
-    — a premium holiday or waiver in effect is a real one — and a consumer MUST pass it through rather
-    than failing the page, which would abort the walk and reconcile nothing that night.
-
-    Known values: [in_force, in_arrears, pending, lapsed, cancelled, terminated].
-  type: string
-  x-extensible-enum: [in_force, in_arrears, pending, lapsed, cancelled, terminated]
-
 PolicyStatus:
   title: PolicyStatus
   description: >-
@@ -308,8 +312,37 @@ PolicyStatus:
       - `lapsed`     ended for non-payment
       - `cancelled`  ended at the owner's request
       - `terminated` ended for any other reason, including claim or expiry
+      - `other`      a state none of these names, such as a premium holiday; the insurer's own
+                     wording goes in `status_detail`
+
+    A closed list. An insurer maps each of its own statuses onto it and sends `other` for one it
+    cannot place, rather than a value of its own, so a consumer never fails a page on an unknown
+    status and never has to guess what one means.
   type: string
-  enum: [in_force, in_arrears, pending, lapsed, cancelled, terminated]
+  enum: [in_force, in_arrears, pending, lapsed, cancelled, terminated, other]
+
+PolicyCoverType:
+  title: PolicyCoverType
+  description: >-
+    The benefit mapped onto a closed list: the core `CoverType` values, the in-force benefits a quote
+    screen does not offer (`funeral`, `severity_based`), and `other` for a benefit none of them fits,
+    such as a waiver of premium or an accidental death benefit. An insurer maps every benefit, and
+    sends `other` for one it cannot place rather than leaving it out; `benefit_name` says what it is.
+
+    A POLICY vocabulary, like `InForceStructure`, and deliberately not added to the core `CoverType`,
+    which the quoting contract shares: a quote request cannot ask for `other`.
+  type: string
+  enum:
+    - life
+    - tpd
+    - trauma
+    - income_protection
+    - business_expenses
+    - needle_stick
+    - child_trauma
+    - funeral
+    - severity_based
+    - other
 
 InForceStructure:
   title: InForceStructure
@@ -421,8 +454,14 @@ PolicyPremium:
     `annualised` is supplied rather than derived, for the same reason quoting returns each
     frequency as priced: frequency loadings mean the annual figure is not the billed amount times the number
     of periods.
+
+    `frequency` is required with at least one of `amount` and `annualised`: some insurers' extracts
+    carry only the annual figure, and the contract should not make a policy unreportable for it.
   type: object
-  required: [amount, frequency]
+  required: [frequency]
+  anyOf:
+    - required: [amount]
+    - required: [annualised]
   additionalProperties: false
   properties:
     amount:
@@ -583,7 +622,7 @@ PolicyCover:
   # book, declare the gap, and let a consumer decide what to do about it. That is the same trade the
   # rest of this contract makes, and the alternative is a standard whose conformance bar is set just
   # above what part of the market can actually supply.
-  required: [benefit_name]
+  required: [benefit_name, cover_type]
   additionalProperties: false
   properties:
     cover_id:
@@ -609,11 +648,10 @@ PolicyCover:
       maxLength: 200
     cover_type:
       description: >-
-        The benefit mapped onto the shared cover vocabulary, where one applies. Populating this is
-        what lets a consumer compare an in-force book against new quotes without maintaining a
-        per-insurer benefit-name lookup. Omit rather than guess — an absent `cover_type` with a
-        populated `benefit_name` is an honest answer.
-      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/CoverTypeResponse'
+        The benefit mapped onto the policy cover list. Populating this is what lets a consumer
+        compare an in-force book against new quotes without maintaining a per-insurer benefit-name
+        lookup. Required: a benefit that fits no type is sent as `other`, never left out.
+      $ref: '#/PolicyCoverType'
     sum_insured:
       description: >-
         Current sum insured, after any indexation. For monthly-benefit covers this is the monthly
@@ -628,7 +666,11 @@ PolicyCover:
       description: This benefit's share of the policy premium, at the policy's billing frequency.
       $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
     status:
-      $ref: '#/PolicyStatusResponse'
+      description: >-
+        This benefit's status. Optional: absent means `in_force`, because an insurer that lists only
+        live benefits has nothing else to say about them. Required on a `lapsed`, `cancelled` or
+        `terminated` policy, where that reading would be wrong.
+      $ref: '#/PolicyStatus'
     status_detail:
       description: >-
         The insurer's own wording for this benefit's status, where it carries more than the enum

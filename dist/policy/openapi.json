@@ -834,7 +834,7 @@
     "schemas": {
       "PolicyStatus": {
         "title": "PolicyStatus",
-        "description": "The policy's state. A snapshot contains in-force business by default; the terminal states appear only where an insurer chooses to report recent history, and a consumer MUST NOT treat their presence as a promise that all historical policies are included.\n  - `in_force`   current and paid to date\n  - `in_arrears` current but behind on premium — still on risk, see `arrears`\n  - `pending`    accepted but not yet commenced\n  - `lapsed`     ended for non-payment\n  - `cancelled`  ended at the owner's request\n  - `terminated` ended for any other reason, including claim or expiry",
+        "description": "The policy's state. A snapshot contains in-force business by default; the terminal states appear only where an insurer chooses to report recent history, and a consumer MUST NOT treat their presence as a promise that all historical policies are included.\n  - `in_force`   current and paid to date\n  - `in_arrears` current but behind on premium — still on risk, see `arrears`\n  - `pending`    accepted but not yet commenced\n  - `lapsed`     ended for non-payment\n  - `cancelled`  ended at the owner's request\n  - `terminated` ended for any other reason, including claim or expiry\n  - `other`      a state none of these names, such as a premium holiday; the insurer's own\n                 wording goes in `status_detail`\n\nA closed list. An insurer maps each of its own statuses onto it and sends `other` for one it cannot place, rather than a value of its own, so a consumer never fails a page on an unknown status and never has to guess what one means.",
         "type": "string",
         "enum": [
           "in_force",
@@ -842,7 +842,8 @@
           "pending",
           "lapsed",
           "cancelled",
-          "terminated"
+          "terminated",
+          "other"
         ]
       },
       "Cursor": {
@@ -924,19 +925,6 @@
         "maxLength": 200,
         "examples": [
           "Protection Plus Life Cover"
-        ]
-      },
-      "PolicyStatusResponse": {
-        "title": "PolicyStatusResponse",
-        "description": "RESPONSE-facing policy status. Extensible: an insurer may report a state this version does not name — a premium holiday or waiver in effect is a real one — and a consumer MUST pass it through rather than failing the page, which would abort the walk and reconcile nothing that night.\nKnown values: [in_force, in_arrears, pending, lapsed, cancelled, terminated].",
-        "type": "string",
-        "x-extensible-enum": [
-          "in_force",
-          "in_arrears",
-          "pending",
-          "lapsed",
-          "cancelled",
-          "terminated"
         ]
       },
       "ExitReason": {
@@ -1627,11 +1615,22 @@
       },
       "PolicyPremium": {
         "title": "PolicyPremium",
-        "description": "What the policy costs as currently billed. Unlike a quote, this is a single frequency — the one the policy is actually paid at — because a policy has one billing arrangement, not six. `annualised` is supplied rather than derived, for the same reason quoting returns each frequency as priced: frequency loadings mean the annual figure is not the billed amount times the number of periods.",
+        "description": "What the policy costs as currently billed. Unlike a quote, this is a single frequency — the one the policy is actually paid at — because a policy has one billing arrangement, not six. `annualised` is supplied rather than derived, for the same reason quoting returns each frequency as priced: frequency loadings mean the annual figure is not the billed amount times the number of periods.\n`frequency` is required with at least one of `amount` and `annualised`: some insurers' extracts carry only the annual figure, and the contract should not make a policy unreportable for it.",
         "type": "object",
         "required": [
-          "amount",
           "frequency"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "amount"
+            ]
+          },
+          {
+            "required": [
+              "annualised"
+            ]
+          }
         ],
         "additionalProperties": false,
         "properties": {
@@ -1685,18 +1684,21 @@
           }
         }
       },
-      "CoverTypeResponse": {
-        "title": "CoverTypeResponse",
-        "description": "RESPONSE-facing CoverType. Same meaning as `CoverType`, but extensible: a consumer MUST pass an unrecognised value through for display rather than failing, so that adding to the benefits is a minor release rather than a major one.\nKnown values: [life, tpd, trauma, income_protection, business_expenses, needle_stick, child_trauma]. Validate against `CoverType` when SENDING; tolerate anything when RECEIVING.",
+      "PolicyCoverType": {
+        "title": "PolicyCoverType",
+        "description": "The benefit mapped onto a closed list: the core `CoverType` values, the in-force benefits a quote screen does not offer (`funeral`, `severity_based`), and `other` for a benefit none of them fits, such as a waiver of premium or an accidental death benefit. An insurer maps every benefit, and sends `other` for one it cannot place rather than leaving it out; `benefit_name` says what it is.\nA POLICY vocabulary, like `InForceStructure`, and deliberately not added to the core `CoverType`, which the quoting contract shares: a quote request cannot ask for `other`.",
         "type": "string",
-        "x-extensible-enum": [
+        "enum": [
           "life",
           "tpd",
           "trauma",
           "income_protection",
           "business_expenses",
           "needle_stick",
-          "child_trauma"
+          "child_trauma",
+          "funeral",
+          "severity_based",
+          "other"
         ]
       },
       "CoverState": {
@@ -1872,7 +1874,8 @@
         "description": "One benefit held under the policy.",
         "type": "object",
         "required": [
-          "benefit_name"
+          "benefit_name",
+          "cover_type"
         ],
         "additionalProperties": false,
         "properties": {
@@ -1888,8 +1891,8 @@
             "maxLength": 200
           },
           "cover_type": {
-            "description": "The benefit mapped onto the shared cover vocabulary, where one applies. Populating this is what lets a consumer compare an in-force book against new quotes without maintaining a per-insurer benefit-name lookup. Omit rather than guess — an absent `cover_type` with a populated `benefit_name` is an honest answer.",
-            "$ref": "#/components/schemas/CoverTypeResponse"
+            "description": "The benefit mapped onto the policy cover list. Populating this is what lets a consumer compare an in-force book against new quotes without maintaining a per-insurer benefit-name lookup. Required: a benefit that fits no type is sent as `other`, never left out.",
+            "$ref": "#/components/schemas/PolicyCoverType"
           },
           "sum_insured": {
             "description": "Current sum insured, after any indexation. For monthly-benefit covers this is the monthly amount, not the annualised one.\nOptional only because one live book genuinely has no such column — see the note on `required` above. An implementation that holds the value MUST populate it, and an implementation that does not MUST say so in `capabilities.fields.benefit_sum_insured`, because an omitted amount and an unreported one look identical and mean completely different things.",
@@ -1900,7 +1903,8 @@
             "$ref": "#/components/schemas/NonNegativeMoney"
           },
           "status": {
-            "$ref": "#/components/schemas/PolicyStatusResponse"
+            "description": "This benefit's status. Optional: absent means `in_force`, because an insurer that lists only live benefits has nothing else to say about them. Required on a `lapsed`, `cancelled` or `terminated` policy, where that reading would be wrong.",
+            "$ref": "#/components/schemas/PolicyStatus"
           },
           "status_detail": {
             "description": "The insurer's own wording for this benefit's status, where it carries more than the enum does — and what an `exit_reason` of `other` points at.",
@@ -2199,6 +2203,7 @@
           "insurer_id",
           "status",
           "policy_holder",
+          "premium",
           "covers"
         ],
         "additionalProperties": false,
@@ -2284,6 +2289,36 @@
             ]
           }
         },
+        "if": {
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "lapsed",
+                "cancelled",
+                "terminated"
+              ]
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "covers": {
+              "items": {
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "$ref": "#/components/schemas/PolicyStatus"
+                  }
+                }
+              }
+            }
+          }
+        },
         "properties": {
           "policy_id": {
             "description": "The key a consumer reconciles on, so an insurer that renumbers a policy MUST surface the prior number in `previous_policy_id`. Normalisation rules on the shared schema.",
@@ -2307,7 +2342,7 @@
             "$ref": "#/components/schemas/ProductName"
           },
           "status": {
-            "$ref": "#/components/schemas/PolicyStatusResponse"
+            "$ref": "#/components/schemas/PolicyStatus"
           },
           "status_detail": {
             "description": "The insurer's own wording for the status, where it carries more than the enum does.",
@@ -2315,7 +2350,7 @@
             "maxLength": 200
           },
           "exit_reason": {
-            "description": "Why the policy ended. Only valid where `status` is `lapsed`, `cancelled` or `terminated`, and the schema rejects it on any other status, including one this version does not name.\nIt REFINES the status and MUST be consistent with it: a `lapsed` policy did not end at the owner's request, and a `cancelled` one did not end for non-payment. The schema rejects those pairings. Where the insurer's own reason contradicts the status it reports, the status is what the consumer's worklists run on, so fix the mapping rather than send both.\nSeparate from `status` because the two answer different questions, and folding the reason into the status is what several insurer systems do today — an ended policy whose status reads as the claim that ended it. `status` stays the lifecycle state a consumer's absence rule and worklists depend on; this says why, so that a book can be filtered and reported on by it. `status_detail` keeps the insurer's own wording alongside.",
+            "description": "Why the policy ended. Only valid where `status` is `lapsed`, `cancelled` or `terminated`, and the schema rejects it on any other status, including `other`.\nIt REFINES the status and MUST be consistent with it: a `lapsed` policy did not end at the owner's request, and a `cancelled` one did not end for non-payment. The schema rejects those pairings. Where the insurer's own reason contradicts the status it reports, the status is what the consumer's worklists run on, so fix the mapping rather than send both.\nSeparate from `status` because the two answer different questions, and folding the reason into the status is what several insurer systems do today — an ended policy whose status reads as the claim that ended it. `status` stays the lifecycle state a consumer's absence rule and worklists depend on; this says why, so that a book can be filtered and reported on by it. `status_detail` keeps the insurer's own wording alongside.",
             "$ref": "#/components/schemas/ExitReason"
           },
           "policy_holder": {
@@ -2350,7 +2385,7 @@
             "$ref": "#/components/schemas/PolicyPremium"
           },
           "covers": {
-            "description": "The benefits held under this policy. At least one — a policy with no benefits is not a policy. Where a benefit maps onto the shared cover vocabulary the insurer SHOULD populate `cover_type`; `benefit_name` always carries its own product wording.\nA benefit that has ENDED while the insurer still reports it is sent here, present, with a terminal `status`, its `terminated_on` and, where known, its `exit_reason` — a trauma benefit paid out on a policy whose life cover continues, for instance. A benefit that is no longer reported is absent, and absence means only that: the snapshot's absence rule applied one level down, so within a complete walk it is no longer in force and the reason is unknown. A consumer MUST NOT infer an exit reason from absence, and an insurer that knows why a benefit ended SHOULD keep reporting it, terminal, long enough for a daily consumer to see it.",
+            "description": "The benefits held under this policy. At least one — a policy with no benefits is not a policy. Every benefit carries a `cover_type`, `other` where none fits; `benefit_name` always carries its own product wording.\nA benefit that has ENDED while the insurer still reports it is sent here, present, with a terminal `status`, its `terminated_on` and, where known, its `exit_reason` — a trauma benefit paid out on a policy whose life cover continues, for instance. A benefit that is no longer reported is absent, and absence means only that: the snapshot's absence rule applied one level down, so within a complete walk it is no longer in force and the reason is unknown. A consumer MUST NOT infer an exit reason from absence, and an insurer that knows why a benefit ended SHOULD keep reporting it, terminal, long enough for a daily consumer to see it.",
             "type": "array",
             "minItems": 1,
             "items": {
@@ -2714,7 +2749,7 @@
           },
           "status": {
             "description": "The policy's current status. Normally `in_arrears`; carried because an insurer may report a policy as behind on premium while its own record still says something else, and a consumer reconciling this against `/policies` needs to see that rather than have it flattened away.",
-            "$ref": "#/components/schemas/PolicyStatusResponse"
+            "$ref": "#/components/schemas/PolicyStatus"
           },
           "policy_holder": {
             "description": "The same schema the policy snapshot uses. Contact details matter more here than anywhere else in the contract — an arrears row without a phone number or email is a task nobody can action — so an implementation that populates contact anywhere SHOULD populate it here.",
@@ -2987,11 +3022,6 @@
               },
               "policy_holder_contact": {
                 "description": "Whether email, phone and address are populated.",
-                "type": "boolean",
-                "default": false
-              },
-              "cover_type_mapping": {
-                "description": "Whether benefits carry `cover_type` mapped to the shared vocabulary, or only the insurer's own `benefit_name`.",
                 "type": "boolean",
                 "default": false
               },

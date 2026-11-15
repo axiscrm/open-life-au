@@ -559,7 +559,8 @@ const policyBase = {
     insurer_id: "example-life",
     status: "in_force",
     policy_holder: { last_name: "Alvarez" },
-    covers: [{ benefit_name: "Life Cover", sum_insured: money("1000000.00") }],
+    premium: { amount: money("96.20"), frequency: "monthly" },
+    covers: [{ benefit_name: "Life Cover", cover_type: "life", status: "in_force", sum_insured: money("1000000.00") }],
 };
 const pageBase = {
     mode: "full",
@@ -689,14 +690,14 @@ const REQ_PAGE_CASES = [
     {
         name: "a case benefit carrying an unknown field",
         why: "a misspelled key (outcome for decision) must surface rather than be absorbed",
-        doc: { ...reqPageBase, cases: [{ ...caseBase, covers: [{ benefit_name: "Life Cover", outcome: "standard" }] }] },
+        doc: { ...reqPageBase, cases: [{ ...caseBase, covers: [{ benefit_name: "Life Cover", cover_type: "life", outcome: "standard" }] }] },
     },
     {
         name: "a case benefit amount sent as a JSON number",
         why: "amounts are decimal strings; a float drifts by cents",
         doc: {
             ...reqPageBase,
-            cases: [{ ...caseBase, covers: [{ benefit_name: "Life Cover", sum_insured: { amount: 500000, currency: "AUD" } }] }],
+            cases: [{ ...caseBase, covers: [{ benefit_name: "Life Cover", cover_type: "life", sum_insured: { amount: 500000, currency: "AUD" } }] }],
         },
     },
     {
@@ -997,17 +998,52 @@ const POLICY_CASES = [
     {
         name: "an exit reason on a benefit still in force",
         why: "the same contradiction one level down, and the likelier one — a policy's reason copied onto every benefit",
-        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", status: "in_force", exit_reason: "expiry" }] },
+        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", cover_type: "life", status: "in_force", exit_reason: "expiry" }] },
     },
     {
         name: "an exit reason on a benefit with no status",
         why: "a reason for ending cannot be read without the status that says the benefit ended",
-        doc: { ...policyBase, covers: [{ benefit_name: "Trauma Cover", exit_reason: "claim_trauma" }] },
+        doc: { ...policyBase, covers: [{ benefit_name: "Trauma Cover", cover_type: "trauma", exit_reason: "claim_trauma" }] },
     },
     {
-        name: "an exit reason on a status this version does not name",
-        why: "status is extensible, so the rule is an allowlist: a new live status such as a premium holiday must not take an exit reason",
-        doc: { ...policyBase, status: "premium_holiday", exit_reason: "owner_request" },
+        name: "an exit reason on an `other` status",
+        why: "the rule is an allowlist of ended statuses, so a live status the list cannot name, such as a premium holiday, must not take an exit reason",
+        doc: { ...policyBase, status: "other", exit_reason: "owner_request" },
+    },
+    {
+        name: "a policy with no premium",
+        why: "what a policy costs is part of servicing it, and every insurer extract carries it",
+        doc: (() => { const d = { ...policyBase }; delete d.premium; return d; })(),
+    },
+    {
+        name: "a premium with neither an amount nor an annualised amount",
+        why: "a frequency alone says nothing about what the policy costs",
+        doc: { ...policyBase, premium: { frequency: "monthly" } },
+    },
+    {
+        name: "a benefit with no cover type",
+        why: "every benefit is mapped, `other` where none fits, so a consumer never keeps its own name lookup",
+        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", status: "in_force" }] },
+    },
+    {
+        name: "a cover type not on the list",
+        why: "the list is closed: a benefit that fits none of it is sent as `other`",
+        doc: { ...policyBase, covers: [{ benefit_name: "Dental Cover", cover_type: "dental", status: "in_force" }] },
+    },
+    {
+        name: "a policy status not on the list",
+        why: "the list is closed: a status the insurer cannot place is sent as `other`, with its wording in status_detail",
+        doc: { ...policyBase, status: "premium_holiday" },
+    },
+    {
+        name: "a benefit status not on the list",
+        why: "the same closed list applies to each benefit",
+        doc: { ...policyBase, covers: [{ ...policyBase.covers[0], status: "premium_holiday" }] },
+    },
+    {
+        name: "a benefit with no status on a lapsed policy",
+        why: "absent means in force, which would record a live benefit on a dead policy",
+        doc: { ...policyBase, status: "lapsed", covers: [{ benefit_name: "Life Cover", cover_type: "life" }] },
     },
     {
         name: "a lapsed policy whose exit reason is the owner's request",
@@ -1027,19 +1063,19 @@ const POLICY_CASES = [
     {
         name: "a lapsed benefit whose exit reason is the owner's request",
         why: "the same consistency rule one level down",
-        doc: { ...policyBase, covers: [{ benefit_name: "Trauma Cover", status: "lapsed", exit_reason: "owner_request" }] },
+        doc: { ...policyBase, covers: [{ benefit_name: "Trauma Cover", cover_type: "trauma", status: "lapsed", exit_reason: "owner_request" }] },
     },
     {
         name: "a cancelled benefit whose exit reason is non-payment",
         why: "the same consistency rule one level down",
-        doc: { ...policyBase, covers: [{ benefit_name: "Trauma Cover", status: "cancelled", exit_reason: "non_payment" }] },
+        doc: { ...policyBase, covers: [{ benefit_name: "Trauma Cover", cover_type: "trauma", status: "cancelled", exit_reason: "non_payment" }] },
     },
 
     // ── What each benefit carries.
     {
         name: "a linked benefit that does not say how it is linked",
         why: "a target without link_type cannot be read, and an extension read as extra cover double-counts the sum insured",
-        doc: { ...policyBase, covers: [{ benefit_name: "TPD Cover", linked_to_cover_id: "B1" }] },
+        doc: { ...policyBase, covers: [{ benefit_name: "TPD Cover", cover_type: "tpd", linked_to_cover_id: "B1" }] },
     },
     {
         name: "an option carrying an unknown field",
@@ -1049,22 +1085,22 @@ const POLICY_CASES = [
     {
         name: "a benefit option with no name",
         why: "the insurer's wording is the one thing an adviser can always be shown; a bare code is not",
-        doc: { ...policyBase, covers: [{ benefit_name: "TPD Cover", options: [{ feature: "life_buy_back_after_tpd" }] }] },
+        doc: { ...policyBase, covers: [{ benefit_name: "TPD Cover", cover_type: "tpd", options: [{ feature: "life_buy_back_after_tpd" }] }] },
     },
     {
         name: "an empty states array on a benefit",
         why: "absence means no condition applies; an empty array is an ambiguous third state",
-        doc: { ...policyBase, covers: [{ benefit_name: "Income Cover", states: [] }] },
+        doc: { ...policyBase, covers: [{ benefit_name: "Income Cover", cover_type: "income_protection", states: [] }] },
     },
     {
         name: "a benefit loading with neither axis",
         why: "an entry that names a basis and no amount states nothing, and looks like a loading",
-        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", loadings: [{ basis: "medical" }] }] },
+        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", cover_type: "life", loadings: [{ basis: "medical" }] }] },
     },
     {
         name: "a benefit loading above 1000 percent",
         why: "a four-digit loading is a units mistake, not a premium",
-        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", loadings: [{ basis: "medical", percentage: "1500" }] }] },
+        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", cover_type: "life", loadings: [{ basis: "medical", percentage: "1500" }] }] },
     },
 
     // ── Premium detail.
@@ -1424,7 +1460,7 @@ const ACCEPTANCE_CASES = [
         name: "a benefit on a level-to-60 structure",
         why: "the response twin knows what the closed request enum deliberately does not",
         validator: validatePolicy,
-        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", structure: "level_60" }] },
+        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", cover_type: "life", structure: "level_60" }] },
     },
     {
         group: "policy record",
@@ -1440,7 +1476,7 @@ const ACCEPTANCE_CASES = [
         validator: validatePolicy,
         doc: {
             ...policyBase,
-            covers: [{ benefit_name: "TPD Cover", states: ["under_review"], linked_to_cover_id: "B1", link_type: "rider" }],
+            covers: [{ benefit_name: "TPD Cover", cover_type: "tpd", states: ["under_review"], linked_to_cover_id: "B1", link_type: "rider" }],
         },
     },
     {
@@ -1461,7 +1497,7 @@ const ACCEPTANCE_CASES = [
         name: "a standalone benefit that names no target",
         why: "`standalone` is stated positively and has nothing to point at",
         validator: validatePolicy,
-        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", link_type: "standalone" }] },
+        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", cover_type: "life", link_type: "standalone" }] },
     },
     {
         group: "policy record",
@@ -1531,7 +1567,7 @@ const ACCEPTANCE_CASES = [
             covers: [
                 policyBase.covers[0],
                 {
-                    benefit_name: "Trauma Cover",
+                    benefit_name: "Trauma Cover", cover_type: "trauma",
                     status: "terminated",
                     status_detail: "Converted to a standalone policy",
                     exit_reason: "other",
@@ -1539,6 +1575,41 @@ const ACCEPTANCE_CASES = [
                 },
             ],
         },
+    },
+    {
+        group: "policy record",
+        name: "a premium with only an annualised amount",
+        why: "some extracts carry only the annual figure; requiring the instalment would make the policy unreportable",
+        validator: validatePolicy,
+        doc: { ...policyBase, premium: { annualised: money("1154.40"), frequency: "monthly" } },
+    },
+    {
+        group: "policy record",
+        name: "benefits mapped to `funeral`, `severity_based` and `other`",
+        why: "in-force benefits a quote screen does not offer, and one that fits no type, are all reportable",
+        validator: validatePolicy,
+        doc: {
+            ...policyBase,
+            covers: [
+                { benefit_name: "Funeral Cover", cover_type: "funeral" },
+                { benefit_name: "Severity Based Cover", cover_type: "severity_based" },
+                { benefit_name: "Waiver of Premium", cover_type: "other" },
+            ],
+        },
+    },
+    {
+        group: "policy record",
+        name: "an `other` status with the insurer's wording",
+        why: "a status the list cannot name is still reportable, as `other` with status_detail",
+        validator: validatePolicy,
+        doc: { ...policyBase, status: "other", status_detail: "Premium holiday" },
+    },
+    {
+        group: "policy record",
+        name: "a benefit with no status on a live policy",
+        why: "absent means in force, which is what an insurer listing only live benefits is saying",
+        validator: validatePolicy,
+        doc: { ...policyBase, covers: [{ benefit_name: "Life Cover", cover_type: "life" }] },
     },
     {
         group: "policy record",
@@ -1590,7 +1661,7 @@ const ACCEPTANCE_CASES = [
         name: "an unrecognised underwriting decision",
         why: "response enums are extensible; underwriting outcomes differ between insurers",
         validator: validateReqPage,
-        doc: { ...reqPageBase, cases: [{ ...caseBase, covers: [{ benefit_name: "Life Cover", decision: "referred" }] }] },
+        doc: { ...reqPageBase, cases: [{ ...caseBase, covers: [{ benefit_name: "Life Cover", cover_type: "life", decision: "referred" }] }] },
     },
 
     {
@@ -1652,6 +1723,7 @@ for (const { group, name, why, validator, doc: candidate } of ACCEPTANCE_CASES) 
 const WITHDRAWN = [
     [policyDoc, "Capabilities", ["properties", "fields", "properties", "cover_id_stable"], "the positional cover_id fallback's flag"],
     [policyDoc, "Capabilities", ["properties", "fields", "properties", "premium_transactions"], "the in-record history's flag"],
+    [policyDoc, "Capabilities", ["properties", "fields", "properties", "cover_type_mapping"], "the cover type flag, now that every benefit carries one"],
     [policyDoc, "Policy", ["properties", "premium_transactions"], "premium transactions on the policy record"],
     [policyDoc, "Arrears", ["properties", "collection_state"], "collection state on each arrears entry"],
     [policyDoc, "CollectionState", ["x-extensible-enum", "retry_pending"], "retry_pending, merged into retry_scheduled"],
