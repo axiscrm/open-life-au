@@ -62,5 +62,7 @@ dead policy.
 **What to do.**
 
 - *Implementations:* when you report an ended policy, send each benefit's `status`.
-- *Consumers:* store an absent benefit status as `in_force`. The schema guarantees that is only
-  absent on a live policy.
+- *Consumers:* store an absent benefit status as `in_force`. The schema allows it to be absent on
+  any policy that is not `lapsed`, `cancelled` or `terminated`, which includes `pending` and `other`,
+  so read the policy's own `status` for whether it has commenced or is in a state the list does not
+  name.
