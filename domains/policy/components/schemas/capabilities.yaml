@@ -199,12 +199,6 @@ Capabilities:
           description: Whether email, phone and address are populated.
           type: boolean
           default: false
-        cover_type_mapping:
-          description: >-
-            Whether benefits carry `cover_type` mapped to the shared vocabulary, or only the
-            insurer's own `benefit_name`.
-          type: boolean
-          default: false
         loadings_and_exclusions:
           description: Whether the policy-level `loadings` and `exclusions` text is populated.
           type: boolean

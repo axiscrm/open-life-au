@@ -145,7 +145,7 @@ ArrearsItem:
         The policy's current status. Normally `in_arrears`; carried because an insurer may report a
         policy as behind on premium while its own record still says something else, and a consumer
         reconciling this against `/policies` needs to see that rather than have it flattened away.
-      $ref: 'policy.yaml#/PolicyStatusResponse'
+      $ref: 'policy.yaml#/PolicyStatus'
     policy_holder:
       description: >-
         The same schema the policy snapshot uses. Contact details matter more here than anywhere

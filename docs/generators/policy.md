@@ -210,8 +210,7 @@ entry is identified by its own `dishonoured_on`. Sum the array for total exposur
   "fields": {
     "arrears": true,
     "expected_lapse_date": false,   // arrears reported, but no lapse date — worklist can't be dated
-    "commission_splits": false,
-    "cover_type_mapping": true      // benefits carry cover_type, not just benefit_name
+    "commission_splits": false
   }
 }
 ```

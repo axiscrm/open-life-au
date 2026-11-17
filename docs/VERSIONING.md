@@ -67,8 +67,13 @@ passing it through rather than crashing, so that adding a cover type or an owner
 in both directions, `core/schemas/cover-vocabulary.yaml` carries a closed request-facing schema and
 an `x-extensible-enum` response-facing twin — `CoverType` against `CoverTypeResponse`, `Ownership`
 against `OwnershipResponse`. The response-only vocabularies added since (`RequirementType`,
-`CommissionType`, `PolicyStatusResponse`, `CaseStatus`) are extensible outright, because nothing
-sends them.
+`CommissionType`, `CaseStatus`) are extensible outright, because nothing sends them.
+
+**The policy contract's status and cover type are the exception: closed lists with `other`.** An
+insurer maps each value onto `PolicyStatus` and `PolicyCoverType` and sends `other` for one it
+cannot place, keeping its own wording in `status_detail` or `benefit_name`. A value the list does not
+name fails validation, so the sender maps it before sending, and a consumer can rely on every value
+it receives. Adding a value to either is therefore a breaking change.
 
 Two consequences worth stating plainly, because they cut in opposite directions:
 
