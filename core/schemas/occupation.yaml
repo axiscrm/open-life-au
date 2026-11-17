@@ -9,7 +9,7 @@
 #      Consumers send an OSCA code.
 #   2. The QUALIFIERS below carry what OSCA does not: the risk discriminators insurers actually
 #      rate on. OSCA exists for labour statistics, so it has no concept of working at height,
-#      trade qualification or the proportion of manual duties — yet two OSCA-identical clients
+#      qualification or the proportion of manual duties — yet two OSCA-identical clients
 #      can rate several classes apart on exactly those facts.
 #   3. The INSURER matches the baseline plus qualifiers to its OWN occupation, prices on it, and
 #      MUST echo what it matched. Insurers keep their own lists and their own rating classes;
@@ -76,6 +76,11 @@ OccupationRef:
         An identifier from this insurer's own occupation list, as returned by
         `GET /occupations`. Opaque; scoped to the insurer. When present, the insurer MUST rate
         on exactly this occupation and MUST NOT re-match.
+
+        `qualifiers` MAY be sent alongside it, and usually are: they are the answers that led the
+        consumer to this row. They do not reopen the choice. Where they contradict the row's
+        `selected_when`, the insurer MUST still rate on this row, and SHOULD say so in the quote's
+        `warnings`. The adviser may have overridden the row by hand.
       type: string
       minLength: 1
       maxLength: 128
@@ -112,11 +117,43 @@ OccupationQualifiers:
   type: object
   additionalProperties: false
   properties:
-    trade_qualified:
+    qualifications:
       description: >-
-        Whether the insured holds a recognised trade or professional qualification for the
-        occupation. Frequently the difference of one or more rating classes in the trades.
-      type: boolean
+        Every qualification the insured holds that is RELEVANT TO THE OCCUPATION. A degree in an
+        unrelated field is not listed.
+
+        A list, because they are not alternatives and have no order: a licensed builder may hold
+        a trade qualification as well, and an insurer may rate on either or on both. Send all that
+        are held. An EMPTY list states that none is held, which is different from leaving the
+        field out.
+
+        `licensed_or_registered` is a licence or registration the law requires before the work
+        may be done (an electrical licence, registration as a nurse). `professional_body` is
+        membership of a body that admits by examination or assessment (a chartered accountant).
+
+        Frequently the difference of one or more rating classes, in the trades and the
+        professions alike.
+      type: array
+      uniqueItems: true
+      items:
+        type: string
+        enum: [trade, licensed_or_registered, professional_body, relevant_degree]
+    years_in_occupation:
+      description: >-
+        Whole years the insured has worked in this occupation, across all employers. Insurers
+        commonly decline disability cover, or rate it a class worse, below a threshold of
+        experience.
+      type: integer
+      minimum: 0
+      maximum: 80
+    years_in_business:
+      description: >-
+        Whole years the insured's current business has traded. For the self-employed only. Kept
+        apart from `years_in_occupation` because the two differ: a tradesperson of twenty years
+        may have opened their own business last year, and insurers ask about each.
+      type: integer
+      minimum: 0
+      maximum: 80
     working_height_m:
       description: >-
         The greatest height above ground at which the insured routinely works, in metres.
@@ -128,6 +165,12 @@ OccupationQualifiers:
       type: boolean
     works_offshore:
       description: Routinely works offshore or on vessels, including oil and gas platforms.
+      type: boolean
+    works_from_home:
+      description: >-
+        Whether the insured's home is their principal place of work, meaning where they spend
+        more than half their working time. An employee who works from home two days a week
+        answers `false`.
       type: boolean
     manual_duties_percent:
       description: >-
@@ -143,16 +186,87 @@ OccupationQualifiers:
       type: number
       minimum: 0
       maximum: 168
-    handles_explosives:
-      type: boolean
+    hazardous_exposures:
+      description: >-
+        The hazards the insured handles or works beside as a requirement of the occupation. A
+        list, because they are not alternatives: a mine worker may handle explosives and
+        chemicals both. An EMPTY list states that there are none, which is different from leaving
+        the field out.
+      type: array
+      uniqueItems: true
+      items:
+        type: string
+        enum: [explosives, chemicals, high_voltage, dangerous_goods]
     licensed_to_carry_firearm:
       description: Carries a firearm as a requirement of the occupation.
       type: boolean
+    makes_deliveries:
+      description: Delivers goods by road as a routine part of the occupation.
+      type: boolean
+    driving_radius_km:
+      description: >-
+        The furthest the insured routinely drives for work from their base, in kilometres. `0`
+        means they do not drive for work. Insurers band this to separate local from long-distance
+        driving.
+      type: number
+      minimum: 0
+      maximum: 5000
   examples:
-    - trade_qualified: false
+    - qualifications: []
+      years_in_occupation: 2
       working_height_m: 10
       manual_duties_percent: 80
       hours_per_week: 38
+
+OccupationRatingInput:
+  title: OccupationRatingInput
+  description: >-
+    The name of one fact an insurer rates an occupation on: a field of `OccupationQualifiers`, or
+    `annual_income`, which is carried on the insured and not among the qualifiers.
+
+    RESPONSE-facing and extensible. An insurer names these in `asks`, `selected_when` and
+    `defaulted_qualifiers`. A consumer MUST tolerate a name it does not recognise, and cannot
+    collect an answer for it.
+
+    Known values: [qualifications, years_in_occupation, years_in_business, working_height_m,
+    works_underground, works_offshore, works_from_home, manual_duties_percent, hours_per_week,
+    hazardous_exposures, licensed_to_carry_firearm, makes_deliveries, driving_radius_km,
+    annual_income].
+  type: string
+  x-extensible-enum:
+    - qualifications
+    - years_in_occupation
+    - years_in_business
+    - working_height_m
+    - works_underground
+    - works_offshore
+    - works_from_home
+    - manual_duties_percent
+    - hours_per_week
+    - hazardous_exposures
+    - licensed_to_carry_firearm
+    - makes_deliveries
+    - driving_radius_km
+    - annual_income
+
+OccupationSpecialtyRef:
+  title: OccupationSpecialtyRef
+  description: >-
+    A specialty within one of the insurer's occupations, where the insurer splits the occupation
+    that way: "bank security" and "event security" under "security guard". Insurer-scoped, like
+    the occupation it belongs to.
+  type: object
+  required: [id, name]
+  additionalProperties: false
+  properties:
+    id:
+      type: string
+      minLength: 1
+      maxLength: 128
+    name:
+      description: The insurer's own wording, shown to the adviser verbatim.
+      type: string
+      maxLength: 200
 
 CoverRating:
   title: CoverRating
@@ -264,3 +378,30 @@ ResolvedOccupation:
         confirmation rather than pricing silently.
       type: string
       enum: [exact, high, moderate, low]
+    specialty:
+      description: >-
+        The specialty rated, where the insurer splits this occupation by specialty. Absent where
+        it does not.
+      $ref: '#/OccupationSpecialtyRef'
+    specialty_defaulted:
+      description: >-
+        `true` when the consumer did not choose the specialty, so the insurer rated on its
+        default. A consumer SHOULD tell the adviser, and offer the choice.
+      type: boolean
+      default: false
+    defaulted_qualifiers:
+      description: >-
+        The facts this occupation is rated on that the request did not state, so the insurer
+        assumed its default for each. EMPTY means nothing was assumed.
+
+        This is what makes a quote on a baseline code alone honest. It still prices, and it says
+        what it took for granted. A consumer SHOULD show these to the adviser as the questions
+        that would firm the quote up.
+
+        An insurer MUST list every assumed fact that could have selected a different row. It MUST
+        NOT list a fact the occupation is not rated on.
+      type: array
+      uniqueItems: true
+      items:
+        $ref: '#/OccupationRatingInput'
+      default: []

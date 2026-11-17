@@ -51,6 +51,20 @@ const ALLOWLIST = new Set([
     "taxonomy/PRODUCT-FEATURES-PROVENANCE.md",
 ]);
 
+/**
+ * Directories permitted to name an insurer, on the same ground: `docs/recommendations/` holds
+ * proposals put to the standard, filed under the organisation that made them, with the response to
+ * each. Who proposed what is the subject. Nothing under it is part of a contract, and the contract
+ * changes a proposal leads to are made in the scanned directories, where the gate still applies.
+ */
+const ALLOWED_PREFIXES = ["docs/recommendations/"];
+
+/**
+ * The exception to the exemption above. A proposer may ask not to be named, and its proposal is
+ * then filed here as a summary. Scanning it means a name left in by mistake fails the build.
+ */
+const SCANNED_PREFIXES = ["docs/recommendations/anonymous/"];
+
 const TEXT_EXT = new Set([".yaml", ".yml", ".json", ".md", ".js", ".mjs", ".ts", ".py"]);
 
 function* walk(dir) {
@@ -91,6 +105,9 @@ for (const top of SCANNED) {
     for (const abs of walk(path.join(ROOT, top))) {
         const rel = path.relative(ROOT, abs);
         if (ALLOWLIST.has(rel)) continue;
+        const posix = rel.split(path.sep).join("/");
+        const exempt = ALLOWED_PREFIXES.some((prefix) => posix.startsWith(prefix));
+        if (exempt && !SCANNED_PREFIXES.some((prefix) => posix.startsWith(prefix))) continue;
         scanned += 1;
 
         const lines = fs.readFileSync(abs, "utf8").split("\n");

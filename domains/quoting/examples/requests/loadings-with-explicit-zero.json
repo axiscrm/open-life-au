@@ -14,7 +14,7 @@
       "osca": "1331-11",
       "description": "Construction Project Manager",
       "qualifiers": {
-        "trade_qualified": true,
+        "qualifications": ["trade"],
         "working_height_m": 0,
         "manual_duties_percent": 20,
         "hours_per_week": 50

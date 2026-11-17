@@ -1,0 +1,93 @@
+{
+  "candidates": [
+    {
+      "insurer_occupation_id": "GRD-21",
+      "description": "Security guard, bank security, armed",
+      "osca": "4522-38",
+      "occupation_group_id": "GRD",
+      "specialty_id": "GRD-BANK",
+      "insurer_default": true,
+      "selected_when": {
+        "conditions": [
+          {
+            "input": "licensed_to_carry_firearm",
+            "equals": true
+          }
+        ]
+      },
+      "ratings": {
+        "life": {
+          "supported": true,
+          "rating_class": "4"
+        },
+        "income_protection": {
+          "supported": false
+        }
+      },
+      "match_confidence": "high"
+    },
+    {
+      "insurer_occupation_id": "GRD-22",
+      "description": "Security guard, bank security, unarmed",
+      "osca": "4522-38",
+      "occupation_group_id": "GRD",
+      "specialty_id": "GRD-BANK",
+      "selected_when": {
+        "conditions": [
+          {
+            "input": "licensed_to_carry_firearm",
+            "equals": false
+          }
+        ]
+      },
+      "ratings": {
+        "life": {
+          "supported": true,
+          "rating_class": "3"
+        },
+        "income_protection": {
+          "supported": true,
+          "rating_class": "4"
+        }
+      },
+      "match_confidence": "high"
+    },
+    {
+      "insurer_occupation_id": "GRD-30",
+      "description": "Security guard, event security",
+      "osca": "4522-38",
+      "occupation_group_id": "GRD",
+      "specialty_id": "GRD-EVENT",
+      "ratings": {
+        "life": {
+          "supported": true,
+          "rating_class": "4"
+        },
+        "income_protection": {
+          "supported": false
+        }
+      },
+      "match_confidence": "high"
+    }
+  ],
+  "occupation_groups": [
+    {
+      "id": "GRD",
+      "description": "Security guard",
+      "specialties": [
+        {
+          "id": "GRD-BANK",
+          "name": "Bank security",
+          "asks": [
+            "licensed_to_carry_firearm"
+          ]
+        },
+        {
+          "id": "GRD-EVENT",
+          "name": "Event security",
+          "asks": []
+        }
+      ]
+    }
+  ]
+}

@@ -238,3 +238,56 @@ that a product HAS a feature without recording whether it is built in. Aggregate
 often doesn't record this, because a PDS lists built-in benefits and extra-cost options side by
 side. Any code missing from the array is unknown, which is not the same as "not offered". There are no scores, strengths or limitations, because the standard does not
 carry opinions about a product.
+
+## Occupations
+
+Responses to `POST /occupations:match`. They show how an insurer says what to ask when one baseline
+code lands on several of its rows. The ids, wording and classes are invented.
+
+### `occupations/match-split-by-facts.json`
+
+A painter, where the insurer has four rows and three facts decide between them.
+
+- `occupation_groups[0].asks` is the whole question list: qualifications, years in the occupation and
+  working height. Nothing else changes this insurer's answer, so nothing else is worth asking.
+- Each candidate's `selected_when` says which answers pick it. A trade-qualified painter working at
+  6 metres meets `PNT-10` and no other row.
+- The bands (10 metres, 3 years) are this insurer's. They are published on its rows, not defined by
+  the standard, and mean nothing at another insurer.
+- `PNT-13` carries `insurer_default`. It is what this insurer rates when told "painter" and nothing
+  more.
+- `qualifications` is a list, so a row tests it with `includes` or `excludes`. "Unqualified" here
+  is `excludes: [trade, licensed_or_registered]`, which an empty list meets and an unanswered
+  question does not.
+- An unqualified painter whose years in the occupation were not asked meets no row. The consumer
+  does not guess: it quotes on the default row or sends the answers to `:match`.
+
+### `occupations/match-split-by-specialty.json`
+
+A security guard, where the insurer splits the occupation by specialty first.
+
+- The group has `specialties` and no `asks` of its own. The adviser picks a specialty, and each
+  specialty has its own questions: bank security asks about a firearm, event security asks nothing.
+- `GRD-30` has no `selected_when` because it is the only row of its specialty.
+- Rows name their specialty in `specialty_id`. `candidates` stays one flat list, so a consumer that
+  ignores groups still reads every row.
+
+### Quoting without asking
+
+Nothing above has to be asked. A consumer that sends only the baseline code (or the
+`insurer_default` row's id) gets a price, and the line says what was assumed:
+
+```json
+"resolved_occupation": {
+  "insurer_occupation_id": "GRD-21",
+  "description": "Security guard, bank security, armed",
+  "specialty": { "id": "GRD-BANK", "name": "Bank security" },
+  "specialty_defaulted": true,
+  "defaulted_qualifiers": ["licensed_to_carry_firearm"],
+  "match_confidence": "high",
+  "ratings": { "life": { "supported": true, "rating_class": "4" }, "income_protection": { "supported": false } }
+}
+```
+
+That is an indicative quote, and the two `defaulted` fields are how an adviser knows it. Answering
+the questions and quoting again on the selected row firms it up.
