@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/axiscrm/open-life-au/compare/policy-v0.1.2...policy-v0.2.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **policy:** require premium and cover type, close the status and cover type lists ([#19](https://github.com/axiscrm/open-life-au/issues/19))
+
+### Features
+
+* **policy:** require premium and cover type, close the status and cover type lists ([#19](https://github.com/axiscrm/open-life-au/issues/19)) ([0c57296](https://github.com/axiscrm/open-life-au/commit/0c57296330acf8fc451b6896a972612a390872e4))
+
 ## [0.1.2](https://github.com/axiscrm/open-life-au/compare/policy-v0.1.1...policy-v0.1.2) (2026-10-15)
 
 
