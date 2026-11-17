@@ -17,6 +17,20 @@ post:
     bridge here — inside the insurer, which is the only party that knows its own manual — avoids
     making anyone else the custodian of a mapping they cannot maintain.
 
+    ### Several rows for one code
+
+    A baseline code commonly lands on several of the insurer's rows, split by specialty or by a
+    few facts about the insured. Where the insurer publishes it, `occupation_groups` says how:
+    which specialties there are, what each needs asked, and each candidate's `selected_when` says
+    which answers pick it. A consumer can then narrow to one row without another call.
+
+    Asking is optional. A consumer that asks nothing quotes on the baseline code, or on the row
+    marked `insurer_default`, and the quote reports what was assumed in
+    `resolved_occupation.specialty_defaulted` and `defaulted_qualifiers`.
+
+    Send the code WITHOUT qualifiers to get every row of each group. Qualifiers in the request
+    rank the candidates. They do not remove rows from a group.
+
     ### An empty result is a real answer
 
     `candidates: []` means this insurer has no occupation corresponding to the reference. The

@@ -7,7 +7,7 @@
 # collecting it is worth asking an adviser about.
 #
 # These dimensions exist because the ABS classification does not carry them. OSCA is built for
-# labour statistics, so it has no notion of working at height or trade qualification, while
+# labour statistics, so it has no notion of working at height or qualification, while
 # underwriting manuals discriminate on exactly those facts. See taxonomy/OCCUPATION-PROVENANCE.md.
 #
 # DIMENSIONS, NOT DESCRIPTIONS. The standard defines "working height in metres"; each insurer bands
@@ -15,7 +15,7 @@
 # own.
 
 
-version: '0.1.0'
+version: '0.2.0'
 baseline:
   classification: OSCA
   edition: '2024'
@@ -23,17 +23,42 @@ baseline:
   publisher: Australian Bureau of Statistics
 
 qualifiers:
-  trade_qualified:
-    type: boolean
-    summary: Holds a recognised trade or professional qualification for the occupation.
+  qualifications:
+    type: list
+    values: [trade, licensed_or_registered, professional_body, relevant_degree]
+    summary: Every qualification the insured holds that is relevant to the occupation.
     why_it_matters: >-
       Within the trades this is frequently the single largest discriminator, often a full rating
-      class. An unqualified worker doing nominally the same job carries a materially different risk
-      profile, and several insurers will not offer own-occupation TPD to one.
-    applies_to: Trades, technical and construction occupations; some health and finance roles.
+      class, and several insurers will not offer own-occupation TPD to an unqualified worker. In
+      the professions the line is drawn elsewhere: a relevant degree, registration or membership
+      of a professional body each commonly earns its own rating, which a yes or no on "qualified"
+      could not carry. They are not alternatives and have no order, so this is a list: some
+      occupations are rated on holding two at once, such as a licence and a trade qualification.
+      An empty list states that none is held.
+    applies_to: Trades, technical and construction occupations; health, finance and other professions.
     unstated_behaviour: >-
-      Insurers SHOULD rate at their own default, which is usually the less favourable of the two.
-      An absent value MUST NOT be read as `true`.
+      Insurers SHOULD rate at their own default, which is usually that none is held. An absent
+      value MUST NOT be read as any qualification.
+
+  years_in_occupation:
+    type: integer
+    unit: years
+    summary: Whole years the insured has worked in this occupation, across all employers.
+    why_it_matters: >-
+      Experience is an eligibility gate as often as a rating factor. Insurers commonly decline
+      disability cover to someone new to a manual occupation, or rate them a class worse, until a
+      threshold is passed. The thresholds are each insurer's own.
+    applies_to: Trades and manual occupations, primarily; some sales and commission-based roles.
+
+  years_in_business:
+    type: integer
+    unit: years
+    summary: Whole years the insured's current business has traded. Self-employed only.
+    why_it_matters: >-
+      A new business has no income history to insure against, so income protection is commonly
+      restricted or declined in its first years. It is a different fact from experience in the
+      occupation, and the two are asked separately.
+    applies_to: Self-employed insureds in any occupation.
 
   working_height_m:
     type: number
@@ -62,6 +87,15 @@ qualifiers:
       from the occupational task itself.
     applies_to: Maritime, oil and gas, commercial fishing, offshore construction.
 
+  works_from_home:
+    type: boolean
+    summary: The insured's home is their principal place of work (more than half their working time).
+    why_it_matters: >-
+      Whether disability cover is offered at all commonly turns on it, because a claim from a
+      home-based worker is harder to assess. It is defined on the principal place of work so that
+      an employee with a day or two at home does not answer yes.
+    applies_to: Home-based businesses, sole practitioners, some clerical and creative roles.
+
   manual_duties_percent:
     type: number
     unit: percent
@@ -85,11 +119,15 @@ qualifiers:
       factor.
     applies_to: Income protection and business expenses, primarily.
 
-  handles_explosives:
-    type: boolean
-    summary: Handles explosives as a requirement of the occupation.
-    why_it_matters: A severity driver that commonly triggers individual consideration rather than a standard rating.
-    applies_to: Mining, demolition, defence, quarrying.
+  hazardous_exposures:
+    type: list
+    values: [explosives, chemicals, high_voltage, dangerous_goods]
+    summary: The hazards the insured handles or works beside as a requirement of the occupation.
+    why_it_matters: >-
+      Each is a severity driver that commonly moves the rating or triggers individual
+      consideration, largely independent of the occupation code. They are not alternatives, so
+      this is a list. An empty list states that there are none.
+    applies_to: Mining, demolition, defence, quarrying, electrical supply, transport, chemical processing.
 
   licensed_to_carry_firearm:
     type: boolean
@@ -98,3 +136,20 @@ qualifiers:
       Usually indicates an exposure to violence that the occupation code alone does not convey —
       the same security role rates differently armed and unarmed.
     applies_to: Security, law enforcement, defence, wildlife management.
+
+  makes_deliveries:
+    type: boolean
+    summary: Delivers goods by road as a routine part of the occupation.
+    why_it_matters: >-
+      Time on the road is an accident exposure the occupation code does not convey. The same
+      retail or trade role rates differently when it includes deliveries.
+    applies_to: Retail, hospitality, trades, couriers and transport.
+
+  driving_radius_km:
+    type: number
+    unit: kilometres
+    summary: The furthest the insured routinely drives for work from their base. `0` means not at all.
+    why_it_matters: >-
+      Insurers separate local from long-distance driving, and band the distance each in their own
+      way. Long-distance driving commonly restricts or removes disability cover.
+    applies_to: Drivers, couriers, sales representatives, mobile trades.

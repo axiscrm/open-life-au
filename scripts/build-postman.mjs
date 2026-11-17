@@ -42,7 +42,7 @@ const INLINE_BODIES = {
         occupation: {
             osca: "3323-11",
             description: "Painter",
-            qualifiers: { trade_qualified: true, working_height_m: 10, manual_duties_percent: 80 },
+            qualifiers: { qualifications: ["trade"], working_height_m: 10, manual_duties_percent: 80 },
         },
         max_candidates: 10,
     },

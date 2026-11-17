@@ -219,6 +219,7 @@ paths:
         This exists so an adviser can correct one insurer's occupation by hand. The usual flow resolves an occupation once via `POST /occupations:match`, but where the match is imperfect — or where the adviser knows this insurer's product better — they need to search the insurer's own list and choose. That choice is then sent as `occupation.insurer_occupation_id` on the next quote, and the insurer rates on it without re-matching.
         Returning the rating matrix inline is deliberate: it lets a consumer show the consequence of a change before spending a pricing call on it.
         An empty `q` returns the whole list, paged, so a consumer can pre-load it.
+        Each page carries, in `occupation_groups`, the groups its rows belong to. A consumer that pre-loads the list and joins rows to groups on `occupation_group_id` has everything `POST /occupations:match` would tell it, for every row that publishes `osca`, without a call per client. A group's rows MAY fall on different pages. The group is then repeated, whole, on each of those pages, so no page depends on another to be read.
       tags:
         - Occupations
       security:
@@ -269,6 +270,10 @@ paths:
         The reference's `description` is display text and is never matched on. To find an occupation by name, search the insurer's list with `GET /occupations?q=`.
         ### Why this endpoint exists
         An adviser picks an occupation once, from one picker, and expects to compare every insurer on the panel. Each insurer rates its own list, so something has to bridge the two. Putting the bridge here — inside the insurer, which is the only party that knows its own manual — avoids making anyone else the custodian of a mapping they cannot maintain.
+        ### Several rows for one code
+        A baseline code commonly lands on several of the insurer's rows, split by specialty or by a few facts about the insured. Where the insurer publishes it, `occupation_groups` says how: which specialties there are, what each needs asked, and each candidate's `selected_when` says which answers pick it. A consumer can then narrow to one row without another call.
+        Asking is optional. A consumer that asks nothing quotes on the baseline code, or on the row marked `insurer_default`, and the quote reports what was assumed in `resolved_occupation.specialty_defaulted` and `defaulted_qualifiers`.
+        Send the code WITHOUT qualifiers to get every row of each group. Qualifiers in the request rank the candidates. They do not remove rows from a group.
         ### An empty result is a real answer
         `candidates: []` means this insurer has no occupation corresponding to the reference. The consumer MUST show the insurer as unquotable for this client and MUST NOT substitute a nearby occupation of its own choosing. A silently wrong occupation produces a wrong premium that looks entirely normal, and an adviser has no way to detect it.
         ### Confidence
@@ -480,9 +485,31 @@ components:
       type: object
       additionalProperties: false
       properties:
-        trade_qualified:
-          description: Whether the insured holds a recognised trade or professional qualification for the occupation. Frequently the difference of one or more rating classes in the trades.
-          type: boolean
+        qualifications:
+          description: |-
+            Every qualification the insured holds that is RELEVANT TO THE OCCUPATION. A degree in an unrelated field is not listed.
+            A list, because they are not alternatives and have no order: a licensed builder may hold a trade qualification as well, and an insurer may rate on either or on both. Send all that are held. An EMPTY list states that none is held, which is different from leaving the field out.
+            `licensed_or_registered` is a licence or registration the law requires before the work may be done (an electrical licence, registration as a nurse). `professional_body` is membership of a body that admits by examination or assessment (a chartered accountant).
+            Frequently the difference of one or more rating classes, in the trades and the professions alike.
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - trade
+              - licensed_or_registered
+              - professional_body
+              - relevant_degree
+        years_in_occupation:
+          description: Whole years the insured has worked in this occupation, across all employers. Insurers commonly decline disability cover, or rate it a class worse, below a threshold of experience.
+          type: integer
+          minimum: 0
+          maximum: 80
+        years_in_business:
+          description: 'Whole years the insured''s current business has traded. For the self-employed only. Kept apart from `years_in_occupation` because the two differ: a tradesperson of twenty years may have opened their own business last year, and insurers ask about each.'
+          type: integer
+          minimum: 0
+          maximum: 80
         working_height_m:
           description: The greatest height above ground at which the insured routinely works, in metres. `0` means they do not work at height. Insurers commonly band this (for example at 10m).
           type: number
@@ -492,6 +519,9 @@ components:
           type: boolean
         works_offshore:
           description: Routinely works offshore or on vessels, including oil and gas platforms.
+          type: boolean
+        works_from_home:
+          description: Whether the insured's home is their principal place of work, meaning where they spend more than half their working time. An employee who works from home two days a week answers `false`.
           type: boolean
         manual_duties_percent:
           description: Proportion of working time spent on manual duties, 0-100. The usual axis distinguishing a white-collar rating from a light- or heavy-manual one within the same occupation.
@@ -503,13 +533,31 @@ components:
           type: number
           minimum: 0
           maximum: 168
-        handles_explosives:
-          type: boolean
+        hazardous_exposures:
+          description: 'The hazards the insured handles or works beside as a requirement of the occupation. A list, because they are not alternatives: a mine worker may handle explosives and chemicals both. An EMPTY list states that there are none, which is different from leaving the field out.'
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - explosives
+              - chemicals
+              - high_voltage
+              - dangerous_goods
         licensed_to_carry_firearm:
           description: Carries a firearm as a requirement of the occupation.
           type: boolean
+        makes_deliveries:
+          description: Delivers goods by road as a routine part of the occupation.
+          type: boolean
+        driving_radius_km:
+          description: The furthest the insured routinely drives for work from their base, in kilometres. `0` means they do not drive for work. Insurers band this to separate local from long-distance driving.
+          type: number
+          minimum: 0
+          maximum: 5000
       examples:
-        - trade_qualified: false
+        - qualifications: []
+          years_in_occupation: 2
           working_height_m: 10
           manual_duties_percent: 80
           hours_per_week: 38
@@ -546,7 +594,9 @@ components:
           type: string
           pattern: ^\d{4}-?\d{2}$
         insurer_occupation_id:
-          description: An identifier from this insurer's own occupation list, as returned by `GET /occupations`. Opaque; scoped to the insurer. When present, the insurer MUST rate on exactly this occupation and MUST NOT re-match.
+          description: |-
+            An identifier from this insurer's own occupation list, as returned by `GET /occupations`. Opaque; scoped to the insurer. When present, the insurer MUST rate on exactly this occupation and MUST NOT re-match.
+            `qualifiers` MAY be sent alongside it, and usually are: they are the answers that led the consumer to this row. They do not reopen the choice. Where they contradict the row's `selected_when`, the insurer MUST still rate on this row, and SHOULD say so in the quote's `warnings`. The adviser may have overridden the row by hand.
           type: string
           minLength: 1
           maxLength: 128
@@ -623,7 +673,8 @@ components:
             osca: 3323-11
             description: Painter
             qualifiers:
-              trade_qualified: true
+              qualifications:
+                - trade
               working_height_m: 10
               manual_duties_percent: 80
     Structure:
@@ -1525,7 +1576,8 @@ components:
               osca: 3323-11
               description: Painter
               qualifiers:
-                trade_qualified: true
+                qualifications:
+                  - trade
                 working_height_m: 10
                 manual_duties_percent: 80
           policy:
@@ -2006,6 +2058,45 @@ components:
           $ref: '#/components/schemas/CoverRating'
         child_trauma:
           $ref: '#/components/schemas/CoverRating'
+    OccupationSpecialtyRef:
+      title: OccupationSpecialtyRef
+      description: 'A specialty within one of the insurer''s occupations, where the insurer splits the occupation that way: "bank security" and "event security" under "security guard". Insurer-scoped, like the occupation it belongs to.'
+      type: object
+      required:
+        - id
+        - name
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        name:
+          description: The insurer's own wording, shown to the adviser verbatim.
+          type: string
+          maxLength: 200
+    OccupationRatingInput:
+      title: OccupationRatingInput
+      description: |-
+        The name of one fact an insurer rates an occupation on: a field of `OccupationQualifiers`, or `annual_income`, which is carried on the insured and not among the qualifiers.
+        RESPONSE-facing and extensible. An insurer names these in `asks`, `selected_when` and `defaulted_qualifiers`. A consumer MUST tolerate a name it does not recognise, and cannot collect an answer for it.
+        Known values: [qualifications, years_in_occupation, years_in_business, working_height_m, works_underground, works_offshore, works_from_home, manual_duties_percent, hours_per_week, hazardous_exposures, licensed_to_carry_firearm, makes_deliveries, driving_radius_km, annual_income].
+      type: string
+      x-extensible-enum:
+        - qualifications
+        - years_in_occupation
+        - years_in_business
+        - working_height_m
+        - works_underground
+        - works_offshore
+        - works_from_home
+        - manual_duties_percent
+        - hours_per_week
+        - hazardous_exposures
+        - licensed_to_carry_firearm
+        - makes_deliveries
+        - driving_radius_km
+        - annual_income
     ResolvedOccupation:
       title: ResolvedOccupation
       description: What the insurer actually rated on. REQUIRED on every priced line, because a quote whose occupation cannot be reproduced cannot be audited, and because a wrong occupation produces a wrong premium that looks entirely normal.
@@ -2047,6 +2138,23 @@ components:
             - high
             - moderate
             - low
+        specialty:
+          description: The specialty rated, where the insurer splits this occupation by specialty. Absent where it does not.
+          $ref: '#/components/schemas/OccupationSpecialtyRef'
+        specialty_defaulted:
+          description: '`true` when the consumer did not choose the specialty, so the insurer rated on its default. A consumer SHOULD tell the adviser, and offer the choice.'
+          type: boolean
+          default: false
+        defaulted_qualifiers:
+          description: |-
+            The facts this occupation is rated on that the request did not state, so the insurer assumed its default for each. EMPTY means nothing was assumed.
+            This is what makes a quote on a baseline code alone honest. It still prices, and it says what it took for granted. A consumer SHOULD show these to the adviser as the questions that would firm the quote up.
+            An insurer MUST list every assumed fact that could have selected a different row. It MUST NOT list a fact the occupation is not rated on.
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/OccupationRatingInput'
+          default: []
     ResolvedOption:
       title: ResolvedOption
       description: |-
@@ -3046,10 +3154,13 @@ components:
                 standard_feature: guaranteed_renewable
                 name: Guaranteed renewable
         occupation_qualifiers_used:
-          description: Which `OccupationQualifiers` fields actually affect this insurer's rating. Lets a consumer avoid collecting facts that will not change the answer.
+          description: |-
+            Which `OccupationQualifiers` fields affect this insurer's rating of ANY occupation. Lets a consumer avoid collecting facts that will not change the answer.
+            This is the union across the whole list. What ONE occupation needs asked is narrower, and is in `asks` on its `OccupationGroup`.
           type: array
+          uniqueItems: true
           items:
-            type: string
+            $ref: '#/components/schemas/OccupationRatingInput'
         max_income_replacement_percent:
           description: |-
             The largest share of the insured's income this insurer will replace across all income-based covers combined, as a percentage. Commonly 70.
@@ -3159,6 +3270,104 @@ components:
       type: string
       minLength: 1
       maxLength: 512
+    SelectionCondition:
+      title: SelectionCondition
+      description: |-
+        What the answer to one fact must be. `in` is for a choice, `equals` for yes or no, the four comparisons for a number (two may be combined into a range), and `includes` and `excludes` for a list. `annual_income` is compared in whole dollars.
+        A fact may have more than one condition. Two `includes` on the same list say it must hold both: `includes: [trade]` and `includes: [licensed_or_registered]` pick the insured who is trade qualified AND licensed, where one `includes` naming both picks either.
+      type: object
+      required:
+        - input
+      minProperties: 2
+      additionalProperties: false
+      properties:
+        input:
+          description: The fact this condition is about.
+          $ref: '#/components/schemas/OccupationRatingInput'
+        in:
+          description: The answer is one of these.
+          type: array
+          minItems: 1
+          items:
+            type: string
+        equals:
+          type: boolean
+        gt:
+          type: number
+        gte:
+          type: number
+        lt:
+          type: number
+        lte:
+          type: number
+        includes:
+          description: For a list answer. It contains at least one of these.
+          type: array
+          minItems: 1
+          items:
+            type: string
+        excludes:
+          description: For a list answer. It contains none of these. An empty list meets it. A list the adviser did not give does not.
+          type: array
+          minItems: 1
+          items:
+            type: string
+    SelectionAlternative:
+      title: SelectionAlternative
+      description: One alternative of `any_of`. Its conditions all apply.
+      type: object
+      required:
+        - conditions
+      additionalProperties: false
+      properties:
+        conditions:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SelectionCondition'
+    OccupationSelection:
+      title: OccupationSelection
+      description: |-
+        The answers that pick this row from the others in its group or specialty. Absent on a row that is the only one.
+        Every entry of `conditions` must hold. `any_of` holds alternatives, of which one must hold as well, for a rule such as "a relevant degree, or income above a threshold".
+        A fact the adviser did not answer meets no condition. Where the answers pick no row, or more than one, the consumer MUST NOT choose for itself: it either quotes on the `insurer_default` row or sends the answers to `POST /occupations:match`.
+        An insurer SHOULD publish conditions that are exclusive within a group or specialty, so that one set of answers meets at most one row. Nested bands ("under 10%" beside "under 20%") are the usual way a list fails this, and are published as ranges that do not overlap.
+        THE INSURER'S OWN MATCHING IS AUTHORITATIVE. This is the insurer publishing its banding so a consumer can resolve a row without a call per client. The band boundaries are the insurer's and mean nothing at another insurer.
+        A list of conditions, each naming its fact, and not a map keyed by fact: a map with one differently-typed key beside it is a shape several code generators cannot type.
+      type: object
+      additionalProperties: false
+      anyOf:
+        - required:
+            - conditions
+        - required:
+            - any_of
+      properties:
+        conditions:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SelectionCondition'
+        any_of:
+          type: array
+          minItems: 2
+          items:
+            $ref: '#/components/schemas/SelectionAlternative'
+      examples:
+        - conditions:
+            - input: qualifications
+              includes:
+                - trade
+                - licensed_or_registered
+            - input: working_height_m
+              lte: 10
+        - any_of:
+            - conditions:
+                - input: qualifications
+                  includes:
+                    - relevant_degree
+            - conditions:
+                - input: annual_income
+                  gt: 120000
     InsurerOccupation:
       title: InsurerOccupation
       description: One row of the insurer's occupation list, carrying the rating matrix so a consumer can show what a change of occupation would do before re-pricing.
@@ -3186,6 +3395,24 @@ components:
         requires_employment_status:
           description: An employment status this occupation implies, where one is mandatory. A non-working occupation paired with a working status is the commonest cause of a nil premium, so an insurer that constrains this SHOULD say so here.
           $ref: '#/components/schemas/EmploymentStatus'
+        occupation_group_id:
+          description: The `OccupationGroup` this row belongs to, where the insurer publishes one. The group is in `occupation_groups` of the same response.
+          type: string
+          minLength: 1
+          maxLength: 128
+        specialty_id:
+          description: The specialty of that group this row belongs to. Absent where the group is not split by specialty.
+          type: string
+          minLength: 1
+          maxLength: 128
+        selected_when:
+          $ref: '#/components/schemas/OccupationSelection'
+        insurer_default:
+          description: |-
+            `true` on the one row of a group the insurer rates when it is given the baseline code and nothing else: no specialty chosen, no qualifiers answered. At most one row of a group carries it.
+            Published so that a consumer can show what will be assumed BEFORE quoting, and so that a consumer of an insurer accepting only `insurer_occupation_id` can still quote without asking the adviser anything, by sending this row. Which row is the default is the insurer's decision. It MUST NOT be a row chosen because it is the cheapest.
+          type: boolean
+          default: false
         effective_from:
           type: string
           format: date
@@ -3193,6 +3420,69 @@ components:
           description: Absent while the row is current. A past date means the row is closed to new business.
           type: string
           format: date
+    OccupationSpecialty:
+      title: OccupationSpecialty
+      type: object
+      required:
+        - id
+        - name
+        - asks
+      additionalProperties: false
+      properties:
+        id:
+          description: Opaque; scoped to the insurer. Rows name it in `specialty_id`.
+          type: string
+          minLength: 1
+          maxLength: 128
+        name:
+          description: The insurer's own wording, shown to the adviser verbatim.
+          type: string
+          maxLength: 200
+        asks:
+          description: The facts that change which row of THIS specialty applies. EMPTY means the specialty has one row and nothing needs asking.
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/OccupationRatingInput'
+    OccupationGroup:
+      title: OccupationGroup
+      description: |-
+        One occupation as the insurer thinks of it ("painter", "security guard"), gathering the rows of its list that differ only by specialty or by the answers to a few questions. It tells a consumer what to ask to arrive at one row.
+        An insurer's list is flat, and several rows commonly answer one baseline code. Without this a consumer can only show the adviser every row and ask them to read the wording. With it the consumer asks for the specialty where there is one, then the facts in `asks`, and each row's `selected_when` picks the row.
+        EVERYTHING HERE IS OPTIONAL TO ACT ON. A consumer that asks nothing still gets a quote, on the row marked `insurer_default`, with the assumptions reported in `ResolvedOccupation`. An insurer that publishes no groups is conformant.
+        Exactly one of `asks` and `specialties` is present. The questions sit on the specialty where there are specialties, because specialties of one occupation ask different things: one asks about firearms and the next asks nothing.
+      type: object
+      required:
+        - id
+        - description
+      additionalProperties: false
+      oneOf:
+        - required:
+            - asks
+        - required:
+            - specialties
+      properties:
+        id:
+          description: Opaque; scoped to the insurer.
+          type: string
+          minLength: 1
+          maxLength: 128
+        description:
+          description: The insurer's own wording for the occupation, shown to the adviser verbatim.
+          type: string
+          maxLength: 200
+        asks:
+          description: 'For an occupation NOT split by specialty: the facts that change which of its rows applies. EMPTY means nothing needs asking, and the group has one row.'
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/OccupationRatingInput'
+        specialties:
+          description: 'For an occupation split by specialty: the options, in the order the insurer wants them shown. The adviser picks one.'
+          type: array
+          minItems: 2
+          items:
+            $ref: '#/components/schemas/OccupationSpecialty'
     PageInfo:
       title: PageInfo
       description: Continuation state for a paged collection. Absence of `next_cursor` is the ONLY reliable signal that a walk is complete — consumers MUST NOT infer completion from a short page, because a server may return fewer items than requested for its own reasons.
@@ -3212,6 +3502,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/InsurerOccupation'
+        occupation_groups:
+          description: 'The groups the rows on THIS PAGE belong to: one per insurer occupation, saying what to ask and which specialties it is split into. Every `occupation_group_id` on a row MUST have its group here, WHOLE, with every specialty it has and not only those of the rows on this page. A group whose rows fall on several pages is therefore repeated on each of them, and a consumer keeps one copy per `id`. There is no operation to fetch a group by id. Absent or empty where the insurer publishes no grouping.'
+          type: array
+          items:
+            $ref: '#/components/schemas/OccupationGroup'
+          default: []
         page:
           $ref: '#/components/schemas/PageInfo'
     OccupationMatchRequest:
@@ -3233,6 +3529,7 @@ components:
             OPTIONAL. A server that does not band on income MUST ignore it rather than reject it.
           $ref: '#/components/schemas/NonNegativeMoney'
         max_candidates:
+          description: 'A limit on the candidates returned. A server MUST NOT split a group to meet it: where it returns any row of an `OccupationGroup` it returns all of them, even if that exceeds the limit. Half a group hides specialties from the adviser with nothing to say so.'
           type: integer
           minimum: 1
           maximum: 50
@@ -3267,6 +3564,24 @@ components:
           pattern: ^\d{4}-?\d{2}$
         requires_employment_status:
           $ref: '#/components/schemas/EmploymentStatus'
+        occupation_group_id:
+          description: The `OccupationGroup` this row belongs to, where the insurer publishes one. The group is in `occupation_groups` of the same response.
+          type: string
+          minLength: 1
+          maxLength: 128
+        specialty_id:
+          description: The specialty of that group this row belongs to. Absent where the group is not split by specialty.
+          type: string
+          minLength: 1
+          maxLength: 128
+        selected_when:
+          $ref: '#/components/schemas/OccupationSelection'
+        insurer_default:
+          description: |-
+            `true` on the one row of a group the insurer rates when it is given the baseline code and nothing else: no specialty chosen, no qualifiers answered. At most one row of a group carries it.
+            Published so that a consumer can show what will be assumed BEFORE quoting, and so that a consumer of an insurer accepting only `insurer_occupation_id` can still quote without asking the adviser anything, by sending this row. Which row is the default is the insurer's decision. It MUST NOT be a row chosen because it is the cheapest.
+          type: boolean
+          default: false
         effective_from:
           type: string
           format: date
@@ -3288,7 +3603,8 @@ components:
     OccupationMatchResponse:
       title: OccupationMatchResponse
       description: |-
-        Candidate matches, most confident first.
+        Candidate matches, most confident first, and the groups they belong to.
+        `candidates` is the flat list of rows and is complete on its own: a consumer that reads nothing else can still pick a row. `occupation_groups` says how the rows relate, where the insurer publishes that.
         An EMPTY `candidates` array is a valid and important answer: it means the insurer has no occupation corresponding to the reference given. A consumer MUST treat that as unquotable for this insurer and MUST NOT fall back to a nearby occupation of its own choosing — a wrong occupation produces a wrong premium that looks entirely normal, which is worse than a visible gap.
       type: object
       required:
@@ -3299,6 +3615,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/OccupationCandidate'
+        occupation_groups:
+          description: 'The groups the rows above belong to: one per insurer occupation, saying what to ask and which specialties it is split into. Every `occupation_group_id` on a row MUST have its group here. Absent or empty where the insurer publishes no grouping.'
+          type: array
+          items:
+            $ref: '#/components/schemas/OccupationGroup'
+          default: []
   headers:
     XRequestId:
       description: |-
