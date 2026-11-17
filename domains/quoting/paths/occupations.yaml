@@ -16,6 +16,12 @@ get:
     a change before spending a pricing call on it.
 
     An empty `q` returns the whole list, paged, so a consumer can pre-load it.
+
+    Each page carries, in `occupation_groups`, the groups its rows belong to. A consumer that
+    pre-loads the list and joins rows to groups on `occupation_group_id` has everything
+    `POST /occupations:match` would tell it, for every row that publishes `osca`, without a call
+    per client. A group's rows MAY fall on different pages. The group is then repeated, whole, on
+    each of those pages, so no page depends on another to be read.
   tags: [Occupations]
   security:
     - oauth2: [occupations.read]

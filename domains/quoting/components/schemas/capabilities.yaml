@@ -172,11 +172,15 @@ Capabilities:
 
     occupation_qualifiers_used:
       description: >-
-        Which `OccupationQualifiers` fields actually affect this insurer's rating. Lets a consumer
-        avoid collecting facts that will not change the answer.
+        Which `OccupationQualifiers` fields affect this insurer's rating of ANY occupation. Lets a
+        consumer avoid collecting facts that will not change the answer.
+
+        This is the union across the whole list. What ONE occupation needs asked is narrower, and
+        is in `asks` on its `OccupationGroup`.
       type: array
+      uniqueItems: true
       items:
-        type: string
+        $ref: '../../../../core/schemas/occupation.yaml#/OccupationRatingInput'
 
     max_income_replacement_percent:
       description: >-

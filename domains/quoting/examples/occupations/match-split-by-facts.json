@@ -1,0 +1,143 @@
+{
+  "candidates": [
+    {
+      "insurer_occupation_id": "PNT-10",
+      "description": "Painter, qualified, working up to 10 metres",
+      "osca": "3323-11",
+      "occupation_group_id": "PNT",
+      "selected_when": {
+        "conditions": [
+          {
+            "input": "qualifications",
+            "includes": [
+              "trade",
+              "licensed_or_registered"
+            ]
+          },
+          {
+            "input": "working_height_m",
+            "lte": 10
+          }
+        ]
+      },
+      "ratings": {
+        "life": {
+          "supported": true,
+          "rating_class": "2"
+        },
+        "income_protection": {
+          "supported": true,
+          "rating_class": "3"
+        }
+      },
+      "match_confidence": "high"
+    },
+    {
+      "insurer_occupation_id": "PNT-11",
+      "description": "Painter, unqualified with 3 or more years of experience, working up to 10 metres",
+      "osca": "3323-11",
+      "occupation_group_id": "PNT",
+      "selected_when": {
+        "conditions": [
+          {
+            "input": "qualifications",
+            "excludes": [
+              "trade",
+              "licensed_or_registered"
+            ]
+          },
+          {
+            "input": "years_in_occupation",
+            "gte": 3
+          },
+          {
+            "input": "working_height_m",
+            "lte": 10
+          }
+        ]
+      },
+      "ratings": {
+        "life": {
+          "supported": true,
+          "rating_class": "3"
+        },
+        "income_protection": {
+          "supported": true,
+          "rating_class": "4"
+        }
+      },
+      "match_confidence": "high"
+    },
+    {
+      "insurer_occupation_id": "PNT-12",
+      "description": "Painter, unqualified with under 3 years of experience, working up to 10 metres",
+      "osca": "3323-11",
+      "occupation_group_id": "PNT",
+      "selected_when": {
+        "conditions": [
+          {
+            "input": "qualifications",
+            "excludes": [
+              "trade",
+              "licensed_or_registered"
+            ]
+          },
+          {
+            "input": "years_in_occupation",
+            "lt": 3
+          },
+          {
+            "input": "working_height_m",
+            "lte": 10
+          }
+        ]
+      },
+      "ratings": {
+        "life": {
+          "supported": true,
+          "rating_class": "4"
+        },
+        "income_protection": {
+          "supported": false
+        }
+      },
+      "match_confidence": "high"
+    },
+    {
+      "insurer_occupation_id": "PNT-13",
+      "description": "Painter, working above 10 metres",
+      "osca": "3323-11",
+      "occupation_group_id": "PNT",
+      "insurer_default": true,
+      "selected_when": {
+        "conditions": [
+          {
+            "input": "working_height_m",
+            "gt": 10
+          }
+        ]
+      },
+      "ratings": {
+        "life": {
+          "supported": true,
+          "rating_class": "4"
+        },
+        "income_protection": {
+          "supported": false
+        }
+      },
+      "match_confidence": "high"
+    }
+  ],
+  "occupation_groups": [
+    {
+      "id": "PNT",
+      "description": "Painter",
+      "asks": [
+        "qualifications",
+        "years_in_occupation",
+        "working_height_m"
+      ]
+    }
+  ]
+}
