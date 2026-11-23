@@ -222,7 +222,12 @@ OccupationRatingInput:
   title: OccupationRatingInput
   description: >-
     The name of one fact an insurer rates an occupation on: a field of `OccupationQualifiers`, or
-    `annual_income`, which is carried on the insured and not among the qualifiers.
+    `annual_income` or `employment_status`, which are carried on the insured and not among the
+    qualifiers.
+
+    `employment_status` is here because insurers rate one occupation differently for an employee
+    and for someone self-employed, and a row may accept several statuses (any of the three
+    self-employed values), which `requires_employment_status` cannot express.
 
     RESPONSE-facing and extensible. An insurer names these in `asks`, `selected_when` and
     `defaulted_qualifiers`. A consumer MUST tolerate a name it does not recognise, and cannot
@@ -231,7 +236,7 @@ OccupationRatingInput:
     Known values: [qualifications, years_in_occupation, years_in_business, working_height_m,
     works_underground, works_offshore, works_from_home, manual_duties_percent, hours_per_week,
     hazardous_exposures, licensed_to_carry_firearm, makes_deliveries, driving_radius_km,
-    annual_income].
+    annual_income, employment_status].
   type: string
   x-extensible-enum:
     - qualifications
@@ -248,6 +253,7 @@ OccupationRatingInput:
     - makes_deliveries
     - driving_radius_km
     - annual_income
+    - employment_status
 
 OccupationSpecialtyRef:
   title: OccupationSpecialtyRef

@@ -104,3 +104,14 @@ will publish exclusive conditions in `selected_when`.
 | Default row rule | Noted | No change. The rule is the insurer's. The standard still requires only that the default is not chosen for being cheapest |
 | Overlapping rows | Adopted as guidance | An insurer SHOULD publish conditions that are exclusive within a group or specialty. The consumer rule is unchanged |
 | Years in business | Confirmed | No change |
+
+## Review of the contract change (added by the maintainers)
+
+The proposer reviewed the pull request that made these changes and raised three points. All three
+were adopted.
+
+| Point | Outcome | In the contract as |
+|---|---|---|
+| Employment status cannot take part in `selected_when` | Adopted | `employment_status` is an `OccupationRatingInput`, tested with `in`. `:match` and `GET /occupations` accept it. `requires_employment_status` stays, as what a row cannot be quoted without |
+| `equals` is yes or no only, so a number cannot equal a value | Adopted as guidance | A number that must equal a value is a range with `gte` and `lte` the same. `equals` still takes only a boolean, so the generated types stay simple |
+| `in` has no standard fact to test | Resolved by the first point | `in` is for a single choice, such as `employment_status` |

@@ -50,6 +50,19 @@ OccupationIncome:
     maximum: 100000000
   example: 145000
 
+OccupationEmploymentStatus:
+  name: employment_status
+  in: query
+  description: >-
+    The insured's employment status, so the insurer can return the row that applies where it rates
+    an occupation differently for an employee and for someone self-employed.
+
+    OPTIONAL, and a server that does not rate on it MUST ignore it rather than reject it.
+  required: false
+  schema:
+    $ref: '../../../core/schemas/cover-vocabulary.yaml#/EmploymentStatus'
+  example: self_employed_sole_trader
+
 OccupationQuery:
   name: q
   in: query

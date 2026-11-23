@@ -272,6 +272,17 @@ A security guard, where the insurer splits the occupation by specialty first.
 - Rows name their specialty in `specialty_id`. `candidates` stays one flat list, so a consumer that
   ignores groups still reads every row.
 
+### `occupations/match-split-by-employment.json`
+
+An electrician, where the insurer rates an employee and someone self-employed differently.
+
+- `employment_status` is a single choice, so the rows test it with `in`. One `in` names all three
+  self-employed statuses, which `requires_employment_status`, holding one value, could not.
+- "No manual duties" is `gte: 0` and `lte: 0` together. `equals` is for yes or no and does not
+  take a number.
+- `ELC-01` tests only `employment_status`: an employee is rated the same whatever their manual
+  duties, so that row does not ask.
+
 ### Quoting without asking
 
 Nothing above has to be asked. A consumer that sends only the baseline code gets a price, and the

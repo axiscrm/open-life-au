@@ -48,6 +48,19 @@ a precedence rule for a request that sends both, and that is one more place to m
 `driving_radius_km`. Each is optional, as every qualifier is. An insurer that does not rate on one
 ignores it. What each means is in `taxonomy/occupation-qualifiers.yaml`.
 
+## Added: `employment_status` as a rating input (not breaking)
+
+Insurers rate one occupation differently for an employee and for someone self-employed. A row can
+now say so in `selected_when`, testing `employment_status` with `in`, which can name several
+statuses. `employment_status` joins `annual_income` as an `OccupationRatingInput` that is carried on
+the insured rather than among the qualifiers.
+
+- `POST /occupations:match` takes an optional `employment_status` beside `annual_income`, and
+  `GET /occupations` an optional `employment_status` query parameter beside `income`. A server that
+  does not rate on it ignores it.
+- `requires_employment_status` on a row is unchanged. It says what the row cannot be quoted
+  without. It does not pick the row from its siblings: `selected_when` does that.
+
 ## Added: occupation groups (not breaking)
 
 `POST /occupations:match` and `GET /occupations` still return flat rows. Beside them is an
@@ -64,6 +77,8 @@ optional `occupation_groups` array, and each row gains four optional fields.
 - *Consumers that want one price:* ask for the specialty where the group has them, then the facts
   in `asks`, then take the row whose `selected_when` the answers meet. Where they meet no row or
   several, quote on the default row or send the answers to `:match`. Never choose a row yourself.
+- *Testing a number for one value:* write a range, `gte` and `lte` the same. `equals` is for yes or
+  no only, and the schema rejects `equals: 0`.
 - *Implementations:* publishing groups is optional. If you do, a group is returned whole:
   `max_candidates` does not split one. On a paged `GET /occupations`, every page carries, whole,
   each group one of its rows belongs to, so a group whose rows span pages is repeated. Publish

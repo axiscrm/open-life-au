@@ -230,6 +230,9 @@
             "$ref": "#/components/parameters/OccupationIncome"
           },
           {
+            "$ref": "#/components/parameters/OccupationEmploymentStatus"
+          },
+          {
             "$ref": "#/components/parameters/Cursor"
           },
           {
@@ -292,7 +295,7 @@
       "post": {
         "operationId": "matchOccupation",
         "summary": "Resolve a baseline occupation to this insurer's own",
-        "description": "Given an ABS OSCA code and the qualifiers that sit beneath it, return the insurer's own occupations that correspond, most confident first.\nThe reference's `description` is display text and is never matched on. To find an occupation by name, search the insurer's list with `GET /occupations?q=`.\n### Why this endpoint exists\nAn adviser picks an occupation once, from one picker, and expects to compare every insurer on the panel. Each insurer rates its own list, so something has to bridge the two. Putting the bridge here — inside the insurer, which is the only party that knows its own manual — avoids making anyone else the custodian of a mapping they cannot maintain.\n### Several rows for one code\nA baseline code commonly lands on several of the insurer's rows, split by specialty or by a few facts about the insured. Where the insurer publishes it, `occupation_groups` says how: which specialties there are, what each needs asked, and each candidate's `selected_when` says which answers pick it. A consumer can then narrow to one row without another call.\nAsking is optional. A consumer that asks nothing quotes on the baseline code, or on the row marked `insurer_default`, and the quote reports what was assumed in `resolved_occupation.specialty_defaulted` and `defaulted_qualifiers`.\nSend the code WITHOUT qualifiers to get every row of each group. Qualifiers in the request rank the candidates. They do not remove rows from a group.\n### An empty result is a real answer\n`candidates: []` means this insurer has no occupation corresponding to the reference. The consumer MUST show the insurer as unquotable for this client and MUST NOT substitute a nearby occupation of its own choosing. A silently wrong occupation produces a wrong premium that looks entirely normal, and an adviser has no way to detect it.\n### Confidence\nWhere the insurer maintains a one-to-one correspondence to the baseline it returns `exact`. A match derived from qualifiers alone will usually be `moderate` or below, and a consumer SHOULD ask the adviser to confirm anything below `exact` rather than pricing straight through.\nResults depend only on the occupation reference, never on the insured, so they are safely cacheable by the consumer per insurer.",
+        "description": "Given an ABS OSCA code and the qualifiers that sit beneath it, return the insurer's own occupations that correspond, most confident first.\nThe reference's `description` is display text and is never matched on. To find an occupation by name, search the insurer's list with `GET /occupations?q=`.\n### Why this endpoint exists\nAn adviser picks an occupation once, from one picker, and expects to compare every insurer on the panel. Each insurer rates its own list, so something has to bridge the two. Putting the bridge here — inside the insurer, which is the only party that knows its own manual — avoids making anyone else the custodian of a mapping they cannot maintain.\n### Several rows for one code\nA baseline code commonly lands on several of the insurer's rows, split by specialty or by a few facts about the insured. Where the insurer publishes it, `occupation_groups` says how: which specialties there are, what each needs asked, and each candidate's `selected_when` says which answers pick it. A consumer can then narrow to one row without another call.\nAsking is optional. A consumer that asks nothing quotes on the baseline code, or on the row marked `insurer_default`, and the quote reports what was assumed in `resolved_occupation.specialty_defaulted` and `defaulted_qualifiers`.\nSend the code WITHOUT qualifiers to get every row of each group. Qualifiers in the request rank the candidates. They do not remove rows from a group.\n### An empty result is a real answer\n`candidates: []` means this insurer has no occupation corresponding to the reference. The consumer MUST show the insurer as unquotable for this client and MUST NOT substitute a nearby occupation of its own choosing. A silently wrong occupation produces a wrong premium that looks entirely normal, and an adviser has no way to detect it.\n### Confidence\nWhere the insurer maintains a one-to-one correspondence to the baseline it returns `exact`. A match derived from qualifiers alone will usually be `moderate` or below, and a consumer SHOULD ask the adviser to confirm anything below `exact` rather than pricing straight through.\nResults depend only on the request body: the occupation reference and, where sent, `annual_income` and `employment_status`. They are safely cacheable by the consumer per insurer and request.",
         "tags": [
           "Occupations"
         ],
@@ -416,6 +419,16 @@
           "maximum": 100000000
         },
         "example": 145000
+      },
+      "OccupationEmploymentStatus": {
+        "name": "employment_status",
+        "in": "query",
+        "description": "The insured's employment status, so the insurer can return the row that applies where it rates an occupation differently for an employee and for someone self-employed.\nOPTIONAL, and a server that does not rate on it MUST ignore it rather than reject it.",
+        "required": false,
+        "schema": {
+          "$ref": "#/components/schemas/EmploymentStatus"
+        },
+        "example": "self_employed_sole_trader"
       },
       "Cursor": {
         "name": "cursor",
@@ -2411,7 +2424,7 @@
       },
       "OccupationRatingInput": {
         "title": "OccupationRatingInput",
-        "description": "The name of one fact an insurer rates an occupation on: a field of `OccupationQualifiers`, or `annual_income`, which is carried on the insured and not among the qualifiers.\nRESPONSE-facing and extensible. An insurer names these in `asks`, `selected_when` and `defaulted_qualifiers`. A consumer MUST tolerate a name it does not recognise, and cannot collect an answer for it.\nKnown values: [qualifications, years_in_occupation, years_in_business, working_height_m, works_underground, works_offshore, works_from_home, manual_duties_percent, hours_per_week, hazardous_exposures, licensed_to_carry_firearm, makes_deliveries, driving_radius_km, annual_income].",
+        "description": "The name of one fact an insurer rates an occupation on: a field of `OccupationQualifiers`, or `annual_income` or `employment_status`, which are carried on the insured and not among the qualifiers.\n`employment_status` is here because insurers rate one occupation differently for an employee and for someone self-employed, and a row may accept several statuses (any of the three self-employed values), which `requires_employment_status` cannot express.\nRESPONSE-facing and extensible. An insurer names these in `asks`, `selected_when` and `defaulted_qualifiers`. A consumer MUST tolerate a name it does not recognise, and cannot collect an answer for it.\nKnown values: [qualifications, years_in_occupation, years_in_business, working_height_m, works_underground, works_offshore, works_from_home, manual_duties_percent, hours_per_week, hazardous_exposures, licensed_to_carry_firearm, makes_deliveries, driving_radius_km, annual_income, employment_status].",
         "type": "string",
         "x-extensible-enum": [
           "qualifications",
@@ -2427,7 +2440,8 @@
           "licensed_to_carry_firearm",
           "makes_deliveries",
           "driving_radius_km",
-          "annual_income"
+          "annual_income",
+          "employment_status"
         ]
       },
       "ResolvedOccupation": {
@@ -3894,7 +3908,7 @@
       },
       "SelectionCondition": {
         "title": "SelectionCondition",
-        "description": "What the answer to one fact must be. `in` is for a choice, `equals` for yes or no, the four comparisons for a number (two may be combined into a range), and `includes` and `excludes` for a list. `annual_income` is compared in whole dollars.\nA fact may have more than one condition. Two `includes` on the same list say it must hold both: `includes: [trade]` and `includes: [licensed_or_registered]` pick the insured who is trade qualified AND licensed, where one `includes` naming both picks either.",
+        "description": "What the answer to one fact must be. `in` is for a single choice such as `employment_status`, `equals` for yes or no, the four comparisons for a number (two may be combined into a range), and `includes` and `excludes` for a list. `annual_income` is compared in whole dollars.\nA number that must equal a value is a range with `gte` and `lte` the same: `{ \"input\": \"manual_duties_percent\", \"gte\": 0, \"lte\": 0 }`. `equals` does not take a number.\nA fact may have more than one condition. Two `includes` on the same list say it must hold both: `includes: [trade]` and `includes: [licensed_or_registered]` pick the insured who is trade qualified AND licensed, where one `includes` naming both picks either.",
         "type": "object",
         "required": [
           "input"
@@ -3907,7 +3921,7 @@
             "$ref": "#/components/schemas/OccupationRatingInput"
           },
           "in": {
-            "description": "The answer is one of these.",
+            "description": "For an answer that is a single choice, such as `employment_status`. The answer is one of these.",
             "type": "array",
             "minItems": 1,
             "items": {
@@ -3915,6 +3929,7 @@
             }
           },
           "equals": {
+            "description": "For yes or no only. A number that must equal a value is written as a range, with `gte` and `lte` the same: `{ \"input\": \"manual_duties_percent\", \"gte\": 0, \"lte\": 0 }`.",
             "type": "boolean"
           },
           "gt": {
@@ -4068,7 +4083,7 @@
             "pattern": "^\\d{4}-?\\d{2}$"
           },
           "requires_employment_status": {
-            "description": "An employment status this occupation implies, where one is mandatory. A non-working occupation paired with a working status is the commonest cause of a nil premium, so an insurer that constrains this SHOULD say so here.",
+            "description": "An employment status this occupation implies, where one is mandatory. A non-working occupation paired with a working status is the commonest cause of a nil premium, so an insurer that constrains this SHOULD say so here.\nThis says what the row cannot be quoted without. It does not pick the row from its siblings: where rows of a group differ by employment status, each says so in `selected_when`, testing `employment_status` with `in`, which can name several statuses.",
             "$ref": "#/components/schemas/EmploymentStatus"
           },
           "occupation_group_id": {
@@ -4238,6 +4253,10 @@
             "description": "The insured's gross annual income, where the insurer bands occupations on earnings.\nMatters more here than on the list operation: `:match` returns RANKED CANDIDATES, and without an income an insurer banding on earnings cannot rank them — \"Accountant earning under $120,000\" and \"Accountant earning over $120,000\" are equally good matches for \"Accountant\", and whichever the insurer picks it may be the wrong one at a plausible premium.\nOPTIONAL. A server that does not band on income MUST ignore it rather than reject it.",
             "$ref": "#/components/schemas/NonNegativeMoney"
           },
+          "employment_status": {
+            "description": "The insured's employment status, where the insurer rates the occupation differently for an employee and for someone self-employed. Ranks the candidates as `annual_income` does, and like it never removes a row from a group.\nOPTIONAL. A server that does not rate on it MUST ignore it rather than reject it.",
+            "$ref": "#/components/schemas/EmploymentStatus"
+          },
           "max_candidates": {
             "description": "A limit on the candidates returned. A server MUST NOT split a group to meet it: where it returns any row of an `OccupationGroup` it returns all of them, even if that exceeds the limit. Half a group hides specialties from the adviser with nothing to say so.",
             "type": "integer",
@@ -4278,6 +4297,7 @@
             "pattern": "^\\d{4}-?\\d{2}$"
           },
           "requires_employment_status": {
+            "description": "As on `InsurerOccupation`: what the row cannot be quoted without, not what picks it. Selection by employment status is in `selected_when`.",
             "$ref": "#/components/schemas/EmploymentStatus"
           },
           "occupation_group_id": {

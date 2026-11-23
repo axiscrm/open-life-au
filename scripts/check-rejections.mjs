@@ -930,6 +930,24 @@ const SELECTION_CASES = [
         why: "a condition with no test holds for every answer, so the row is selected by everything",
         doc: { conditions: [{ input: "working_height_m" }] },
     },
+    {
+        name: "a number tested with equals",
+        why: "equals is for yes or no; a number that must equal a value is a range with gte and lte the same",
+        doc: { conditions: [{ input: "manual_duties_percent", equals: 0 }] },
+    },
+    {
+        name: "a single choice tested with an empty in",
+        why: "an empty list of allowed answers is met by no answer, so the row can never be selected",
+        doc: { conditions: [{ input: "employment_status", in: [] }] },
+    },
+];
+
+const MATCH_REQUEST_CASES = [
+    {
+        name: "a match request with an employment_status outside the vocabulary",
+        why: "an unknown status ranks the candidates on nothing the insurer rates, and looks like it ranked them",
+        doc: { occupation: { osca: "3411-11" }, employment_status: "contractor" },
+    },
 ];
 
 const RESOLVED_OPTION_CASES = [
@@ -1343,12 +1361,14 @@ const validateResolvedOption = ajv.getSchema("contract#/components/schemas/Resol
 const validateCoverLine = ajv.getSchema("contract#/components/schemas/CoverLine");
 const validateOccupationGroup = ajv.getSchema("contract#/components/schemas/OccupationGroup");
 const validateSelection = ajv.getSchema("contract#/components/schemas/OccupationSelection");
+const validateMatchRequest = ajv.getSchema("contract#/components/schemas/OccupationMatchRequest");
 
 for (const [group, validator, cases] of [
     ["quoting response", validateLine, LINE_CASES],
     ["occupation rating", validateRating, OCCUPATION_CASES],
     ["occupation group", validateOccupationGroup, OCCUPATION_GROUP_CASES],
     ["occupation selection", validateSelection, SELECTION_CASES],
+    ["occupation match request", validateMatchRequest, MATCH_REQUEST_CASES],
     ["resolved option", validateResolvedOption, RESOLVED_OPTION_CASES],
     ["cover line", validateCoverLine, COVER_LINE_CASES],
     ["policy page", validatePage, POLICY_PAGE_CASES],
@@ -1839,6 +1859,7 @@ const total =
     OCCUPATION_CASES.length +
     OCCUPATION_GROUP_CASES.length +
     SELECTION_CASES.length +
+    MATCH_REQUEST_CASES.length +
     RESOLVED_OPTION_CASES.length +
     COVER_LINE_CASES.length +
     POLICY_PAGE_CASES.length +
