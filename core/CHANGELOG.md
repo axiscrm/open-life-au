@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/axiscrm/open-life-au/compare/core-v0.2.0...core-v0.3.0) (2026-11-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **quoting:** occupation groups, specialties and the qualifiers that pick a row ([#20](https://github.com/axiscrm/open-life-au/issues/20))
+
+### Features
+
+* **quoting:** occupation groups, specialties and the qualifiers that pick a row ([#20](https://github.com/axiscrm/open-life-au/issues/20)) ([94d7f73](https://github.com/axiscrm/open-life-au/commit/94d7f735ec8c520744a58d559186d15165976f34))
+
 ## [0.2.0](https://github.com/axiscrm/open-life-au/compare/core-v0.1.0...core-v0.2.0) (2026-10-12)
 
 
