@@ -9,12 +9,12 @@ Four contracts:
 
 | Contract | Status | Reference | What it covers |
 |---|---|---|---|
-| [**quoting**](domains/quoting/) | `v0.2.0` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/quoting/) | Pricing life, TPD, trauma, income protection, business expenses, needle stick and child trauma cover |
-| [**policy**](domains/policy/) | `v0.1.1` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/policy/) | In-force policy data, the arrears worklist, and status changes |
-| [**requirements**](domains/requirements/) | `v0.1.1` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/requirements/) | Outstanding underwriting requirements on applications |
-| [**commissions**](domains/commissions/) | `v0.1.0` — draft, not yet released | [docs](https://axiscrm.github.io/open-life-au/commissions/) | Commission statements and their lines |
+| [**quoting**](domains/quoting/) | `v0.3.0` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/quoting/) | Pricing life, TPD, trauma, income protection, business expenses, needle stick and child trauma cover |
+| [**policy**](domains/policy/) | `v0.2.0` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/policy/) | In-force policy data, the arrears worklist, and status changes |
+| [**requirements**](domains/requirements/) | `v0.1.2` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/requirements/) | Outstanding underwriting requirements on applications |
+| [**commissions**](domains/commissions/) | `v0.1.1` — draft, open for comment | [docs](https://axiscrm.github.io/open-life-au/commissions/) | Commission statements and their lines |
 
-Each contract is released on its own and tagged `<contract>-v<version>` (`quoting-v0.2.0`), with
+Each contract is released on its own and tagged `<contract>-v<version>` (`quoting-v0.3.0`), with
 its own CHANGELOG — see [`docs/VERSIONING.md`](docs/VERSIONING.md). Licensed Apache-2.0. Everything
 here is a draft published for insurers to argue with — see [Contributing](#contributing).
 
@@ -209,7 +209,7 @@ done
 ```
 
 `main` can carry changes that have not been released yet. To build against a release, replace
-`main` in the URL with its tag — `quoting-v0.2.0`.
+`main` in the URL with its tag — `quoting-v0.3.0`.
 
 If a generator misbehaves, that is a defect in the contract rather than in your setup — please tell
 us. It has happened three times already, and every time the fix was ours; see

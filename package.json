@@ -42,7 +42,8 @@
     "mock:check": "node scripts/check-mock.mjs",
     "bundle:commissions": "redocly bundle domains/commissions/openapi.yaml -o dist/commissions/openapi.yaml && redocly bundle domains/commissions/openapi.yaml -o dist/commissions/openapi.json && node scripts/mark-dist-version.mjs commissions",
     "mock:commissions": "node scripts/mock.mjs commissions",
-    "versions": "node scripts/check-versions.mjs"
+    "versions": "node scripts/check-versions.mjs",
+    "versions:fix": "node scripts/check-versions.mjs --fix"
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.99.0",

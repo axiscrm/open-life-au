@@ -22,7 +22,13 @@
  * working tree, so it needs a base ref to compare against and only means anything once release-please
  * is unparked. Stated as a review responsibility there rather than claimed as an automated gate.
  *
- * Usage: node scripts/check-versions.mjs
+ * THE ROOT README is checked too. Its contract table and every `<contract>-v<version>` tag it names
+ * must carry the version in `.release-please-manifest.json`. release-please cannot keep it in step:
+ * its generic updater rewrites every marked line with the releasing package's version, and the README
+ * names four contracts. It drifted through six releases before this check existed. `--fix` rewrites
+ * the README in place, so a release PR is fixed with one command.
+ *
+ * Usage: node scripts/check-versions.mjs [--fix]
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -31,6 +37,7 @@ import YAML from "yaml";
 import { ROOT, contracts } from "./contracts.mjs";
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
+const FIX = process.argv.includes("--fix");
 const problems = [];
 
 const manifest = JSON.parse(
@@ -120,6 +127,40 @@ for (const contract of contracts()) {
         if (!pkg.component) {
             problems.push(`${name}: release-please package has no component, so the tag prefix is undefined`);
         }
+    }
+}
+
+// The root README: one table row per contract, and any `<contract>-v<version>` tag it names.
+const readmePath = path.join(ROOT, "README.md");
+let readme = fs.readFileSync(readmePath, "utf8");
+const readmeFixes = [];
+for (const { name } of contracts()) {
+    const expected = manifest[`domains/${name}`];
+    if (!expected) continue; // already reported above
+
+    const row = new RegExp(`^(\\| \\[\\*\\*${name}\\*\\*\\]\\(domains/${name}/\\) \\| \`v)(\\d+\\.\\d+\\.\\d+)(\`)`, "m");
+    const match = readme.match(row);
+    if (!match) {
+        problems.push(`README.md: no row for ${name} in the contract table, or its version is not in \`vX.Y.Z\` form`);
+    } else if (match[2] !== expected) {
+        readmeFixes.push(`${name}: table says v${match[2]}, released version is ${expected}`);
+        readme = readme.replace(row, `$1${expected}$3`);
+    }
+
+    const tag = new RegExp(`\\b${name}-v(\\d+\\.\\d+\\.\\d+)\\b`, "g");
+    for (const [, version] of readme.matchAll(tag)) {
+        if (version !== expected) {
+            readmeFixes.push(`${name}: README names tag ${name}-v${version}, released version is ${expected}`);
+        }
+    }
+    readme = readme.replace(tag, `${name}-v${expected}`);
+}
+if (readmeFixes.length) {
+    if (FIX) {
+        fs.writeFileSync(readmePath, readme);
+        console.log(`✓ README.md rewritten to the released versions:\n${readmeFixes.map((f) => `  ${f}`).join("\n")}`);
+    } else {
+        problems.push(...readmeFixes.map((f) => `README.md ${f}. Run \`npm run versions:fix\``));
     }
 }
 
