@@ -11,6 +11,10 @@
 #                         land on exactly one row.
 #   `/occupations`        the adviser wants to correct one insurer's choice by hand, and needs to
 #                         search that insurer's own wording.
+#
+# Both return FLAT ROWS, with an optional `occupation_groups` beside them saying what to ask to
+# narrow several rows to one: a specialty, then a few facts. The rows stay flat so that a consumer
+# asking nothing reads one list and quotes on the insurer's default row.
 
 $schema: https://json-schema.org/draft/2020-12/schema
 
@@ -45,7 +49,39 @@ InsurerOccupation:
         An employment status this occupation implies, where one is mandatory. A non-working
         occupation paired with a working status is the commonest cause of a nil premium, so an
         insurer that constrains this SHOULD say so here.
+
+        This says what the row cannot be quoted without. It does not pick the row from its
+        siblings: where rows of a group differ by employment status, each says so in
+        `selected_when`, testing `employment_status` with `in`, which can name several statuses.
       $ref: '../../../../core/schemas/cover-vocabulary.yaml#/EmploymentStatus'
+    occupation_group_id:
+      description: >-
+        The `OccupationGroup` this row belongs to, where the insurer publishes one. The group is in
+        `occupation_groups` of the same response.
+      type: string
+      minLength: 1
+      maxLength: 128
+    specialty_id:
+      description: >-
+        The specialty of that group this row belongs to. Absent where the group is not split by
+        specialty.
+      type: string
+      minLength: 1
+      maxLength: 128
+    selected_when:
+      $ref: '#/OccupationSelection'
+    insurer_default:
+      description: >-
+        `true` on the one row of a group the insurer rates when it is given the baseline code and
+        nothing else: no specialty chosen, no qualifiers answered. At most one row of a group
+        carries it.
+
+        Published so that a consumer can show what will be assumed BEFORE quoting, and so that a
+        consumer of an insurer accepting only `insurer_occupation_id` can still quote without
+        asking the adviser anything, by sending this row. Which row is the default is the
+        insurer's decision. It MUST NOT be a row chosen because it is the cheapest.
+      type: boolean
+      default: false
     effective_from:
       type: string
       format: date
@@ -64,6 +100,18 @@ OccupationListResponse:
       type: array
       items:
         $ref: '#/InsurerOccupation'
+    occupation_groups:
+      description: >-
+        The groups the rows on THIS PAGE belong to: one per insurer occupation, saying what to ask and
+        which specialties it is split into. Every `occupation_group_id` on a row MUST have its
+        group here, WHOLE, with every specialty it has and not only those of the rows on this
+        page. A group whose rows fall on several pages is therefore repeated on each of them, and
+        a consumer keeps one copy per `id`. There is no operation to fetch a group by id. Absent
+        or empty where the insurer publishes no grouping.
+      type: array
+      items:
+        $ref: '#/OccupationGroup'
+      default: []
     page:
       $ref: '../../../../core/schemas/pagination.yaml#/PageInfo'
 
@@ -95,7 +143,19 @@ OccupationMatchRequest:
 
         OPTIONAL. A server that does not band on income MUST ignore it rather than reject it.
       $ref: '../../../../core/schemas/money.yaml#/NonNegativeMoney'
+    employment_status:
+      description: >-
+        The insured's employment status, where the insurer rates the occupation differently for an
+        employee and for someone self-employed. Ranks the candidates as `annual_income` does, and
+        like it never removes a row from a group.
+
+        OPTIONAL. A server that does not rate on it MUST ignore it rather than reject it.
+      $ref: '../../../../core/schemas/cover-vocabulary.yaml#/EmploymentStatus'
     max_candidates:
+      description: >-
+        A limit on the candidates returned. A server MUST NOT split a group to meet it: where it
+        returns any row of an `OccupationGroup` it returns all of them, even if that exceeds the
+        limit. Half a group hides specialties from the adviser with nothing to say so.
       type: integer
       minimum: 1
       maximum: 50
@@ -104,7 +164,11 @@ OccupationMatchRequest:
 OccupationMatchResponse:
   title: OccupationMatchResponse
   description: >-
-    Candidate matches, most confident first.
+    Candidate matches, most confident first, and the groups they belong to.
+
+    `candidates` is the flat list of rows and is complete on its own: a consumer that reads
+    nothing else can still pick a row. `occupation_groups` says how the rows relate, where the
+    insurer publishes that.
 
     An EMPTY `candidates` array is a valid and important answer: it means the insurer has no
     occupation corresponding to the reference given. A consumer MUST treat that as unquotable for
@@ -119,6 +183,15 @@ OccupationMatchResponse:
       type: array
       items:
         $ref: '#/OccupationCandidate'
+    occupation_groups:
+      description: >-
+        The groups the rows above belong to: one per insurer occupation, saying what to ask and
+        which specialties it is split into. Every `occupation_group_id` on a row MUST have its
+        group here. Absent or empty where the insurer publishes no grouping.
+      type: array
+      items:
+        $ref: '#/OccupationGroup'
+      default: []
 
 OccupationCandidate:
   title: OccupationCandidate
@@ -156,7 +229,38 @@ OccupationCandidate:
       type: string
       pattern: '^\d{4}-?\d{2}$'
     requires_employment_status:
+      description: >-
+        As on `InsurerOccupation`: what the row cannot be quoted without, not what picks it.
+        Selection by employment status is in `selected_when`.
       $ref: '../../../../core/schemas/cover-vocabulary.yaml#/EmploymentStatus'
+    occupation_group_id:
+      description: >-
+        The `OccupationGroup` this row belongs to, where the insurer publishes one. The group is in
+        `occupation_groups` of the same response.
+      type: string
+      minLength: 1
+      maxLength: 128
+    specialty_id:
+      description: >-
+        The specialty of that group this row belongs to. Absent where the group is not split by
+        specialty.
+      type: string
+      minLength: 1
+      maxLength: 128
+    selected_when:
+      $ref: '#/OccupationSelection'
+    insurer_default:
+      description: >-
+        `true` on the one row of a group the insurer rates when it is given the baseline code and
+        nothing else: no specialty chosen, no qualifiers answered. At most one row of a group
+        carries it.
+
+        Published so that a consumer can show what will be assumed BEFORE quoting, and so that a
+        consumer of an insurer accepting only `insurer_occupation_id` can still quote without
+        asking the adviser anything, by sending this row. Which row is the default is the
+        insurer's decision. It MUST NOT be a row chosen because it is the cheapest.
+      type: boolean
+      default: false
     effective_from:
       type: string
       format: date
@@ -176,3 +280,196 @@ OccupationCandidate:
         lets an adviser choose between two plausible rows.
       type: string
       maxLength: 300
+
+OccupationGroup:
+  title: OccupationGroup
+  description: >-
+    One occupation as the insurer thinks of it ("painter", "security guard"), gathering the rows
+    of its list that differ only by specialty or by the answers to a few questions. It tells a
+    consumer what to ask to arrive at one row.
+
+    An insurer's list is flat, and several rows commonly answer one baseline code. Without this a
+    consumer can only show the adviser every row and ask them to read the wording. With it the
+    consumer asks for the specialty where there is one, then the facts in `asks`, and each row's
+    `selected_when` picks the row.
+
+    EVERYTHING HERE IS OPTIONAL TO ACT ON. A consumer that asks nothing still gets a quote, on the
+    row marked `insurer_default`, with the assumptions reported in `ResolvedOccupation`. An insurer
+    that publishes no groups is conformant.
+
+    Exactly one of `asks` and `specialties` is present. The questions sit on the specialty where
+    there are specialties, because specialties of one occupation ask different things: one asks
+    about firearms and the next asks nothing.
+  type: object
+  required: [id, description]
+  additionalProperties: false
+  oneOf:
+    - required: [asks]
+    - required: [specialties]
+  properties:
+    id:
+      description: Opaque; scoped to the insurer.
+      type: string
+      minLength: 1
+      maxLength: 128
+    description:
+      description: The insurer's own wording for the occupation, shown to the adviser verbatim.
+      type: string
+      maxLength: 200
+    asks:
+      description: >-
+        For an occupation NOT split by specialty: the facts that change which of its rows applies.
+        EMPTY means nothing needs asking, and the group has one row.
+      type: array
+      uniqueItems: true
+      items:
+        $ref: '../../../../core/schemas/occupation.yaml#/OccupationRatingInput'
+    specialties:
+      description: >-
+        For an occupation split by specialty: the options, in the order the insurer wants them
+        shown. The adviser picks one.
+      type: array
+      minItems: 2
+      items:
+        $ref: '#/OccupationSpecialty'
+
+OccupationSpecialty:
+  title: OccupationSpecialty
+  type: object
+  required: [id, name, asks]
+  additionalProperties: false
+  properties:
+    id:
+      description: Opaque; scoped to the insurer. Rows name it in `specialty_id`.
+      type: string
+      minLength: 1
+      maxLength: 128
+    name:
+      description: The insurer's own wording, shown to the adviser verbatim.
+      type: string
+      maxLength: 200
+    asks:
+      description: >-
+        The facts that change which row of THIS specialty applies. EMPTY means the specialty has
+        one row and nothing needs asking.
+      type: array
+      uniqueItems: true
+      items:
+        $ref: '../../../../core/schemas/occupation.yaml#/OccupationRatingInput'
+
+OccupationSelection:
+  title: OccupationSelection
+  description: >-
+    The answers that pick this row from the others in its group or specialty. Absent on a row
+    that is the only one.
+
+    Every entry of `conditions` must hold. `any_of` holds alternatives, of which one must hold as
+    well, for a rule such as "a relevant degree, or income above a threshold".
+
+    A fact the adviser did not answer meets no condition. Where the answers pick no row, or more
+    than one, the consumer MUST NOT choose for itself: it either quotes on the `insurer_default`
+    row or sends the answers to `POST /occupations:match`.
+
+    An insurer SHOULD publish conditions that are exclusive within a group or specialty, so that
+    one set of answers meets at most one row. Nested bands ("under 10%" beside "under 20%") are
+    the usual way a list fails this, and are published as ranges that do not overlap.
+
+    THE INSURER'S OWN MATCHING IS AUTHORITATIVE. This is the insurer publishing its banding so a
+    consumer can resolve a row without a call per client. The band boundaries are the insurer's
+    and mean nothing at another insurer.
+
+    A list of conditions, each naming its fact, and not a map keyed by fact: a map with one
+    differently-typed key beside it is a shape several code generators cannot type.
+  type: object
+  additionalProperties: false
+  anyOf:
+    - required: [conditions]
+    - required: [any_of]
+  properties:
+    conditions:
+      type: array
+      minItems: 1
+      items:
+        $ref: '#/SelectionCondition'
+    any_of:
+      type: array
+      minItems: 2
+      items:
+        $ref: '#/SelectionAlternative'
+  examples:
+    - conditions:
+        - { input: qualifications, includes: [trade, licensed_or_registered] }
+        - { input: working_height_m, lte: 10 }
+    - any_of:
+        - conditions: [{ input: qualifications, includes: [relevant_degree] }]
+        - conditions: [{ input: annual_income, gt: 120000 }]
+
+SelectionAlternative:
+  title: SelectionAlternative
+  description: One alternative of `any_of`. Its conditions all apply.
+  type: object
+  required: [conditions]
+  additionalProperties: false
+  properties:
+    conditions:
+      type: array
+      minItems: 1
+      items:
+        $ref: '#/SelectionCondition'
+
+SelectionCondition:
+  title: SelectionCondition
+  description: >-
+    What the answer to one fact must be. `in` is for a single choice such as `employment_status`,
+    `equals` for yes or no, the four comparisons for a number (two may be combined into a range),
+    and `includes` and `excludes` for a list. `annual_income` is compared in whole dollars.
+
+    A number that must equal a value is a range with `gte` and `lte` the same:
+    `{ "input": "manual_duties_percent", "gte": 0, "lte": 0 }`. `equals` does not take a number.
+
+    A fact may have more than one condition. Two `includes` on the same list say it must hold
+    both: `includes: [trade]` and `includes: [licensed_or_registered]` pick the insured who is
+    trade qualified AND licensed, where one `includes` naming both picks either.
+  type: object
+  required: [input]
+  minProperties: 2
+  additionalProperties: false
+  properties:
+    input:
+      description: The fact this condition is about.
+      $ref: '../../../../core/schemas/occupation.yaml#/OccupationRatingInput'
+    in:
+      description: >-
+        For an answer that is a single choice, such as `employment_status`. The answer is one of
+        these.
+      type: array
+      minItems: 1
+      items:
+        type: string
+    equals:
+      description: >-
+        For yes or no only. A number that must equal a value is written as a range, with `gte`
+        and `lte` the same: `{ "input": "manual_duties_percent", "gte": 0, "lte": 0 }`.
+      type: boolean
+    gt:
+      type: number
+    gte:
+      type: number
+    lt:
+      type: number
+    lte:
+      type: number
+    includes:
+      description: For a list answer. It contains at least one of these.
+      type: array
+      minItems: 1
+      items:
+        type: string
+    excludes:
+      description: >-
+        For a list answer. It contains none of these. An empty list meets it. A list the adviser
+        did not give does not.
+      type: array
+      minItems: 1
+      items:
+        type: string

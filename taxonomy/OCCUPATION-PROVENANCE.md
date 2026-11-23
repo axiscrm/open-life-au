@@ -51,6 +51,12 @@ dimensions are **ours**, derived from how underwriting manuals discriminate with
 They are deliberately dimensions rather than descriptions: the standard says "working height in
 metres", and each insurer bands that however its own manual does.
 
+Insurers can propose dimensions, and have: an insurer that maps its own list to OSCA learns which
+facts split a code across its rows, and that is the best evidence there is for what to add. Such a
+proposal is recorded under [`../docs/recommendations/`](../docs/recommendations/README.md). What
+is adopted from one is the dimension. The insurer's bands and wording stay in the insurer's own
+list, which it publishes itself through `selected_when` on its occupation rows.
+
 Nothing in `occupation-qualifiers.yaml` is copied from any aggregator or insurer document. Where domain
 research established that a dimension matters, the dimension was defined here from first
 principles; no name, code, string or band boundary was carried across. See

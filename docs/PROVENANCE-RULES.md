@@ -62,6 +62,19 @@ vocabulary was read from. Every entry on that list is a place a reviewer has to 
 it short. The gate also fails on an entry whose file no longer exists, so a removed file cannot leave
 a standing exemption behind.
 
+One directory is exempt as a whole: `docs/recommendations/`. It records proposals put to the
+standard, filed under the organisation that made them, beside the response to each, so naming the
+proposer is the point. It is a record of the discussion and no part of a contract. The exception
+within it is `docs/recommendations/anonymous/`, for proposers who have asked not to be named: the
+gate scans it like any other directory, so a name the gate knows that is left in by mistake fails
+the build. The gate knows only the patterns it is given, and a proposer may have names, products and
+people it does not list. **A passing gate is not proof of anonymity.** Before an `anonymous/` record
+is published, a reviewer reads it by hand for the proposer's name, staff, products, codes and any
+detail that would identify them, and the pull request says that this was done. The exemption
+does not travel with the idea: when a proposal is adopted, the schema, taxonomy and example changes
+are written in the scanned directories from the adviser-facing concept, and the proposer's own
+strings, codes and band boundaries stay behind in the proposal.
+
 ## If the gate fires
 
 Do not add an allowlist entry to make it pass. Rewrite the material from the adviser-facing

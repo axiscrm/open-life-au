@@ -1,0 +1,96 @@
+{
+  "candidates": [
+    {
+      "insurer_occupation_id": "ELC-01",
+      "description": "Electrician, employed",
+      "osca": "3411-11",
+      "occupation_group_id": "ELC",
+      "insurer_default": true,
+      "selected_when": {
+        "conditions": [
+          {
+            "input": "employment_status",
+            "in": ["employee"]
+          }
+        ]
+      },
+      "ratings": {
+        "life": {
+          "supported": true,
+          "rating_class": "2"
+        },
+        "income_protection": {
+          "supported": true,
+          "rating_class": "3"
+        }
+      },
+      "match_confidence": "high"
+    },
+    {
+      "insurer_occupation_id": "ELC-02",
+      "description": "Electrician, self-employed, no manual duties",
+      "osca": "3411-11",
+      "occupation_group_id": "ELC",
+      "selected_when": {
+        "conditions": [
+          {
+            "input": "employment_status",
+            "in": ["self_employed_sole_trader", "self_employed_partnership", "self_employed_business_owner"]
+          },
+          {
+            "input": "manual_duties_percent",
+            "gte": 0,
+            "lte": 0
+          }
+        ]
+      },
+      "ratings": {
+        "life": {
+          "supported": true,
+          "rating_class": "1"
+        },
+        "income_protection": {
+          "supported": true,
+          "rating_class": "2"
+        }
+      },
+      "match_confidence": "high"
+    },
+    {
+      "insurer_occupation_id": "ELC-03",
+      "description": "Electrician, self-employed, with manual duties",
+      "osca": "3411-11",
+      "occupation_group_id": "ELC",
+      "selected_when": {
+        "conditions": [
+          {
+            "input": "employment_status",
+            "in": ["self_employed_sole_trader", "self_employed_partnership", "self_employed_business_owner"]
+          },
+          {
+            "input": "manual_duties_percent",
+            "gt": 0
+          }
+        ]
+      },
+      "ratings": {
+        "life": {
+          "supported": true,
+          "rating_class": "2"
+        },
+        "income_protection": {
+          "supported": true,
+          "rating_class": "4"
+        }
+      },
+      "match_confidence": "high"
+    }
+  ],
+  "occupation_groups": [
+    {
+      "id": "ELC",
+      "description": "Electrician",
+      "asks": ["employment_status", "manual_duties_percent"]
+    }
+  ]
+}

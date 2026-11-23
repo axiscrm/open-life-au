@@ -275,10 +275,34 @@ const CASES = [
         },
     },
     {
+        name: "the removed trade_qualified qualifier",
+        why: "replaced by qualifications; accepted and ignored, a trade-qualified insured prices at the unqualified default",
+        doc: {
+            insured: { ...insured, occupation: { osca: "3323-11", qualifiers: { trade_qualified: true } } },
+            covers: [life()],
+        },
+    },
+    {
+        name: "the removed handles_explosives qualifier",
+        why: "replaced by hazardous_exposures; accepted and ignored, the exposure is silently not rated",
+        doc: {
+            insured: { ...insured, occupation: { osca: "3323-11", qualifiers: { handles_explosives: true } } },
+            covers: [life()],
+        },
+    },
+    {
+        name: "a qualification outside the vocabulary",
+        why: "request enums are closed; an unknown value priced at the default is a silent mis-quote",
+        doc: {
+            insured: { ...insured, occupation: { osca: "3323-11", qualifiers: { qualifications: ["diploma"] } } },
+            covers: [life()],
+        },
+    },
+    {
         name: "an occupation with no identifying reference",
         why: "qualifiers alone cannot identify an occupation",
         doc: {
-            insured: { ...insured, occupation: { qualifiers: { trade_qualified: true } } },
+            insured: { ...insured, occupation: { qualifiers: { qualifications: ["trade"] } } },
             covers: [life()],
         },
     },
@@ -864,6 +888,68 @@ const OCCUPATION_CASES = [
     },
 ];
 
+const OCCUPATION_GROUP_CASES = [
+    {
+        name: "a group carrying both asks and specialties",
+        why: "two places to read the questions from; consumers would disagree about which governs",
+        doc: {
+            id: "g1",
+            description: "Security guard",
+            asks: [],
+            specialties: [
+                { id: "s1", name: "Bank security", asks: [] },
+                { id: "s2", name: "Event security", asks: [] },
+            ],
+        },
+    },
+    {
+        name: "a group with neither asks nor specialties",
+        why: "cannot tell 'nothing to ask' from 'the insurer forgot to say'",
+        doc: { id: "g1", description: "Painter" },
+    },
+    {
+        name: "a group split into a single specialty",
+        why: "one option is not a choice; the adviser is asked a question with one answer",
+        doc: { id: "g1", description: "Painter", specialties: [{ id: "s1", name: "Painter", asks: [] }] },
+    },
+];
+
+const SELECTION_CASES = [
+    {
+        name: "a selection condition with an unknown operator",
+        why: "a consumer that cannot evaluate a condition must not guess that it holds",
+        doc: { conditions: [{ input: "working_height_m", above: 10 }] },
+    },
+    {
+        name: "an empty selection",
+        why: "a row selected by nothing is selected by everything",
+        doc: {},
+    },
+    {
+        name: "a condition naming a fact and nothing it must be",
+        why: "a condition with no test holds for every answer, so the row is selected by everything",
+        doc: { conditions: [{ input: "working_height_m" }] },
+    },
+    {
+        name: "a number tested with equals",
+        why: "equals is for yes or no; a number that must equal a value is a range with gte and lte the same",
+        doc: { conditions: [{ input: "manual_duties_percent", equals: 0 }] },
+    },
+    {
+        name: "a single choice tested with an empty in",
+        why: "an empty list of allowed answers is met by no answer, so the row can never be selected",
+        doc: { conditions: [{ input: "employment_status", in: [] }] },
+    },
+];
+
+const MATCH_REQUEST_CASES = [
+    {
+        name: "a match request with an employment_status outside the vocabulary",
+        why: "an unknown status ranks the candidates on nothing the insurer rates, and looks like it ranked them",
+        doc: { occupation: { osca: "3411-11" }, employment_status: "contractor" },
+    },
+];
+
 const RESOLVED_OPTION_CASES = [
     {
         name: "a substitution that does not say what was priced",
@@ -1273,10 +1359,16 @@ for (const { name, why, doc: candidate } of CASES) {
 const validateRating = ajv.getSchema("contract#/components/schemas/CoverRating");
 const validateResolvedOption = ajv.getSchema("contract#/components/schemas/ResolvedOption");
 const validateCoverLine = ajv.getSchema("contract#/components/schemas/CoverLine");
+const validateOccupationGroup = ajv.getSchema("contract#/components/schemas/OccupationGroup");
+const validateSelection = ajv.getSchema("contract#/components/schemas/OccupationSelection");
+const validateMatchRequest = ajv.getSchema("contract#/components/schemas/OccupationMatchRequest");
 
 for (const [group, validator, cases] of [
     ["quoting response", validateLine, LINE_CASES],
     ["occupation rating", validateRating, OCCUPATION_CASES],
+    ["occupation group", validateOccupationGroup, OCCUPATION_GROUP_CASES],
+    ["occupation selection", validateSelection, SELECTION_CASES],
+    ["occupation match request", validateMatchRequest, MATCH_REQUEST_CASES],
     ["resolved option", validateResolvedOption, RESOLVED_OPTION_CASES],
     ["cover line", validateCoverLine, COVER_LINE_CASES],
     ["policy page", validatePage, POLICY_PAGE_CASES],
@@ -1765,6 +1857,9 @@ const total =
     CASES.length +
     LINE_CASES.length +
     OCCUPATION_CASES.length +
+    OCCUPATION_GROUP_CASES.length +
+    SELECTION_CASES.length +
+    MATCH_REQUEST_CASES.length +
     RESOLVED_OPTION_CASES.length +
     COVER_LINE_CASES.length +
     POLICY_PAGE_CASES.length +
