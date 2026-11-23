@@ -385,8 +385,15 @@ ResolvedOccupation:
       $ref: '#/OccupationSpecialtyRef'
     specialty_defaulted:
       description: >-
-        `true` when the consumer did not choose the specialty, so the insurer rated on its
-        default. A consumer SHOULD tell the adviser, and offer the choice.
+        `true` when the insurer chose the specialty because the request did not: it named the
+        occupation by a baseline code and the insurer rated on its default row. A consumer SHOULD
+        tell the adviser, and offer the choice.
+
+        `false` whenever the request carried `insurer_occupation_id`. A row id names its
+        specialty, so the consumer made the choice, whether the adviser picked that row or the
+        consumer sent the `insurer_default` row without asking. The insurer cannot tell the two
+        apart and does not try. A consumer that sends the default row without asking knows it did
+        so, and SHOULD tell the adviser itself.
       type: boolean
       default: false
     defaulted_qualifiers:

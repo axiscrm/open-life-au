@@ -274,8 +274,8 @@ A security guard, where the insurer splits the occupation by specialty first.
 
 ### Quoting without asking
 
-Nothing above has to be asked. A consumer that sends only the baseline code (or the
-`insurer_default` row's id) gets a price, and the line says what was assumed:
+Nothing above has to be asked. A consumer that sends only the baseline code gets a price, and the
+line says what was assumed:
 
 ```json
 "resolved_occupation": {
@@ -291,3 +291,7 @@ Nothing above has to be asked. A consumer that sends only the baseline code (or 
 
 That is an indicative quote, and the two `defaulted` fields are how an adviser knows it. Answering
 the questions and quoting again on the selected row firms it up.
+
+A consumer that sends the `insurer_default` row's id instead also gets a price, but it named the
+row, so `specialty_defaulted` is `false`: the insurer cannot tell a deliberate pick from a default
+sent without asking. The consumer knows which it was, and tells the adviser itself.

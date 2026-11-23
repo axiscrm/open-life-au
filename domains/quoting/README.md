@@ -25,8 +25,11 @@ Four operations:
 
 Both occupation operations return flat rows. Where one baseline code lands on several rows, the
 insurer can publish `occupation_groups` beside them: the specialties to choose from, and the facts
-to ask for each. Asking is optional. A quote on the code alone is rated on the insurer's default
-row and says what it assumed. See [`examples/`](examples/README.md#occupations).
+to ask for each. Asking is optional. Where the insurer accepts a baseline code, a quote on the code
+alone is rated on its default row and says what it assumed. Many insurers accept only
+`insurer_occupation_id` and answer a baseline code with a 422: read `occupation_resolution` in
+`GET /capabilities` first, and for those insurers send the id of the row marked `insurer_default`.
+See [`examples/`](examples/README.md#occupations).
 
 The request follows the questions an adviser answers, in order: who is insured, the answers that
 apply to the whole policy, then one section per benefit. It is not modelled on any engine's wire

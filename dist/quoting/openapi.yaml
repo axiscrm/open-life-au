@@ -219,7 +219,7 @@ paths:
         This exists so an adviser can correct one insurer's occupation by hand. The usual flow resolves an occupation once via `POST /occupations:match`, but where the match is imperfect — or where the adviser knows this insurer's product better — they need to search the insurer's own list and choose. That choice is then sent as `occupation.insurer_occupation_id` on the next quote, and the insurer rates on it without re-matching.
         Returning the rating matrix inline is deliberate: it lets a consumer show the consequence of a change before spending a pricing call on it.
         An empty `q` returns the whole list, paged, so a consumer can pre-load it.
-        Each page carries, in `occupation_groups`, the groups its rows belong to. A consumer that pre-loads the list and joins rows to groups on `occupation_group_id` has everything `POST /occupations:match` would tell it, for every row that publishes `osca`, without a call per client. A group's rows MAY fall on different pages. The group is then repeated, whole, on each of those pages, so no page depends on another to be read.
+        Each page carries, in `occupation_groups`, the groups its rows belong to. A consumer that pre-loads the list and joins rows to groups on `occupation_group_id` has the rows and groups `POST /occupations:match` would return, for every row that publishes `osca`, without a call per client. It does not have the match itself: list rows carry no `match_confidence` or `match_detail`, and are not ranked. A group's rows MAY fall on different pages. The group is then repeated, whole, on each of those pages, so no page depends on another to be read.
       tags:
         - Occupations
       security:
@@ -2142,7 +2142,9 @@ components:
           description: The specialty rated, where the insurer splits this occupation by specialty. Absent where it does not.
           $ref: '#/components/schemas/OccupationSpecialtyRef'
         specialty_defaulted:
-          description: '`true` when the consumer did not choose the specialty, so the insurer rated on its default. A consumer SHOULD tell the adviser, and offer the choice.'
+          description: |-
+            `true` when the insurer chose the specialty because the request did not: it named the occupation by a baseline code and the insurer rated on its default row. A consumer SHOULD tell the adviser, and offer the choice.
+            `false` whenever the request carried `insurer_occupation_id`. A row id names its specialty, so the consumer made the choice, whether the adviser picked that row or the consumer sent the `insurer_default` row without asking. The insurer cannot tell the two apart and does not try. A consumer that sends the default row without asking knows it did so, and SHOULD tell the adviser itself.
           type: boolean
           default: false
         defaulted_qualifiers:

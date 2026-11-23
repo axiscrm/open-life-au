@@ -15,13 +15,21 @@ Both were yes or no, and both lost information insurers rate on.
 | Removed | Send instead |
 |---|---|
 | `trade_qualified: true` | `qualifications: [trade]`, with `licensed_or_registered`, `professional_body` and `relevant_degree` added where held |
-| `trade_qualified: false` | `qualifications: []` |
-| `handles_explosives: true` | `hazardous_exposures: [explosives]` |
-| `handles_explosives: false` | `hazardous_exposures: []` |
+| `trade_qualified: false` | leave `qualifications` out until the adviser has answered the new question; `[]` only once they confirm none is held |
+| `handles_explosives: true` | `hazardous_exposures: [explosives]`, with any other exposure added where it applies |
+| `handles_explosives: false` | leave `hazardous_exposures` out until the adviser has answered the new question; `[]` only once they confirm none applies |
 
 `qualifications` is a list of everything held, with no order: some occupations are rated on
 holding two at once, such as a licence and a trade qualification. An empty list says none is held.
 Leaving the field out says it was not asked.
+
+**Do not translate an old "no" into an empty list.** `trade_qualified: false` said nothing about a
+degree or a professional registration, and `handles_explosives: false` said nothing about chemicals
+or high voltage. An empty list asserts all of that, and an insurer can select a different row on
+it: an `excludes` condition is met by `[]` and not by an absent field. A stored "no" is an
+unanswered question under 0.3. Ask it again, or leave the field out and let the quote report it in
+`defaulted_qualifiers`. The same holds in part for an old "yes": `[trade]` asserts that nothing else
+is held, so ask the full question where you can.
 
 **Removed without a deprecation period**, as `research_scores` was in 0.2 and for the same reason:
 the twelve-month rule in `VERSIONING.md` is for 1.0 and after. Carrying both forms would also need
