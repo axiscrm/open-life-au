@@ -1,6 +1,6 @@
 {
-  "core": "0.2.0",
-  "domains/quoting": "0.2.2",
+  "core": "0.3.0",
+  "domains/quoting": "0.3.0",
   "domains/policy": "0.2.0",
   "domains/requirements": "0.1.2",
   "domains/commissions": "0.1.1"
